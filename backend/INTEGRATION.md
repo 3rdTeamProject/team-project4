@@ -26,11 +26,20 @@
 
 ## 저장 방식
 
-FastAPI에 사용자별 `garden_states` 테이블과 `GET/PUT /garden/state`를 추가했습니다. 서버 시작 시 새 테이블만 생성합니다. 업로드에 농장 테이블 정의가 없으므로 농장·작물·일지·효과 설정을 검증된 JSON 문서로 함께 저장합니다. 향후 정규화한 농장/재배 테이블을 추가할 때 이 저장 계층을 바꾸면 됩니다.
+홈 화면이 주고받는 방식(`GET/PUT /garden/state`, 농장 전체를 하나의 문서로)은 그대로 두고, 서버가 공통 설계 테이블에 나눠 저장합니다.
 
-GET으로 가져온 revision을 PUT에 보내며 다른 탭의 변경을 덮어쓰지 않게 검사합니다. 저장 실패 시 화면에 오류와 재시도 버튼이 표시됩니다. 저장되지 않은 변경이 있으면 창을 닫을 때 브라우저 안내가 나옵니다.
+| 홈 화면의 값 | 저장 위치 |
+|---|---|
+| 농장 | `farms` (이름, 지역) + 칸 6개 `plots` |
+| 칸의 작물 | `plantings` (`crops`를 참조, 상태 growing / ended) |
+| 재배 기록 | `journals` |
+| 작물 정보 | `crops`, `crop_stages` (서버가 없으면 지금 화면의 작물을 자동으로 채움) |
 
-카카오 계정 연동의 기존 데이터 선택/이전 흐름에도 garden_states를 포함했습니다. 새 사용자에게 기존 데모 농장을 자동 삽입하지 않습니다. 이전 독립 데모 사이트의 localStorage 데이터를 자동으로 계정에 가져오지는 않습니다.
+- 수확·칸 비우기·농장 삭제를 해도 재배 줄은 지우지 않고 `ended`로 남기며, 일지도 남깁니다.
+- 설계 밖 컬럼(홈 화면 기능을 유지하려고 추가): `farms.client_id`, `farms.weather_location`, `plantings.stage / needs_water / watered_at`, `journals.farm_name / crop_name / date_label`, `users.motion_effects`.
+- `revision`은 저장된 내용의 지문(문자열)입니다. 저장할 때 마지막으로 받은 값을 보내고, 다른 탭에서 바뀌었으면 409로 거부합니다.
+- 서버 시작 시 없는 테이블만 만듭니다. 컬럼 추가(`users.motion_effects`)는 Supabase SQL Editor에서 직접 실행해야 합니다.
+- 카카오 계정 연동의 데이터 선택/이전 흐름은 `GUEST_DATA_TABLES`(journals, plantings, farms)를 기준으로 합니다.
 
 ## 구현 경계
 

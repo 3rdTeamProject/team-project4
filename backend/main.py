@@ -21,6 +21,7 @@ from sqlalchemy import (
     Table,
     create_engine,
     delete,
+    event,
     func,
     insert,
     inspect,
@@ -31,7 +32,7 @@ from sqlalchemy import (
 from pydantic import BaseModel
 
 from level import level_from_exp
-from garden import register_garden, summarize_state
+from garden import register_garden
 
 load_dotenv()
 
@@ -50,6 +51,12 @@ if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(DATABASE_URL)
+
+if DATABASE_URL.startswith("sqlite"):
+    # 테스트용 SQLite도 실제 DB(PostgreSQL)처럼 외래키 연쇄 삭제를 적용한다
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _record):
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
 metadata = MetaData()
 
 users = Table(
@@ -67,6 +74,8 @@ users = Table(
     Column("notify_todo", Boolean, nullable=False, default=True, server_default=text("true")),
     Column("notify_weather", Boolean, nullable=False, default=True, server_default=text("true")),
     Column("notify_point", Boolean, nullable=False, default=False, server_default=text("false")),
+    # 텃밭 화면의 움직임 효과 켜짐/꺼짐
+    Column("motion_effects", Boolean, nullable=False, default=True, server_default=text("true")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("login_type IN ('guest', 'kakao')", name="users_login_type_check"),
 )
@@ -202,7 +211,6 @@ def fetch_kakao_profile(code: str) -> dict:
 # 목록 순서대로 삭제하므로 자식 테이블(다른 테이블을 참조하는 쪽)을 앞에 둔다.
 # user_id가 없는 테이블(plots, harvests, task_logs, pest_diagnoses)은 부모 행 삭제 시 ON DELETE CASCADE로 지워져야 한다.
 GUEST_DATA_TABLES = [
-    ("garden_states", "user_id"),
     ("point_logs", "user_id"),
     ("reward_exchanges", "user_id"),
     ("journals", "user_id"),
@@ -229,16 +237,15 @@ def summarize_user_data(conn, user_id: int) -> dict:
     """선택 화면에 보여줄 요약: 닉네임, 농장 수, 재배 중 작물 수, 일지 수, 레벨, 경험치, 포인트."""
     tables = dict(_existing_data_tables(conn))
     row = conn.execute(select(users).where(users.c.id == user_id)).mappings().one()
-    garden = summarize_state(conn.execute(select(garden_states.c.state).where(garden_states.c.user_id == user_id)).scalar_one_or_none())
     return {
         "nickname": row["nickname"],
-        "farms": _count(conn, "farms", tables["farms"], user_id) if "farms" in tables else garden["farms"],
+        "farms": _count(conn, "farms", tables["farms"], user_id) if "farms" in tables else 0,
         "growing_crops": (
             _count(conn, "plantings", tables["plantings"], user_id, "AND status = 'growing'")
             if "plantings" in tables
-            else garden["growing_crops"]
+            else 0
         ),
-        "journals": _count(conn, "journals", tables["journals"], user_id) if "journals" in tables else garden["journals"],
+        "journals": _count(conn, "journals", tables["journals"], user_id) if "journals" in tables else 0,
         "level": level_from_exp(row["exp"]),
         "exp": row["exp"],
         "point": row["point"],
@@ -441,7 +448,6 @@ def read_my_summary(user=Depends(get_current_user)):
     """마이페이지용 통계와 최근 포인트 내역. 아직 만들어지지 않은 테이블은 0/빈 목록으로 돌려준다."""
     uid = {"uid": user["id"]}
     with engine.connect() as conn:
-        garden = summarize_state(conn.execute(select(garden_states.c.state).where(garden_states.c.user_id == user["id"])).scalar_one_or_none())
         def count(table: str, sql: str) -> int:
             if not _table_exists(conn, table):
                 return 0
@@ -450,17 +456,17 @@ def read_my_summary(user=Depends(get_current_user)):
         has_plantings = _table_exists(conn, "plantings")
         farms = count("farms", "SELECT COUNT(*) FROM farms WHERE user_id = :uid")
         growing = count("plantings", "SELECT COUNT(*) FROM plantings WHERE user_id = :uid AND status = 'growing'")
-        harvested = (
-            conn.execute(
+        if has_plantings and _table_exists(conn, "harvests"):
+            harvested = conn.execute(
                 text(
                     "SELECT COUNT(*) FROM harvests h JOIN plantings p ON p.id = h.planting_id "
                     "WHERE p.user_id = :uid"
                 ),
                 uid,
             ).scalar_one()
-            if has_plantings and _table_exists(conn, "harvests")
-            else 0
-        )
+        else:
+            # harvests 테이블이 생기기 전에는 텃밭 화면이 남기는 "수확을 마쳤어요" 기록 수로 센다
+            harvested = count("journals", "SELECT COUNT(*) FROM journals WHERE user_id = :uid AND content LIKE '%수확을 마쳤어요%'")
         journals = count("journals", "SELECT COUNT(*) FROM journals WHERE user_id = :uid")
         diagnoses = (
             conn.execute(
@@ -473,12 +479,6 @@ def read_my_summary(user=Depends(get_current_user)):
             if has_plantings and _table_exists(conn, "pest_diagnoses")
             else 0
         )
-        if not _table_exists(conn, "farms"):
-            farms = garden["farms"]
-        if not has_plantings:
-            growing, harvested = garden["growing_crops"], garden["harvested"]
-        if not _table_exists(conn, "journals"):
-            journals = garden["journals"]
         point_logs = []
         if _table_exists(conn, "point_logs"):
             rows = conn.execute(
@@ -521,4 +521,4 @@ def update_notifications(body: NotificationRequest, user=Depends(get_current_use
 
 
 # Registered before lifespan creates the tables.
-garden_states = register_garden(app, metadata, engine, get_current_user)
+register_garden(app, metadata, engine, get_current_user, users)
