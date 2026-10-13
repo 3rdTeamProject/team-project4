@@ -1,4 +1,4 @@
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { storage } from '../api.js'
 import { CoinIcon, SproutIcon } from '../components/Icons.jsx'
 import { levelFromExp } from '../constants/level.js'
@@ -13,7 +13,14 @@ const MENU_ITEMS = [
 ]
 
 export default function Menu() {
+  const navigate = useNavigate()
   const { me, error } = useMe()
+
+  // 닫기: 메뉴를 열기 전 화면으로 돌아간다. 이전 기록이 없으면(주소로 바로 들어온 경우 등) 홈으로
+  function close() {
+    if (window.history.state?.idx > 0) navigate(-1)
+    else navigate('/home', { replace: true })
+  }
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -21,7 +28,7 @@ export default function Menu() {
     <div className="screen">
       <header className="screen-header">
         <h1 className="screen-title">메뉴</h1>
-        <Link className="icon-btn" to="/home" aria-label="닫기">✕</Link>
+        <button type="button" className="icon-btn" onClick={close} aria-label="닫기">✕</button>
       </header>
 
       {error && <p className="error">{error}</p>}
