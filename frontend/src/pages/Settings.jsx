@@ -49,7 +49,7 @@ export default function Settings() {
   }
 
   function logout() {
-    storage.logout() // guest_token은 남겨 둬서 같은 기기에서 비회원으로 다시 시작하면 기록을 이어 쓴다
+    storage.logout() // 카카오 회원만 로그아웃할 수 있다(비회원은 버튼을 보여 주지 않음)
     navigate('/', { replace: true })
   }
 
@@ -144,7 +144,9 @@ export default function Settings() {
             </div>
           </section>
 
-          <button type="button" className="logout-btn" onClick={logout}>로그아웃</button>
+          {!isGuest && (
+            <button type="button" className="logout-btn" onClick={logout}>로그아웃</button>
+          )}
         </>
       )}
 
