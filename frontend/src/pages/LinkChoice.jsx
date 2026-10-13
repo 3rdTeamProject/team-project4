@@ -104,7 +104,7 @@ export default function LinkChoice() {
       const data = await api.linkKakao({ link_ticket: state.link_ticket, choice: pick })
       storage.clearGuestToken() // 비회원 아이디는 어느 쪽을 골라도 삭제됨
       storage.saveLogin(data.access_token, 'kakao')
-      navigate('/home', { replace: true })
+      navigate('/settings', { replace: true, state: { linked: true } })
     } catch (e) {
       setError(e.message)
       setSaving(false)
@@ -114,7 +114,7 @@ export default function LinkChoice() {
   return (
     <div className="choice-screen">
       <header className="choice-header">
-        <Link className="choice-back" to="/" aria-label="돌아가기">‹</Link>
+        <Link className="choice-back" to="/settings" aria-label="돌아가기">‹</Link>
         <h1 className="choice-title">데이터 선택</h1>
       </header>
 

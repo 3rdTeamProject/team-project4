@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -61,6 +62,10 @@ users = Table(
     Column("region", String(50), nullable=True),
     Column("point", Integer, nullable=False, default=0, server_default=text("0")),  # 현재 포인트(교환하면 줄어듦)
     Column("exp", Integer, nullable=False, default=0, server_default=text("0")),  # 누적 경험치(안 줄어듦)
+    # 알림 설정 (실제 푸시 발송은 아직 없음, 설정값만 저장)
+    Column("notify_todo", Boolean, nullable=False, default=True, server_default=text("true")),
+    Column("notify_weather", Boolean, nullable=False, default=True, server_default=text("true")),
+    Column("notify_point", Boolean, nullable=False, default=False, server_default=text("false")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("login_type IN ('guest', 'kakao')", name="users_login_type_check"),
 )
@@ -390,6 +395,9 @@ def read_me(user=Depends(get_current_user)):
         "region": user["region"],
         "point": user["point"],
         "exp": user["exp"],
+        "notify_todo": user["notify_todo"],
+        "notify_weather": user["notify_weather"],
+        "notify_point": user["notify_point"],
     }
 
 
@@ -482,3 +490,21 @@ def read_my_summary(user=Depends(get_current_user)):
         "diagnoses": diagnoses,
         "point_logs": point_logs,  # 최근 5건, 최신순 (경험치는 내려주지 않음)
     }
+
+
+class NotificationRequest(BaseModel):
+    # 보낸 항목만 바꾼다
+    notify_todo: bool | None = None
+    notify_weather: bool | None = None
+    notify_point: bool | None = None
+
+
+@app.patch("/me/notifications")
+def update_notifications(body: NotificationRequest, user=Depends(get_current_user)):
+    values = body.model_dump(exclude_none=True)
+    if not values:
+        raise HTTPException(400, "바꿀 알림 설정을 보내 주세요.")
+    with engine.begin() as conn:
+        conn.execute(update(users).where(users.c.id == user["id"]).values(**values))
+        row = conn.execute(select(users).where(users.c.id == user["id"])).mappings().one()
+    return {k: row[k] for k in ("notify_todo", "notify_weather", "notify_point")}

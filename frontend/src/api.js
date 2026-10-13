@@ -71,6 +71,7 @@ export const api = {
   // body: { code } 또는 { link_ticket, choice }
   linkKakao: (body) => request('/auth/link-kakao', { method: 'POST', body, redirectOn401: false }),
   me: () => request('/me'),
+  updateNotifications: (patch) => request('/me/notifications', { method: 'PATCH', body: patch }),
   mySummary: () => request('/me/summary'),
   updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
 }

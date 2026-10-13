@@ -5,6 +5,17 @@ import { ApiError, api, storage } from '../api.js'
 // 인가 코드는 1회용이라 StrictMode의 effect 이중 실행에서도 한 번만 호출한다
 const handledCodes = new Set()
 
+// 환경설정의 "카카오톡으로 연동하기"에서 시작했는지 (sessionStorage에 표시해 둠)
+function takeLinkFlow() {
+  try {
+    const isLink = sessionStorage.getItem('kakao_flow') === 'link'
+    sessionStorage.removeItem('kakao_flow')
+    return isLink
+  } catch {
+    return false
+  }
+}
+
 export default function KakaoCallback() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
@@ -14,9 +25,14 @@ export default function KakaoCallback() {
     if (started.current) return
     started.current = true
 
+    const fromSettings = takeLinkFlow()
+    // 연동 도중 취소·실패: 아무것도 바뀐 게 없으니 환경설정으로 돌아가 안내만 보여 준다
+    const backToSettings = () => navigate('/settings', { replace: true, state: { linkFailed: true } })
+
     const code = new URLSearchParams(window.location.search).get('code')
     if (!code || handledCodes.has(code)) {
-      setError('카카오 인가 코드가 없습니다.')
+      if (fromSettings) backToSettings()
+      else setError('카카오 인가 코드가 없습니다.')
       return
     }
     handledCodes.add(code)
@@ -42,9 +58,11 @@ export default function KakaoCallback() {
           data = await api.kakaoLogin(code)
         }
         storage.saveLogin(data.access_token, 'kakao')
-        navigate('/home', { replace: true })
+        if (fromSettings) navigate('/settings', { replace: true, state: { linked: true } })
+        else navigate('/home', { replace: true })
       } catch (e) {
-        setError(e.message)
+        if (fromSettings) backToSettings()
+        else setError(e.message)
       }
     }
     login()
