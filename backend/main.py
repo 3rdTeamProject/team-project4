@@ -29,6 +29,8 @@ from sqlalchemy import (
 )
 from pydantic import BaseModel
 
+from level import level_from_exp
+
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -215,10 +217,11 @@ def _count(conn, table: str, column: str, user_id: int, extra: str = "") -> int:
 
 
 def summarize_user_data(conn, user_id: int) -> dict:
-    """선택 화면에 보여줄 요약: 농장 수, 재배 중 작물 수, 일지 수, 경험치, 포인트."""
+    """선택 화면에 보여줄 요약: 닉네임, 농장 수, 재배 중 작물 수, 일지 수, 레벨, 경험치, 포인트."""
     tables = dict(_existing_data_tables(conn))
     row = conn.execute(select(users).where(users.c.id == user_id)).mappings().one()
     return {
+        "nickname": row["nickname"],
         "farms": _count(conn, "farms", tables["farms"], user_id) if "farms" in tables else 0,
         "growing_crops": (
             _count(conn, "plantings", tables["plantings"], user_id, "AND status = 'growing'")
@@ -226,8 +229,23 @@ def summarize_user_data(conn, user_id: int) -> dict:
             else 0
         ),
         "journals": _count(conn, "journals", tables["journals"], user_id) if "journals" in tables else 0,
+        "level": level_from_exp(row["exp"]),
         "exp": row["exp"],
         "point": row["point"],
+    }
+
+
+def user_info(user_id: int) -> dict:
+    with engine.connect() as conn:
+        row = conn.execute(select(users).where(users.c.id == user_id)).mappings().one()
+    return {
+        "id": row["id"],
+        "nickname": row["nickname"],
+        "login_type": row["login_type"],
+        "region": row["region"],
+        "point": row["point"],
+        "exp": row["exp"],
+        "level": level_from_exp(row["exp"]),
     }
 
 
@@ -353,7 +371,12 @@ def auth_link_kakao(body: LinkKakaoRequest, guest=Depends(get_current_user)):
                 move_user_data(conn, guest["id"], existing_id)
             conn.execute(delete(users).where(users.c.id == guest["id"]))
             user_id = existing_id
-    return {"status": "linked", "access_token": create_token(user_id), "token_type": "bearer"}
+    return {
+        "status": "linked",
+        "access_token": create_token(user_id),
+        "token_type": "bearer",
+        "user": user_info(user_id),
+    }
 
 
 @app.get("/me")
