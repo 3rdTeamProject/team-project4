@@ -55,12 +55,9 @@ export default function MyPage() {
             <button type="button" className="pill-btn" onClick={() => setSheetOpen(true)}>✎ 변경</button>
           </div>
 
-          <div className="login-row">
-            <span className={`login-pill${isKakao ? ' kakao' : ''}`}>
-              {isKakao ? '카카오톡으로 로그인됨' : '비회원으로 이용 중'}
-            </span>
-            {!isKakao && <Link className="link-kakao-btn" to="/settings">카카오톡 연동하기</Link>}
-          </div>
+          <span className={`login-pill${isKakao ? ' kakao' : ''}`}>
+            {isKakao ? '카카오톡으로 로그인됨' : '비회원으로 이용 중'}
+          </span>
 
           <div className="level-box">
             <div className="level-side">
@@ -87,6 +84,24 @@ export default function MyPage() {
               <span className="point-value">{me.point.toLocaleString()}P</span>
             </div>
           </div>
+        </section>
+      )}
+
+      {me && me.login_type === 'guest' && (
+        <section className="link-promo" aria-label="카카오톡 연동 안내">
+          <div className="link-promo-head">
+            <span className="kakao-badge" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#191919">
+                <path d="M12 4C7.6 4 4 6.9 4 10.4c0 2.2 1.4 4.2 3.6 5.3L6.8 19l3.6-2.2c.5.1 1.1.2 1.6.2 4.4 0 8-2.9 8-6.6S16.4 4 12 4z" />
+              </svg>
+            </span>
+            <h2 className="link-promo-title">카카오톡으로 연동해 보세요</h2>
+          </div>
+          <ul className="link-promo-list">
+            <li>지금까지의 기록이 카카오 계정에 안전하게 저장돼요</li>
+            <li>기기를 바꿔도 같은 기록을 이어서 쓸 수 있어요</li>
+          </ul>
+          <Link className="link-promo-btn" to="/settings">카카오톡 연동하기</Link>
         </section>
       )}
 
