@@ -6,14 +6,30 @@
   color: var(--text);
 }
 
+.intro-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+}
+
+.intro-prev,
 .intro-skip {
-  align-self: flex-end;
-  padding: 8px 4px;
+  min-height: 44px;
+  padding: 0 4px;
   border: 0;
   background: none;
   font: 500 15px/1 var(--ls-body);
   color: var(--intro-desc);
   cursor: pointer;
+}
+
+.intro-prev[hidden] {
+  display: none;
+}
+
+.intro-skip {
+  margin-left: auto; /* 이전 버튼이 숨겨져도 건너뛰기는 오른쪽에 둔다 */
 }
 
 .intro-body {
