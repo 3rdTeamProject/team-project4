@@ -145,6 +145,17 @@
   cursor: pointer;
 }
 
+.kakao-badge {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ls-kakao);
+}
+
 .kakao-link-btn:disabled {
   opacity: 0.6;
   cursor: default;

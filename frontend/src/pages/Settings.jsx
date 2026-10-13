@@ -136,10 +136,8 @@ export default function Settings() {
                 </div>
               ) : (
                 <div className="set-row">
-                  <div className="set-text">
-                    <span className="set-title">로그인 방식</span>
-                    <span className="set-sub">카카오톡</span>
-                  </div>
+                  <span className="kakao-badge" aria-hidden="true"><KakaoBubble /></span>
+                  <span className="set-title">카카오톡 연동됨</span>
                 </div>
               )}
             </div>
