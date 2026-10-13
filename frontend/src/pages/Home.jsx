@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
+import { useGoBack } from '../hooks/useGoBack.js'
 import './garden-host.css'
 
 /** Isolated garden scene, with server persistence through the existing authenticated API. */
 export default function Home({ gardenView = 'farms' }) {
   const navigate = useNavigate()
+  // 재배일지처럼 메뉴에서 열린 화면의 뒤로가기는 메뉴로 새로 이동하지 않고 한 단계 뒤로 간다(기록이 쌓여 갇히는 것을 막음)
+  const goBack = useGoBack('/menu')
   const frame = useRef(null)
   const session = useRef(null)
   const ready = useRef(false)
@@ -41,7 +44,8 @@ export default function Home({ gardenView = 'farms' }) {
         session.current.state = snapshot
         if (latest.current === snapshot) latest.current = null
       }
-      if (destination.current) navigate(destination.current)
+      if (destination.current === 'back') goBack()
+      else if (destination.current) navigate(destination.current)
     } catch (e) {
       setError(e.status === 409 ? e.message : '농장을 서버에 저장하지 못했어요. 화면을 닫기 전에 다시 저장해 주세요.')
       destination.current = null
@@ -64,7 +68,8 @@ export default function Home({ gardenView = 'farms' }) {
         latest.current = message.state
         flush()
       } else if (message?.type === 'garden:navigate' && message.to === '/menu') {
-        destination.current = '/menu'
+        // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
+        destination.current = gardenView === 'farms' ? '/menu' : 'back'
         flush()
       }
     }
