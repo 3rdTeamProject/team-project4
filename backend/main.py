@@ -55,8 +55,8 @@ users = Table(
     Column("login_type", String(10), nullable=False),
     Column("guest_token", String(64), nullable=True, unique=True),
     Column("region", String(50), nullable=True),
-    Column("point_balance", Integer, nullable=False, default=0, server_default=text("0")),
-    Column("total_points", Integer, nullable=False, default=0, server_default=text("0")),
+    Column("point", Integer, nullable=False, default=0, server_default=text("0")),  # 현재 포인트(교환하면 줄어듦)
+    Column("exp", Integer, nullable=False, default=0, server_default=text("0")),  # 누적 경험치(안 줄어듦)
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("login_type IN ('guest', 'kakao')", name="users_login_type_check"),
 )
@@ -206,14 +206,14 @@ def transfer_guest_data(conn, guest_id: int, user_id: int) -> None:
             {"to": user_id, "frm": guest_id},
         )
 
-    # users 행 자체에 들어 있는 포인트는 카카오 계정에 합산
+    # users 행 자체에 들어 있는 포인트와 경험치는 카카오 계정에 합산
     guest = conn.execute(select(users).where(users.c.id == guest_id)).mappings().one()
     conn.execute(
         update(users)
         .where(users.c.id == user_id)
         .values(
-            point_balance=users.c.point_balance + guest["point_balance"],
-            total_points=users.c.total_points + guest["total_points"],
+            point=users.c.point + guest["point"],
+            exp=users.c.exp + guest["exp"],
         )
     )
     conn.execute(delete(users).where(users.c.id == guest_id))
@@ -276,6 +276,6 @@ def read_me(user=Depends(get_current_user)):
         "nickname": user["nickname"],
         "login_type": user["login_type"],
         "region": user["region"],
-        "point_balance": user["point_balance"],
-        "total_points": user["total_points"],
+        "point": user["point"],
+        "exp": user["exp"],
     }
