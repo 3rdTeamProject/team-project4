@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export const storage = {
   get token() {
@@ -70,6 +70,8 @@ export const api = {
   // 비회원 토큰이 무효(401)면 KakaoCallback이 일반 카카오 로그인으로 넘어가므로 자동 이동하지 않는다
   // body: { code } 또는 { link_ticket, choice }
   linkKakao: (body) => request('/auth/link-kakao', { method: 'POST', body, redirectOn401: false }),
+  gardenState: () => request('/garden/state'),
+  saveGarden: (revision, state) => request('/garden/state', {method: 'PUT', body: {revision, state}}),
   me: () => request('/me'),
   updateNotifications: (patch) => request('/me/notifications', { method: 'PATCH', body: patch }),
   mySummary: () => request('/me/summary'),
