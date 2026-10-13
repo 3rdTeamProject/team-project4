@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, SproutIcon } from '../components/Icons.jsx'
 import NicknameSheet from '../components/NicknameSheet.jsx'
 import { levelProgress } from '../constants/level.js'
+import { useKakaoLink } from '../hooks/useKakaoLink.js'
 import { useMe } from '../hooks/useMe.js'
+import { useToast } from '../hooks/useToast.js'
 import './screens.css'
 
 function formatDate(iso) {
@@ -19,10 +21,15 @@ function formatAmount(amount) {
 
 export default function MyPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { me, setMe, error } = useMe()
   const [summary, setSummary] = useState(null)
   const [summaryError, setSummaryError] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [toast] = useToast(
+    location.state?.linkFailed ? '연동하지 못했어요. 다시 시도해 주세요' : location.state?.linked ? '카카오톡으로 연동했어요' : '',
+  )
+  const { linking, startLink } = useKakaoLink('/mypage')
 
   useEffect(() => {
     api
@@ -101,7 +108,9 @@ export default function MyPage() {
             <li>지금까지의 기록이 카카오 계정에 안전하게 저장돼요</li>
             <li>기기를 바꿔도 같은 기록을 이어서 쓸 수 있어요</li>
           </ul>
-          <Link className="link-promo-btn" to="/settings">카카오톡 연동하기</Link>
+          <button type="button" className="link-promo-btn" onClick={startLink} disabled={linking}>
+            {linking ? '연동 중…' : '카카오톡 연동하기'}
+          </button>
         </section>
       )}
 
@@ -168,6 +177,7 @@ export default function MyPage() {
           }}
         />
       )}
+      {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   )
 }

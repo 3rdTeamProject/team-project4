@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { api, kakaoAuthorizeUrl, storage } from '../api.js'
+import { api, storage } from '../api.js'
+import { useKakaoLink } from '../hooks/useKakaoLink.js'
 import { useMe } from '../hooks/useMe.js'
+import { useToast } from '../hooks/useToast.js'
 import './screens.css'
 import './settings.css'
 
@@ -34,23 +35,10 @@ export default function Settings() {
   const navigate = useNavigate()
   const location = useLocation()
   const { me, setMe, error } = useMe()
-  const [toast, setToast] = useState(
+  const [toast, setToast] = useToast(
     location.state?.linkFailed ? LINK_FAILED : location.state?.linked ? LINKED : '',
   )
-  const [linking, setLinking] = useState(false)
-
-  useEffect(() => {
-    if (!toast) return
-    const timer = setTimeout(() => setToast(''), 2500)
-    return () => clearTimeout(timer)
-  }, [toast])
-
-  // 카카오 화면에서 뒤로가기로 돌아오면(bfcache) 버튼을 다시 쓸 수 있게
-  useEffect(() => {
-    const onShow = (e) => e.persisted && setLinking(false)
-    window.addEventListener('pageshow', onShow)
-    return () => window.removeEventListener('pageshow', onShow)
-  }, [])
+  const { linking, startLink } = useKakaoLink('/settings')
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -61,18 +49,6 @@ export default function Settings() {
       setMe((m) => ({ ...m, [key]: !next })) // 저장 실패: 원래 값으로
       setToast('저장하지 못했어요')
     })
-  }
-
-  function startLink() {
-    if (linking) return
-    setLinking(true)
-    // 카카오에서 취소·실패하고 돌아오면 KakaoCallback이 이 화면으로 되돌려 보낸다
-    try {
-      sessionStorage.setItem('kakao_flow', 'link')
-    } catch {
-      // 저장소를 못 쓰면 실패 시 되돌아오는 안내만 못 보여 준다
-    }
-    window.location.href = kakaoAuthorizeUrl()
   }
 
   function logout() {

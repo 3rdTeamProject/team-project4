@@ -5,14 +5,16 @@ import { ApiError, api, storage } from '../api.js'
 // 인가 코드는 1회용이라 StrictMode의 effect 이중 실행에서도 한 번만 호출한다
 const handledCodes = new Set()
 
-// 환경설정의 "카카오톡으로 연동하기"에서 시작했는지 (sessionStorage에 표시해 둠)
+// "카카오톡 연동하기" 버튼(환경설정·마이페이지)에서 시작했다면 돌아갈 화면을 돌려준다 (sessionStorage에 표시해 둠)
 function takeLinkFlow() {
   try {
     const isLink = sessionStorage.getItem('kakao_flow') === 'link'
+    const returnTo = sessionStorage.getItem('kakao_return') || '/settings'
     sessionStorage.removeItem('kakao_flow')
-    return isLink
+    sessionStorage.removeItem('kakao_return')
+    return isLink ? returnTo : null
   } catch {
-    return false
+    return null
   }
 }
 
@@ -25,13 +27,13 @@ export default function KakaoCallback() {
     if (started.current) return
     started.current = true
 
-    const fromSettings = takeLinkFlow()
-    // 연동 도중 취소·실패: 아무것도 바뀐 게 없으니 환경설정으로 돌아가 안내만 보여 준다
-    const backToSettings = () => navigate('/settings', { replace: true, state: { linkFailed: true } })
+    const returnTo = takeLinkFlow() // 연동 버튼에서 시작했다면 돌아갈 화면, 아니면 null
+    // 연동 도중 취소·실패: 아무것도 바뀐 게 없으니 시작한 화면으로 돌아가 안내만 보여 준다
+    const backToSettings = () => navigate(returnTo, { replace: true, state: { linkFailed: true } })
 
     const code = new URLSearchParams(window.location.search).get('code')
     if (!code || handledCodes.has(code)) {
-      if (fromSettings) backToSettings()
+      if (returnTo) backToSettings()
       else setError('카카오 인가 코드가 없습니다.')
       return
     }
@@ -50,7 +52,7 @@ export default function KakaoCallback() {
           }
           if (data.status === 'choice_required') {
             // 카카오 계정에 이미 기록이 있음: 아무것도 바뀌지 않았으니 비회원 로그인은 그대로 두고 선택 화면으로
-            navigate('/link-choice', { replace: true, state: data })
+            navigate('/link-choice', { replace: true, state: { ...data, returnTo } })
             return
           }
           storage.clearGuestToken() // 전환/병합 후 비회원 행은 더 이상 없음
@@ -58,10 +60,10 @@ export default function KakaoCallback() {
           data = await api.kakaoLogin(code)
         }
         storage.saveLogin(data.access_token, 'kakao')
-        if (fromSettings) navigate('/settings', { replace: true, state: { linked: true } })
+        if (returnTo) navigate(returnTo, { replace: true, state: { linked: true } })
         else navigate('/home', { replace: true })
       } catch (e) {
-        if (fromSettings) backToSettings()
+        if (returnTo) backToSettings()
         else setError(e.message)
       }
     }

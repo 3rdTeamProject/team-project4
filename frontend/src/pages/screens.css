@@ -469,6 +469,9 @@
 }
 
 .link-promo-btn {
+  width: 100%;
+  border: 0;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -490,4 +493,24 @@
   justify-content: center;
   border-radius: 50%;
   background: var(--ls-kakao);
+}
+
+.link-promo-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 안내 토스트 */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  max-width: calc(390px - 2 * var(--page-pad-x));
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #1f2a1c;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
 }
