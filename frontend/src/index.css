@@ -10,6 +10,11 @@
   --card-radius: 20px;
   --profile-band: #f4f8ee; /* 프로필 카드 아래 띠, 변경 버튼 바탕 */
   --pill-border: #cfe3c4;
+  --leaf-bg: #dce8c8;
+  --coin-text: #7a4b00;
+  --warn-bg: #fff1d6;
+  --warn-border: #f0c36d;
+  --warn-text: #4a2f00;
   --kakao-pill: #fff7c2;
   --minus: #c62828;
   --sheet-dim: rgba(31, 42, 28, 0.5);

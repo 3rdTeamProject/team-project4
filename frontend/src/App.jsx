@@ -4,6 +4,7 @@ import KakaoCallback from './pages/KakaoCallback.jsx'
 import Home from './pages/Home.jsx'
 import Menu from './pages/Menu.jsx'
 import MyPage from './pages/MyPage.jsx'
+import LinkChoice from './pages/LinkChoice.jsx'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/mypage" element={<MyPage />} />
+        <Route path="/link-choice" element={<LinkChoice />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

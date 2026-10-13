@@ -26,11 +26,16 @@ export default function KakaoCallback() {
         let data
         if (storage.token && storage.loginType === 'guest') {
           try {
-            data = await api.linkKakao(code)
+            data = await api.linkKakao({ code })
           } catch (e) {
             // 비회원 토큰이 만료/무효(401)면 일반 카카오 로그인으로 진행
             if (!(e instanceof ApiError) || e.status !== 401) throw e
             data = await api.kakaoLogin(code)
+          }
+          if (data.status === 'choice_required') {
+            // 카카오 계정에 이미 기록이 있음: 아무것도 바뀌지 않았으니 비회원 로그인은 그대로 두고 선택 화면으로
+            navigate('/link-choice', { replace: true, state: data })
+            return
           }
           storage.clearGuestToken() // 전환/병합 후 비회원 행은 더 이상 없음
         } else {
