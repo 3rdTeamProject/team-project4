@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, SproutIcon } from '../components/Icons.jsx'
 import { levelProgress } from '../constants/level.js'
@@ -87,7 +87,6 @@ function LeafIcon() {
 // 비회원 → 카카오 전환 시, 카카오 계정에 이미 기록이 있을 때 나오는 데이터 선택 화면.
 // KakaoCallback이 choice_required 응답을 location.state로 넘겨 준다.
 export default function LinkChoice() {
-  const navigate = useNavigate()
   const { state } = useLocation()
   const [pick, setPick] = useState('kakao') // 기본 선택은 카카오 기록
   const [saving, setSaving] = useState(false)
