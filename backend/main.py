@@ -439,24 +439,21 @@ def update_nickname(body: NicknameRequest, user=Depends(get_current_user)):
     return {"nickname": nickname}
 
 
-def _table_exists(conn, name: str) -> bool:
-    return name in set(inspect(conn).get_table_names())
-
-
 @app.get("/me/summary")
 def read_my_summary(user=Depends(get_current_user)):
     """마이페이지용 통계와 최근 포인트 내역. 아직 만들어지지 않은 테이블은 0/빈 목록으로 돌려준다."""
     uid = {"uid": user["id"]}
     with engine.connect() as conn:
+        names = set(inspect(conn).get_table_names())  # 테이블 존재 확인은 한 번만 조회한다
         def count(table: str, sql: str) -> int:
-            if not _table_exists(conn, table):
+            if not (table in names):
                 return 0
             return conn.execute(text(sql), uid).scalar_one()
 
-        has_plantings = _table_exists(conn, "plantings")
+        has_plantings = ("plantings" in names)
         farms = count("farms", "SELECT COUNT(*) FROM farms WHERE user_id = :uid")
         growing = count("plantings", "SELECT COUNT(*) FROM plantings WHERE user_id = :uid AND status = 'growing'")
-        if has_plantings and _table_exists(conn, "harvests"):
+        if has_plantings and ("harvests" in names):
             harvested = conn.execute(
                 text(
                     "SELECT COUNT(*) FROM harvests h JOIN plantings p ON p.id = h.planting_id "
@@ -476,11 +473,11 @@ def read_my_summary(user=Depends(get_current_user)):
                 ),
                 uid,
             ).scalar_one()
-            if has_plantings and _table_exists(conn, "pest_diagnoses")
+            if has_plantings and ("pest_diagnoses" in names)
             else 0
         )
         point_logs = []
-        if _table_exists(conn, "point_logs"):
+        if ("point_logs" in names):
             rows = conn.execute(
                 text(
                     "SELECT reason, amount, created_at FROM point_logs "
