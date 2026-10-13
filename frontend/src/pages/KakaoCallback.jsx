@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ApiError, api, storage } from '../api.js'
+import { pathAfterLogin } from '../intro.js'
+import { NOTICE_KAKAO_CANCELLED, NOTICE_LOGIN_FAILED } from '../loginNotice.js'
 
 // 인가 코드는 1회용이라 StrictMode의 effect 이중 실행에서도 한 번만 호출한다
 const handledCodes = new Set()
@@ -20,7 +22,6 @@ function takeLinkFlow() {
 
 export default function KakaoCallback() {
   const navigate = useNavigate()
-  const [error, setError] = useState('')
   const started = useRef(false)
 
   useEffect(() => {
@@ -28,13 +29,22 @@ export default function KakaoCallback() {
     started.current = true
 
     const returnTo = takeLinkFlow() // 연동 버튼에서 시작했다면 돌아갈 화면, 아니면 null
-    // 연동 도중 취소·실패: 아무것도 바뀐 게 없으니 시작한 화면으로 돌아가 안내만 보여 준다
-    const backToSettings = () => navigate(returnTo, { replace: true, state: { linkFailed: true } })
 
-    const code = new URLSearchParams(window.location.search).get('code')
+    // 실패/취소: 연동 버튼에서 시작했다면 그 화면으로(아무것도 바뀐 게 없음), 아니면 시작 화면으로 안내 문구를 넘긴다
+    const fail = (notice) => {
+      if (returnTo) navigate(returnTo, { replace: true, state: { linkFailed: true } })
+      else navigate('/', { replace: true, state: { notice } })
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    // 카카오 화면에서 취소하거나 동의를 거부하면 ?error=access_denied 로 돌아온다
+    if (params.get('error')) {
+      fail(NOTICE_KAKAO_CANCELLED)
+      return
+    }
+    const code = params.get('code')
     if (!code || handledCodes.has(code)) {
-      if (returnTo) backToSettings()
-      else setError('카카오 인가 코드가 없습니다.')
+      fail(NOTICE_LOGIN_FAILED)
       return
     }
     handledCodes.add(code)
@@ -64,25 +74,16 @@ export default function KakaoCallback() {
           // 연동 완료: 카카오 로그인된 상태로 앱을 새로 시작한다(시작 화면의 환영 인사 → 내 텃밭)
           window.location.replace('/')
         } else {
-          navigate('/home', { replace: true })
+          navigate(pathAfterLogin(), { replace: true })
         }
-      } catch (e) {
-        if (returnTo) backToSettings()
-        else setError(e.message)
+      } catch {
+        // 인가 코드가 이미 쓰였거나 만료(400), 서버 꺼짐, 네트워크 오류 모두 같은 안내
+        fail(NOTICE_LOGIN_FAILED)
       }
     }
     login()
   }, [navigate])
 
-  if (error) {
-    return (
-      <div className="card">
-        <h1>로그인 실패</h1>
-        <p className="error">{error}</p>
-        <Link className="btn primary" to="/">처음으로</Link>
-      </div>
-    )
-  }
   return (
     <div className="card">
       <p className="muted">카카오 로그인 중...</p>

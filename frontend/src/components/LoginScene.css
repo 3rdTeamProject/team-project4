@@ -199,6 +199,16 @@
   color: var(--ls-wood-ink);
   text-align: center;
 }
+/* 로그인 취소/실패 안내: 팻말 아래 작은 글씨 (팻말 다리 30px 아래에 둔다) */
+.ls-notice {
+  margin: 34px 0 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ls-notice);
+  text-wrap: balance;
+}
 .ls-msg.error {
   color: #7a1f14;
   font-weight: 700;

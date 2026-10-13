@@ -1,0 +1,97 @@
+/* 첫 실행 안내. 색·크기 값은 index.css의 --intro-* 변수에 있다. */
+.intro {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 2 * var(--page-pad-y));
+  color: var(--text);
+}
+
+.intro-skip {
+  align-self: flex-end;
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  font: 500 15px/1 var(--ls-body);
+  color: var(--intro-desc);
+  cursor: pointer;
+}
+
+.intro-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.intro-slide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.intro-circle {
+  width: var(--intro-circle-size);
+  height: var(--intro-circle-size);
+  border-radius: 50%;
+  background: var(--intro-circle-bg);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.intro-circle svg {
+  width: 150px;
+  height: 150px;
+}
+
+.intro-title {
+  margin: 32px 0 0;
+  font: 400 30px/1.3 var(--intro-title-font);
+  color: var(--text);
+}
+
+.intro-desc {
+  margin: 14px 0 0;
+  font: 400 15px/1.55 var(--ls-body);
+  color: var(--intro-desc);
+}
+
+.intro-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 24px 0;
+}
+.intro-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--intro-dot);
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+.intro-dot.on {
+  width: 24px;
+  background: var(--intro-dot-active);
+}
+
+.intro-next {
+  height: var(--intro-btn-height);
+  border: 0;
+  border-radius: var(--intro-btn-radius);
+  background: var(--primary);
+  color: #fff;
+  font: 700 17px/1 var(--ls-body);
+  cursor: pointer;
+}
+
+.intro button:focus-visible {
+  outline: 3px solid var(--ls-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-dot {
+    transition: none;
+  }
+}

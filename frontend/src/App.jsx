@@ -6,6 +6,7 @@ import Menu from './pages/Menu.jsx'
 import MyPage from './pages/MyPage.jsx'
 import LinkChoice from './pages/LinkChoice.jsx'
 import Settings from './pages/Settings.jsx'
+import Intro from './pages/Intro.jsx'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Start />} />
         <Route path="/auth/kakao/callback" element={<KakaoCallback />} />
+        <Route path="/intro" element={<Intro />} />
         <Route path="/home" element={<Home />} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/mypage" element={<MyPage />} />
