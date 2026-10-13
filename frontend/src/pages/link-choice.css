@@ -51,6 +51,7 @@
   color: var(--muted);
   font-size: 14px;
   line-height: 21px;
+  text-wrap: balance;
 }
 
 /* 라디오 카드 */
@@ -274,6 +275,7 @@
   color: var(--warn-text);
   font-size: 13px;
   line-height: 20px;
+  text-wrap: balance;
 }
 
 .choice-warn svg {
@@ -305,4 +307,29 @@
 .choice-submit:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* 좁은 화면(360px 안팎): 레벨 칸이 좁아 글자가 갈라지므로 레벨과 포인트를 위아래로 */
+@media (max-width: 380px) {
+  .choice-level-box {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .choice-divider {
+    width: auto;
+    height: 1px;
+    align-self: stretch;
+  }
+
+  .choice-point {
+    justify-content: center;
+  }
+
+  .choice-point > div {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
 }

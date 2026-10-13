@@ -103,8 +103,8 @@ export default function MyPage() {
             <h2 className="link-promo-title">카카오톡으로 연동해 보세요</h2>
           </div>
           <ul className="link-promo-list">
-            <li>지금까지의 기록이 카카오 계정에 안전하게 저장돼요</li>
-            <li>기기를 바꿔도 같은 기록을 이어서 쓸 수 있어요</li>
+            <li>기록이 내 계정에 안전하게 저장돼요</li>
+            <li>기기를 바꿔도 이어서 쓸 수 있어요</li>
           </ul>
           <button type="button" className="link-promo-btn" onClick={startLink} disabled={linking}>
             {linking ? '연동 중…' : '카카오톡 연동하기'}
