@@ -1,9 +1,52 @@
-"""User-owned garden snapshots. Existing login and menu APIs remain authoritative."""
+"""사용자별 텃밭 저장. 공통 설계의 farms / plots / crops / crop_stages / plantings / journals 테이블에 저장한다.
+
+홈 화면(frontend/public/garden)은 농장 전체를 하나의 문서(JSON)로 주고받는다. 그 방식은 그대로 두고,
+서버가 문서를 받을 때 테이블로 나눠 저장하고, 줄 때 테이블에서 다시 조립한다(GET/PUT /garden/state).
+화면에는 있지만 공통 설계에 없는 값은 설계 테이블에 컬럼을 덧붙여 저장한다(아래 '설계 밖 컬럼' 참고).
+"""
+import hashlib
+import json
 from datetime import date
 from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import Column, ForeignKey, Integer, JSON, Table, insert, select, update
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+    delete,
+    func,
+    insert,
+    select,
+    text,
+    update,
+)
+
+# 홈 화면의 작물 종류(kind) ↔ crops 테이블의 (이름, 재배 일수).
+# 작물 목록은 아직 확정 전이라(노션: 5~6개, 상세 이름 추후) 지금 화면이 쓰는 값을 시작 값으로 쓴다.
+KIND_CROPS = {
+    'tomato': ('방울토마토', 90),
+    'lettuce': ('상추', 45),
+    'cucumber': ('오이', 60),
+    'pepper': ('고추', 90),
+    'potato': ('감자', 100),
+    'eggplant': ('가지', 85),
+    'zucchini': ('애호박', 60),
+}
+NAME_TO_KIND = {name: kind for kind, (name, _) in KIND_CROPS.items()}
+
 
 class Plant(BaseModel):
     kind: Literal['lettuce', 'cucumber', 'pepper', 'eggplant', 'zucchini', 'tomato', 'potato']
@@ -12,10 +55,12 @@ class Plant(BaseModel):
     wateredAt: date | None = None
     plantedAt: date
 
+
 class Location(BaseModel):
     latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
     longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
     label: str = Field(max_length=120)
+
 
 class Farm(BaseModel):
     id: str = Field(min_length=1, max_length=64)
@@ -31,66 +76,293 @@ class Farm(BaseModel):
             raise ValueError('농장 이름을 입력해 주세요.')
         return value.strip()
 
+
 class Record(BaseModel):
     farm: str = Field(max_length=12)
     crop: str = Field(max_length=20)
     text: str = Field(max_length=500)
     date: str = Field(max_length=80)
 
+
 class Settings(BaseModel):
     motion: bool = True
+
 
 class GardenState(BaseModel):
     farms: list[Farm] = Field(max_length=100)
     records: list[Record] = Field(max_length=10000)
     settings: Settings = Field(default_factory=Settings)
-    # Client points are deliberately ignored; real point balances belong to /me.
+
+    # 화면이 보내는 points는 무시한다(실제 포인트는 /me의 users.point).
     @model_validator(mode='after')
     def unique_ids(self):
-        for items in (self.farms,):
-            if len({item.id for item in items}) != len(items):
-                raise ValueError('중복된 ID가 있습니다.')
+        if len({item.id for item in self.farms}) != len(self.farms):
+            raise ValueError('중복된 ID가 있습니다.')
         return self
 
+
 class SaveGarden(BaseModel):
-    revision: int = Field(ge=0)
+    # 저장할 때 마지막으로 받은 revision(현재 저장된 내용의 지문)을 그대로 돌려보낸다. 다른 탭에서 바뀌었으면 409.
+    revision: str = Field(min_length=1, max_length=64)
     state: GardenState
 
-def register_garden(app, metadata, engine, get_current_user):
-    table = Table('garden_states', metadata,
-        Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
-        Column('revision', Integer, nullable=False, default=0),
-        Column('state', JSON, nullable=False))
+
+def revision_of(state: dict) -> str:
+    """저장된 내용의 지문. 내용이 같으면 같고, 바뀌면 달라진다(포인트는 포함하지 않는다)."""
+    raw = json.dumps(state, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:16]
+
+
+def register_garden(app, metadata, engine, get_current_user, users):
+    farms = Table(
+        'farms', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True),
+        Column('name', String(12), nullable=False),
+        Column('region', String(40), nullable=True),
+        Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+        # 설계 밖 컬럼: 홈 화면이 정한 농장 ID(문자열), 날씨 조회 위치(위도·경도·이름)
+        Column('client_id', String(64), nullable=False),
+        Column('weather_location', JSON(none_as_null=True), nullable=True),
+        UniqueConstraint('user_id', 'client_id', name='farms_user_client_uq'),
+    )
+    plots = Table(
+        'plots', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('farm_id', Integer, ForeignKey('farms.id', ondelete='CASCADE'), nullable=False, index=True),
+        Column('position', SmallInteger, nullable=False),
+        CheckConstraint('position BETWEEN 1 AND 6', name='plots_position_check'),
+        UniqueConstraint('farm_id', 'position', name='plots_farm_position_uq'),
+    )
+    crops = Table(
+        'crops', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('name', String(50), nullable=False, unique=True),
+        Column('total_days', Integer, nullable=False),
+        Column('pest_diagnosable', Boolean, nullable=False, default=False, server_default=text('false')),
+    )
+    crop_stages = Table(
+        'crop_stages', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('crop_id', Integer, ForeignKey('crops.id', ondelete='CASCADE'), nullable=False, index=True),
+        Column('stage_no', SmallInteger, nullable=False),
+        Column('start_day', Integer, nullable=False),
+        Column('name', String(50), nullable=False),
+        CheckConstraint('stage_no BETWEEN 1 AND 4', name='crop_stages_stage_no_check'),
+        UniqueConstraint('crop_id', 'stage_no', name='crop_stages_crop_stage_uq'),
+    )
+    plantings = Table(
+        'plantings', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True),
+        # 농장을 삭제하면 칸이 지워지므로 plot_id는 비운다(재배 줄은 남기고 ended로 바꿈)
+        Column('plot_id', Integer, ForeignKey('plots.id', ondelete='SET NULL'), nullable=True, index=True),
+        Column('crop_id', Integer, ForeignKey('crops.id'), nullable=False),
+        Column('status', String(10), nullable=False, default='growing', server_default=text("'growing'")),
+        Column('planted_at', Date, nullable=False),
+        # 설계 밖 컬럼: 홈 화면이 직접 정하는 성장 단계와 물주기 상태
+        Column('stage', SmallInteger, nullable=False, default=1, server_default=text('1')),
+        Column('needs_water', Boolean, nullable=False, default=False, server_default=text('false')),
+        Column('watered_at', Date, nullable=True),
+        CheckConstraint("status IN ('signed', 'growing', 'harvested', 'ended')", name='plantings_status_check'),
+        CheckConstraint('stage BETWEEN 1 AND 4', name='plantings_stage_check'),
+    )
+    # ended가 아닌 재배는 한 칸에 하나만
+    Index(
+        'plantings_one_active_per_plot', plantings.c.plot_id, unique=True,
+        postgresql_where=text("status <> 'ended'"), sqlite_where=text("status <> 'ended'"),
+    )
+    journals = Table(
+        'journals', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        # 설계는 필수 FK지만, 홈 화면의 기록은 재배와 연결 정보가 없을 수 있어 비울 수 있게 한다
+        Column('planting_id', Integer, ForeignKey('plantings.id', ondelete='SET NULL'), nullable=True, index=True),
+        Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True),
+        Column('content', Text, nullable=False),
+        Column('photo_url', Text, nullable=True),
+        Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+        Column('updated_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+        # 설계 밖 컬럼: 홈 화면 기록에 적힌 농장 이름·작물 이름·날짜 글자(농장을 지워도 기록은 남는다)
+        Column('farm_name', String(12), nullable=True),
+        Column('crop_name', String(20), nullable=True),
+        Column('date_label', String(80), nullable=True),
+    )
+
     router = APIRouter(prefix='/garden', tags=['garden'])
-    empty = {'farms': [], 'records': [], 'settings': {'motion': True}}
+
+    def ensure_crops(conn) -> dict:
+        """crops / crop_stages에 지금 화면이 쓰는 작물이 없으면 넣는다(있으면 그대로). 이름 → crops.id를 돌려준다."""
+        have = {r['name']: r['id'] for r in conn.execute(select(crops.c.id, crops.c.name)).mappings()}
+        for name, days in KIND_CROPS.values():
+            if name in have:
+                continue
+            crop_id = conn.execute(insert(crops).values(name=name, total_days=days)).inserted_primary_key[0]
+            # 단계별 시작일은 임시 값(재배 일수를 4등분). 실제 값은 작물 자료 정리 후 교체한다.
+            conn.execute(insert(crop_stages), [
+                {'crop_id': crop_id, 'stage_no': n, 'start_day': days * (n - 1) // 4, 'name': f'{n}단계'}
+                for n in range(1, 5)
+            ])
+            have[name] = crop_id
+        return have
+
+    def build_state(conn, user_id: int) -> dict:
+        """테이블에 저장된 내용을 홈 화면이 쓰는 문서 모양으로 조립한다."""
+        farm_rows = conn.execute(select(farms).where(farms.c.user_id == user_id).order_by(farms.c.id)).mappings().all()
+        farm_ids = [r['id'] for r in farm_rows]
+        plot_rows = conn.execute(select(plots).where(plots.c.farm_id.in_(farm_ids))).mappings().all() if farm_ids else []
+        active = conn.execute(
+            select(plantings, crops.c.name.label('crop_name'))
+            .join(crops, plantings.c.crop_id == crops.c.id)
+            .where(plantings.c.user_id == user_id, plantings.c.status != 'ended', plantings.c.plot_id.is_not(None))
+        ).mappings().all()
+        plant_by_plot = {r['plot_id']: r for r in active}
+        plot_by_farm: dict[int, dict[int, int]] = {}
+        for p in plot_rows:
+            plot_by_farm.setdefault(p['farm_id'], {})[p['position']] = p['id']
+
+        def plant_of(plot_id):
+            row = plant_by_plot.get(plot_id)
+            kind = NAME_TO_KIND.get(row['crop_name']) if row else None
+            if not kind:
+                return None
+            plant = {
+                'kind': kind, 'stage': row['stage'], 'needsWater': bool(row['needs_water']),
+                'plantedAt': row['planted_at'].isoformat(),
+            }
+            if row['watered_at'] is not None:
+                plant['wateredAt'] = row['watered_at'].isoformat()
+            return plant
+
+        farm_docs = []
+        for r in farm_rows:
+            positions = plot_by_farm.get(r['id'], {})
+            doc = {
+                'id': r['client_id'], 'name': r['name'], 'region': r['region'] or '',
+                'plots': [plant_of(positions.get(i)) for i in range(1, 7)],
+            }
+            if r['weather_location']:
+                doc['weatherLocation'] = r['weather_location']
+            farm_docs.append(doc)
+
+        journal_rows = conn.execute(
+            select(journals).where(journals.c.user_id == user_id).order_by(journals.c.id)
+        ).mappings().all()
+        motion = conn.execute(select(users.c.motion_effects).where(users.c.id == user_id)).scalar_one()
+        return {
+            'farms': farm_docs,
+            'records': [
+                {'farm': j['farm_name'] or '', 'crop': j['crop_name'] or '', 'text': j['content'], 'date': j['date_label'] or ''}
+                for j in journal_rows
+            ],
+            'settings': {'motion': bool(motion)},
+        }
+
+    def sync_plants(conn, user_id: int, farm_pk: int, plants: list, crop_ids: dict) -> None:
+        """한 농장의 6칸을 plantings에 맞춘다. 비워진 칸의 재배는 지우지 않고 ended로 바꾼다."""
+        plot_ids = {p['position']: p['id'] for p in conn.execute(select(plots).where(plots.c.farm_id == farm_pk)).mappings()}
+        active = {
+            r['plot_id']: r for r in conn.execute(
+                select(plantings).where(plantings.c.plot_id.in_(list(plot_ids.values())), plantings.c.status != 'ended')
+            ).mappings()
+        }
+        for position, plant in enumerate(plants, start=1):
+            plot_id = plot_ids[position]
+            current = active.get(plot_id)
+            if plant is None:
+                if current:
+                    conn.execute(update(plantings).where(plantings.c.id == current['id']).values(status='ended'))
+                continue
+            crop_id = crop_ids[KIND_CROPS[plant['kind']][0]]
+            values = {
+                'stage': plant['stage'], 'needs_water': plant.get('needsWater', False),
+                'watered_at': date.fromisoformat(plant['wateredAt']) if plant.get('wateredAt') else None,
+                'planted_at': date.fromisoformat(plant['plantedAt']),
+            }
+            if current and current['crop_id'] == crop_id and current['planted_at'] == values['planted_at']:
+                conn.execute(update(plantings).where(plantings.c.id == current['id']).values(**values))
+                continue
+            if current:  # 같은 칸에 다른 작물을 새로 심음
+                conn.execute(update(plantings).where(plantings.c.id == current['id']).values(status='ended'))
+            conn.execute(insert(plantings).values(
+                user_id=user_id, plot_id=plot_id, crop_id=crop_id, status='growing', **values,
+            ))
+
+    def planting_for(conn, user_id: int, farm_pks: list, crop_name: str):
+        """기록에 연결할 재배: 그 농장에서 가장 최근에 심은 같은 이름의 작물(수확해서 끝난 것 포함)."""
+        if not farm_pks or not crop_name:
+            return None
+        return conn.execute(
+            select(plantings.c.id)
+            .join(plots, plantings.c.plot_id == plots.c.id)
+            .join(crops, plantings.c.crop_id == crops.c.id)
+            .where(plots.c.farm_id.in_(farm_pks), crops.c.name == crop_name, plantings.c.user_id == user_id)
+            .order_by(plantings.c.id.desc()).limit(1)
+        ).scalar_one_or_none()
+
+    def apply_state(conn, user_id: int, new: dict) -> None:
+        crop_ids = ensure_crops(conn)
+        existing = {r['client_id']: r for r in conn.execute(select(farms).where(farms.c.user_id == user_id)).mappings()}
+        keep = {f['id'] for f in new['farms']}
+
+        # 지워진 농장: 칸을 지우고, 진행 중인 재배는 ended로 바꿔 남긴다(일지는 그대로 남음)
+        for client_id, row in existing.items():
+            if client_id in keep:
+                continue
+            plot_ids = list(conn.execute(select(plots.c.id).where(plots.c.farm_id == row['id'])).scalars())
+            if plot_ids:
+                conn.execute(update(plantings).where(plantings.c.plot_id.in_(plot_ids)).values(status='ended', plot_id=None))
+            conn.execute(delete(plots).where(plots.c.farm_id == row['id']))
+            conn.execute(delete(farms).where(farms.c.id == row['id']))
+
+        farm_pk_by_client = {}
+        for f in new['farms']:
+            values = {'name': f['name'], 'region': f.get('region') or None, 'weather_location': f.get('weatherLocation')}
+            if f['id'] in existing:
+                pk = existing[f['id']]['id']
+                conn.execute(update(farms).where(farms.c.id == pk).values(**values))
+            else:
+                pk = conn.execute(insert(farms).values(user_id=user_id, client_id=f['id'], **values)).inserted_primary_key[0]
+                conn.execute(insert(plots), [{'farm_id': pk, 'position': i} for i in range(1, 7)])
+            farm_pk_by_client[f['id']] = pk
+            sync_plants(conn, user_id, pk, f['plots'], crop_ids)
+
+        # 일지: 기록은 뒤에 덧붙기만 하므로 앞부분이 같으면 새 기록만 넣고, 다르면 전부 다시 쓴다
+        incoming = [(r['farm'], r['crop'], r['text'], r['date']) for r in new['records']]
+        saved = [
+            (j['farm_name'] or '', j['crop_name'] or '', j['content'], j['date_label'] or '')
+            for j in conn.execute(select(journals).where(journals.c.user_id == user_id).order_by(journals.c.id)).mappings()
+        ]
+        if incoming[:len(saved)] != saved:
+            conn.execute(delete(journals).where(journals.c.user_id == user_id))
+            saved = []
+        for farm_name, crop_name, content, date_label in incoming[len(saved):]:
+            farm_pks = [farm_pk_by_client[f['id']] for f in new['farms'] if f['name'] == farm_name]
+            conn.execute(insert(journals).values(
+                user_id=user_id, planting_id=planting_for(conn, user_id, farm_pks, crop_name),
+                content=content, farm_name=farm_name, crop_name=crop_name, date_label=date_label,
+            ))
+
+        conn.execute(update(users).where(users.c.id == user_id).values(motion_effects=new['settings']['motion']))
 
     @router.get('/state')
     def read_state(user=Depends(get_current_user)):
-        with engine.begin() as conn:
-            row = conn.execute(select(table).where(table.c.user_id == user['id'])).mappings().first()
-            if row is None:
-                conn.execute(insert(table).values(user_id=user['id'], revision=0, state=empty))
-                return {'revision': 0, 'state': {**empty, 'points': user['point']}}
-            return {'revision': row['revision'], 'state': {**row['state'], 'points': user['point']}}
+        with engine.connect() as conn:
+            state = build_state(conn, user['id'])
+        return {'revision': revision_of(state), 'state': {**state, 'points': user['point']}}
 
     @router.put('/state')
     def save_state(body: SaveGarden, user=Depends(get_current_user)):
-        state = body.state.model_dump(mode='json', exclude_none=True)
-        # CAS prevents one tab from silently overwriting changes made in another tab.
+        new = body.state.model_dump(mode='json', exclude_none=True)
         with engine.begin() as conn:
-            result = conn.execute(update(table).where(
-                table.c.user_id == user['id'], table.c.revision == body.revision
-            ).values(state=state, revision=body.revision + 1))
-            if result.rowcount != 1:
+            # 같은 사용자의 저장이 동시에 들어와도 한 번에 하나씩 처리한다
+            conn.execute(select(users.c.id).where(users.c.id == user['id']).with_for_update())
+            # 마지막으로 받은 내용에서 바뀌었으면(다른 탭에서 저장) 덮어쓰지 않는다
+            if revision_of(build_state(conn, user['id'])) != body.revision:
                 raise HTTPException(409, '다른 화면에서 농장이 변경되었습니다. 새로고침 후 다시 시도해 주세요.')
-        return {'revision': body.revision + 1}
+            apply_state(conn, user['id'], new)
+            revision = revision_of(build_state(conn, user['id']))
+        return {'revision': revision}
 
     app.include_router(router)
-    return table
-
-def summarize_state(state):
-    state = state or {}
-    farms = state.get('farms', [])
-    records = state.get('records', [])
-    return {'farms': len(farms), 'growing_crops': sum(p is not None for f in farms for p in f['plots']),
-            'journals': len(records), 'harvested': sum('수확을 마쳤어요' in r['text'] for r in records)}
+    return {'farms': farms, 'plots': plots, 'crops': crops, 'crop_stages': crop_stages,
+            'plantings': plantings, 'journals': journals}
