@@ -339,7 +339,13 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
           ) : (
             <div className="ls-state out">
               <p className="ls-intro">로그인</p>
-              <motion.button type="button" className="ls-btn kakao" onClick={onKakao} {...btnPop(6.3)}>
+              <motion.button
+                type="button"
+                className="ls-btn kakao"
+                onClick={onKakao}
+                disabled={loading}
+                {...btnPop(6.3)}
+              >
                 카카오톡으로 시작하기
               </motion.button>
               <motion.button
@@ -351,12 +357,18 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
               >
                 비회원으로 시작하기
               </motion.button>
-              <p className={`ls-msg${error ? ' error' : ''}`} role="status">
-                {error || '비회원은 기기를 바꾸면 기록이 사라져요.'}
+              <p className="ls-msg" role="status">
+                비회원은 기기를 바꾸면 기록이 사라져요.
               </p>
             </div>
           )}
         </div>
+        {/* 로그인 취소/실패 안내: 팻말 아래 작은 글씨 */}
+        {error && (
+          <p className="ls-notice" role="alert">
+            {error}
+          </p>
+        )}
       </motion.div>
     </div>
   )

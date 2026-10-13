@@ -31,6 +31,7 @@
   --ls-kakao-edge: #cdb800;
   --ls-go: #2f7d32;
   --ls-go-edge: #1e5a21;
+  --ls-notice: #7a1f14;
   --ls-bar-track: rgba(255, 253, 246, 0.55);
 
   /* 로그인 장면 간격 */
@@ -47,6 +48,16 @@
   --ls-display: 'Noto Sans KR', system-ui, sans-serif;
   --ls-hand: 'Gamja Flower', 'Noto Sans KR', cursive;
   --ls-body: 'Noto Sans KR', system-ui, sans-serif;
+
+  /* 첫 실행 안내(/intro) */
+  --intro-circle-bg: #e6f4e1;
+  --intro-circle-size: 230px;
+  --intro-desc: #5e6b58;
+  --intro-dot: #c9d6be;
+  --intro-dot-active: var(--primary);
+  --intro-btn-height: 52px;
+  --intro-btn-radius: 16px;
+  --intro-title-font: 'Jua', 'Noto Sans KR', system-ui, sans-serif;
 }
 
 * {
