@@ -119,12 +119,12 @@ export default function LinkChoice() {
 
       <div className="choice-content">
         <div>
-          <h2 className="choice-lead">이미 쓰던 카카오 계정이에요</h2>
-          <p className="choice-sub">비회원으로 쓰던 기록과 카카오 계정의 기록 중 하나를 골라 이어서 쓸 수 있어요</p>
+          <h2 className="choice-lead">어떤 기록으로 이어갈까요?</h2>
+          <p className="choice-sub">비회원으로 쓰던 기록과 카카오톡 계정의 기록 중 하나를 골라 이어서 쓸 수 있어요</p>
         </div>
 
         <RecordCard value="guest" checked={pick === 'guest'} onChange={setPick} kind="guest" label="비회원" summary={state.guest} />
-        <RecordCard value="kakao" checked={pick === 'kakao'} onChange={setPick} kind="kakao" label="카카오 계정" summary={state.kakao} />
+        <RecordCard value="kakao" checked={pick === 'kakao'} onChange={setPick} kind="kakao" label="카카오톡 계정" summary={state.kakao} />
 
         <div className="choice-warn" role="note">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a4b00" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
