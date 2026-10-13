@@ -2,6 +2,7 @@ import os
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 import httpx
 import jwt
@@ -55,8 +56,8 @@ users = Table(
     Column("login_type", String(10), nullable=False),
     Column("guest_token", String(64), nullable=True, unique=True),
     Column("region", String(50), nullable=True),
-    Column("point_balance", Integer, nullable=False, default=0, server_default=text("0")),
-    Column("total_points", Integer, nullable=False, default=0, server_default=text("0")),
+    Column("point", Integer, nullable=False, default=0, server_default=text("0")),  # 현재 포인트(교환하면 줄어듦)
+    Column("exp", Integer, nullable=False, default=0, server_default=text("0")),  # 누적 경험치(안 줄어듦)
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("login_type IN ('guest', 'kakao')", name="users_login_type_check"),
 )
@@ -186,37 +187,93 @@ def fetch_kakao_profile(code: str) -> dict:
     return {"kakao_id": str(info["id"]), "nickname": nickname or "카카오유저"}
 
 
-# 비회원 데이터를 카카오 계정으로 옮길 때 user_id를 가진 테이블 목록.
-# 새 테이블(예: 인증 기록, 포인트 내역)을 만들면 ("테이블명", "user_id 컬럼명")만 추가하면 된다.
-# 아직 DB에 없는 테이블은 자동으로 건너뛴다.
+# user_id를 가진 데이터 테이블 목록. 카카오 전환 때 비회원 데이터를 옮기거나 지울 때 이 목록을 쓴다.
+# 새 테이블을 만들면 ("테이블명", "user_id 컬럼명")만 추가하면 된다. 아직 DB에 없는 테이블은 자동으로 건너뛴다.
+# 목록 순서대로 삭제하므로 자식 테이블(다른 테이블을 참조하는 쪽)을 앞에 둔다.
+# user_id가 없는 테이블(plots, harvests, task_logs, pest_diagnoses)은 부모 행 삭제 시 ON DELETE CASCADE로 지워져야 한다.
 GUEST_DATA_TABLES = [
-    # ("checkins", "user_id"),
-    # ("point_logs", "user_id"),
+    ("point_logs", "user_id"),
+    ("reward_exchanges", "user_id"),
+    ("journals", "user_id"),
+    ("plantings", "user_id"),
+    ("farms", "user_id"),
 ]
 
+LINK_TICKET_EXPIRE_MINUTES = 5
 
-def transfer_guest_data(conn, guest_id: int, user_id: int) -> None:
-    """비회원(guest_id)의 데이터를 기존 카카오 계정(user_id)으로 옮기고 비회원 행을 삭제한다."""
+
+def _existing_data_tables(conn) -> list[tuple[str, str]]:
     existing = set(inspect(conn).get_table_names())
-    for table_name, column in GUEST_DATA_TABLES:
-        if table_name not in existing:
-            continue
+    return [(t, c) for t, c in GUEST_DATA_TABLES if t in existing]
+
+
+def _count(conn, table: str, column: str, user_id: int, extra: str = "") -> int:
+    return conn.execute(
+        text(f'SELECT COUNT(*) FROM "{table}" WHERE "{column}" = :uid {extra}'),
+        {"uid": user_id},
+    ).scalar_one()
+
+
+def summarize_user_data(conn, user_id: int) -> dict:
+    """선택 화면에 보여줄 요약: 농장 수, 재배 중 작물 수, 일지 수, 경험치, 포인트."""
+    tables = dict(_existing_data_tables(conn))
+    row = conn.execute(select(users).where(users.c.id == user_id)).mappings().one()
+    return {
+        "farms": _count(conn, "farms", tables["farms"], user_id) if "farms" in tables else 0,
+        "growing_crops": (
+            _count(conn, "plantings", tables["plantings"], user_id, "AND status = 'growing'")
+            if "plantings" in tables
+            else 0
+        ),
+        "journals": _count(conn, "journals", tables["journals"], user_id) if "journals" in tables else 0,
+        "exp": row["exp"],
+        "point": row["point"],
+    }
+
+
+def has_data(summary: dict) -> bool:
+    return any(summary[k] > 0 for k in ("farms", "growing_crops", "journals", "exp", "point"))
+
+
+def delete_user_data(conn, user_id: int) -> None:
+    """GUEST_DATA_TABLES 기준으로 해당 사용자의 데이터를 지우고 포인트·경험치를 0으로 되돌린다."""
+    for table_name, column in _existing_data_tables(conn):
+        conn.execute(text(f'DELETE FROM "{table_name}" WHERE "{column}" = :uid'), {"uid": user_id})
+    conn.execute(update(users).where(users.c.id == user_id).values(point=0, exp=0))
+
+
+def move_user_data(conn, from_id: int, to_id: int) -> None:
+    """from_id의 데이터를 to_id로 옮긴다. 포인트·경험치는 from_id 값이 to_id의 값이 된다."""
+    for table_name, column in _existing_data_tables(conn):
         conn.execute(
             text(f'UPDATE "{table_name}" SET "{column}" = :to WHERE "{column}" = :frm'),
-            {"to": user_id, "frm": guest_id},
+            {"to": to_id, "frm": from_id},
         )
+    src = conn.execute(select(users).where(users.c.id == from_id)).mappings().one()
+    conn.execute(update(users).where(users.c.id == to_id).values(point=src["point"], exp=src["exp"]))
 
-    # users 행 자체에 들어 있는 포인트는 카카오 계정에 합산
-    guest = conn.execute(select(users).where(users.c.id == guest_id)).mappings().one()
-    conn.execute(
-        update(users)
-        .where(users.c.id == user_id)
-        .values(
-            point_balance=users.c.point_balance + guest["point_balance"],
-            total_points=users.c.total_points + guest["total_points"],
-        )
-    )
-    conn.execute(delete(users).where(users.c.id == guest_id))
+
+def create_link_ticket(guest_id: int, kakao_id: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "purpose": "link-kakao",
+        "guest_id": guest_id,
+        "kakao_id": kakao_id,
+        "iat": now,
+        "exp": now + timedelta(minutes=LINK_TICKET_EXPIRE_MINUTES),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def read_link_ticket(ticket: str, guest_id: int) -> str:
+    """link_ticket을 검증하고 kakao_id를 돌려준다."""
+    try:
+        payload = jwt.decode(ticket, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise HTTPException(400, "link_ticket이 만료되었거나 유효하지 않습니다.")
+    if payload.get("purpose") != "link-kakao" or payload.get("guest_id") != guest_id:
+        raise HTTPException(400, "link_ticket이 유효하지 않습니다.")
+    return payload["kakao_id"]
 
 
 @app.post("/auth/kakao")
@@ -239,34 +296,64 @@ def auth_kakao(body: KakaoCodeRequest):
     return {"access_token": create_token(user_id), "token_type": "bearer"}
 
 
+class LinkKakaoRequest(BaseModel):
+    code: str | None = None  # 카카오 인가 코드 (첫 호출)
+    link_ticket: str | None = None  # choice_required 응답으로 받은 값 (선택 후 호출, 인가 코드는 재사용 불가)
+    choice: Literal["guest", "kakao"] | None = None
+
+
 @app.post("/auth/link-kakao")
-def auth_link_kakao(body: KakaoCodeRequest, guest=Depends(get_current_user)):
+def auth_link_kakao(body: LinkKakaoRequest, guest=Depends(get_current_user)):
     if guest["login_type"] != "guest":
         raise HTTPException(400, "비회원 토큰으로만 호출할 수 있습니다.")
 
-    profile = fetch_kakao_profile(body.code)
+    if body.link_ticket:
+        kakao_id, nickname = read_link_ticket(body.link_ticket, guest["id"]), None
+    elif body.code:
+        profile = fetch_kakao_profile(body.code)
+        kakao_id, nickname = profile["kakao_id"], profile["nickname"]
+    else:
+        raise HTTPException(422, "code 또는 link_ticket이 필요합니다.")
+
+    # 전환·삭제·이동은 한 트랜잭션: 중간에 실패하면 전부 취소된다.
     with engine.begin() as conn:
         existing_id = conn.execute(
-            select(users.c.id).where(users.c.kakao_id == profile["kakao_id"])
+            select(users.c.id).where(users.c.kakao_id == kakao_id)
         ).scalar_one_or_none()
+
         if existing_id is None:
-            # 새 카카오 계정: 현재 비회원 행을 카카오 회원으로 전환
+            # 새 카카오 계정: 현재 비회원 행을 카카오 회원으로 전환 (데이터 그대로)
             conn.execute(
                 update(users)
                 .where(users.c.id == guest["id"])
                 .values(
-                    nickname=profile["nickname"],
-                    kakao_id=profile["kakao_id"],
+                    nickname=nickname or guest["nickname"],
+                    kakao_id=kakao_id,
                     login_type="kakao",
                     guest_token=None,
                 )
             )
             user_id = guest["id"]
         else:
-            # 이미 있는 카카오 계정: 데이터를 옮기고 비회원 행 삭제
-            transfer_guest_data(conn, guest["id"], existing_id)
+            kakao_summary = summarize_user_data(conn, existing_id)
+            if has_data(kakao_summary) and body.choice is None:
+                # 아무것도 바꾸지 않고 양쪽 요약만 돌려준다.
+                return {
+                    "status": "choice_required",
+                    "link_ticket": create_link_ticket(guest["id"], kakao_id),
+                    "guest": summarize_user_data(conn, guest["id"]),
+                    "kakao": kakao_summary,
+                }
+
+            if body.choice == "kakao":
+                delete_user_data(conn, guest["id"])  # 카카오 데이터는 그대로 유지
+            else:
+                # 카카오 데이터가 없거나 "guest" 선택: 카카오 쪽을 비우고 비회원 데이터를 옮김
+                delete_user_data(conn, existing_id)
+                move_user_data(conn, guest["id"], existing_id)
+            conn.execute(delete(users).where(users.c.id == guest["id"]))
             user_id = existing_id
-    return {"access_token": create_token(user_id), "token_type": "bearer"}
+    return {"status": "linked", "access_token": create_token(user_id), "token_type": "bearer"}
 
 
 @app.get("/me")
@@ -276,6 +363,6 @@ def read_me(user=Depends(get_current_user)):
         "nickname": user["nickname"],
         "login_type": user["login_type"],
         "region": user["region"],
-        "point_balance": user["point_balance"],
-        "total_points": user["total_points"],
+        "point": user["point"],
+        "exp": user["exp"],
     }
