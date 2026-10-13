@@ -118,19 +118,6 @@
   border-top: 1px solid var(--card-border);
 }
 
-.logout-link {
-  align-self: center;
-  min-height: 44px;
-  margin-top: 8px;
-  padding: 12px 16px;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-size: 14px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 /* 마이페이지 */
 .mypage-card {
   display: flex;

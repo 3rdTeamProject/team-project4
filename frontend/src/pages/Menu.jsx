@@ -1,4 +1,4 @@
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { storage } from '../api.js'
 import { CoinIcon, SproutIcon } from '../components/Icons.jsx'
 import { levelFromExp } from '../constants/level.js'
@@ -13,15 +13,9 @@ const MENU_ITEMS = [
 ]
 
 export default function Menu() {
-  const navigate = useNavigate()
   const { me, error } = useMe()
 
   if (!storage.token) return <Navigate to="/" replace />
-
-  function logout() {
-    storage.logout()
-    navigate('/', { replace: true })
-  }
 
   return (
     <div className="screen">
@@ -53,8 +47,6 @@ export default function Menu() {
           </Link>
         ))}
       </nav>
-
-      <button type="button" className="logout-link" onClick={logout}>로그아웃</button>
     </div>
   )
 }
