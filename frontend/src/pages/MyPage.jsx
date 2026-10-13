@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, SproutIcon } from '../components/Icons.jsx'
 import NicknameSheet from '../components/NicknameSheet.jsx'
 import { levelProgress } from '../constants/level.js'
+import { useGoBack } from '../hooks/useGoBack.js'
 import { useKakaoLink } from '../hooks/useKakaoLink.js'
 import { useMe } from '../hooks/useMe.js'
 import { useToast } from '../hooks/useToast.js'
@@ -20,7 +21,6 @@ function formatAmount(amount) {
 }
 
 export default function MyPage() {
-  const navigate = useNavigate()
   const location = useLocation()
   const { me, setMe, error } = useMe()
   const [summary, setSummary] = useState(null)
@@ -28,6 +28,7 @@ export default function MyPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [toast] = useToast(location.state?.linkFailed ? '연동하지 못했어요. 다시 시도해 주세요' : '')
   const { linking, startLink } = useKakaoLink('/mypage')
+  const goBack = useGoBack('/menu')
 
   useEffect(() => {
     api
@@ -46,7 +47,7 @@ export default function MyPage() {
   return (
     <div className="screen">
       <header className="screen-header">
-        <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="뒤로가기">‹</button>
+        <button type="button" className="icon-btn" onClick={goBack} aria-label="뒤로가기">‹</button>
         <h1 className="screen-title">마이페이지</h1>
         <span className="icon-btn-spacer" />
       </header>

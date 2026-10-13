@@ -1,5 +1,6 @@
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
+import { useGoBack } from '../hooks/useGoBack.js'
 import { useKakaoLink } from '../hooks/useKakaoLink.js'
 import { useMe } from '../hooks/useMe.js'
 import { useToast } from '../hooks/useToast.js'
@@ -36,6 +37,7 @@ export default function Settings() {
   const { me, setMe, error } = useMe()
   const [toast, setToast] = useToast(location.state?.linkFailed ? LINK_FAILED : '')
   const { linking, startLink } = useKakaoLink('/settings')
+  const goBack = useGoBack('/menu')
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -59,7 +61,7 @@ export default function Settings() {
   return (
     <div className="screen">
       <header className="screen-header">
-        <button type="button" className="icon-btn" onClick={() => navigate('/menu')} aria-label="뒤로가기">‹</button>
+        <button type="button" className="icon-btn" onClick={goBack} aria-label="뒤로가기">‹</button>
         <h1 className="screen-title">환경설정</h1>
         <span className="icon-btn-spacer" />
       </header>
