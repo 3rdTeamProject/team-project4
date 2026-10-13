@@ -155,6 +155,7 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 18px;
+  text-wrap: balance;
 }
 
 .logout-btn {

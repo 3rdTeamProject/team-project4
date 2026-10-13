@@ -1,6 +1,7 @@
 :root {
   --bg: #f8f1e2;
-  --outside-bg: #ffffff; /* 앱 화면(390px) 바깥 */
+  --outside-bg: #ffffff; /* 앱 화면 바깥 */
+  --app-max-width: 430px; /* 캔버스는 390px 기준 디자인이지만 구현은 화면 폭에 맞게 늘고 줄어든다(고정 390px 금지) */
   --primary: #2f7d32;
   --card-bg: #ffffff;
   --card-border: #dde6d2;
@@ -88,10 +89,10 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
 }
 
-/* 모바일 폭 390px 기준 */
+/* 모바일 폭: 화면에 맞게 늘고 줄고, 최대 430px */
 .app {
   width: 100%;
-  max-width: 390px;
+  max-width: var(--app-max-width);
   background: var(--bg);
   min-height: 100vh;
   margin: 0 auto;

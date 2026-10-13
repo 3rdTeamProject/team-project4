@@ -360,7 +360,7 @@
 
 .sheet {
   width: 100%;
-  max-width: 390px;
+  max-width: var(--app-max-width);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -459,6 +459,7 @@
   color: var(--muted);
   font-size: 13px;
   line-height: 19px;
+  text-wrap: balance; /* 한 글자만 다음 줄로 떨어지지 않게 */
 }
 
 .link-promo-list li::before {
@@ -506,7 +507,8 @@
   left: 50%;
   bottom: 32px;
   transform: translateX(-50%);
-  max-width: calc(390px - 2 * var(--page-pad-x));
+  width: max-content;
+  max-width: calc(100% - 2 * var(--page-pad-x));
   padding: 12px 18px;
   border-radius: 14px;
   background: #1f2a1c;
