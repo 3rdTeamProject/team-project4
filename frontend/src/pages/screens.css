@@ -161,8 +161,27 @@
   cursor: pointer;
 }
 
+.login-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-kakao-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 22px;
+  background: var(--ls-kakao);
+  color: #191919;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .login-pill {
-  align-self: flex-start;
   padding: 6px 14px;
   border-radius: 16px;
   background: var(--profile-band);

@@ -55,9 +55,12 @@ export default function MyPage() {
             <button type="button" className="pill-btn" onClick={() => setSheetOpen(true)}>✎ 변경</button>
           </div>
 
-          <span className={`login-pill${isKakao ? ' kakao' : ''}`}>
-            {isKakao ? '카카오톡으로 로그인됨' : '비회원으로 이용 중'}
-          </span>
+          <div className="login-row">
+            <span className={`login-pill${isKakao ? ' kakao' : ''}`}>
+              {isKakao ? '카카오톡으로 로그인됨' : '비회원으로 이용 중'}
+            </span>
+            {!isKakao && <Link className="link-kakao-btn" to="/settings">카카오톡 연동하기</Link>}
+          </div>
 
           <div className="level-box">
             <div className="level-side">
