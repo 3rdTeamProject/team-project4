@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
 
 export default function Home() {
@@ -40,6 +40,7 @@ export default function Home() {
       ) : (
         !error && <p className="muted">불러오는 중...</p>
       )}
+      <Link className="btn secondary" to="/menu">메뉴</Link>
       <button className="btn primary" onClick={logout}>로그아웃</button>
     </div>
   )

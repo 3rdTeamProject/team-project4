@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -29,12 +30,15 @@ from sqlalchemy import (
 )
 from pydantic import BaseModel
 
+from level import level_from_exp
+
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 30
+NICKNAME_MAX_LENGTH = 10  # 화면에 보이는 글자 기준(이모티콘도 1자). 프론트 NicknameSheet와 같게 유지
 
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL이 .env에 설정되어 있지 않습니다.")
@@ -58,6 +62,10 @@ users = Table(
     Column("region", String(50), nullable=True),
     Column("point", Integer, nullable=False, default=0, server_default=text("0")),  # 현재 포인트(교환하면 줄어듦)
     Column("exp", Integer, nullable=False, default=0, server_default=text("0")),  # 누적 경험치(안 줄어듦)
+    # 알림 설정 (실제 푸시 발송은 아직 없음, 설정값만 저장)
+    Column("notify_todo", Boolean, nullable=False, default=True, server_default=text("true")),
+    Column("notify_weather", Boolean, nullable=False, default=True, server_default=text("true")),
+    Column("notify_point", Boolean, nullable=False, default=False, server_default=text("false")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("login_type IN ('guest', 'kakao')", name="users_login_type_check"),
 )
@@ -184,7 +192,8 @@ def fetch_kakao_profile(code: str) -> dict:
     info = user_res.json()
     profile = (info.get("kakao_account") or {}).get("profile") or {}
     nickname = profile.get("nickname") or (info.get("properties") or {}).get("nickname")
-    return {"kakao_id": str(info["id"]), "nickname": nickname or "카카오유저"}
+    # 기본 닉네임은 거부 규칙 없이 앞 NICKNAME_MAX_LENGTH자만 잘라 저장한다
+    return {"kakao_id": str(info["id"]), "nickname": (nickname or "카카오유저")[:NICKNAME_MAX_LENGTH]}
 
 
 # user_id를 가진 데이터 테이블 목록. 카카오 전환 때 비회원 데이터를 옮기거나 지울 때 이 목록을 쓴다.
@@ -215,10 +224,11 @@ def _count(conn, table: str, column: str, user_id: int, extra: str = "") -> int:
 
 
 def summarize_user_data(conn, user_id: int) -> dict:
-    """선택 화면에 보여줄 요약: 농장 수, 재배 중 작물 수, 일지 수, 경험치, 포인트."""
+    """선택 화면에 보여줄 요약: 닉네임, 농장 수, 재배 중 작물 수, 일지 수, 레벨, 경험치, 포인트."""
     tables = dict(_existing_data_tables(conn))
     row = conn.execute(select(users).where(users.c.id == user_id)).mappings().one()
     return {
+        "nickname": row["nickname"],
         "farms": _count(conn, "farms", tables["farms"], user_id) if "farms" in tables else 0,
         "growing_crops": (
             _count(conn, "plantings", tables["plantings"], user_id, "AND status = 'growing'")
@@ -226,8 +236,23 @@ def summarize_user_data(conn, user_id: int) -> dict:
             else 0
         ),
         "journals": _count(conn, "journals", tables["journals"], user_id) if "journals" in tables else 0,
+        "level": level_from_exp(row["exp"]),
         "exp": row["exp"],
         "point": row["point"],
+    }
+
+
+def user_info(user_id: int) -> dict:
+    with engine.connect() as conn:
+        row = conn.execute(select(users).where(users.c.id == user_id)).mappings().one()
+    return {
+        "id": row["id"],
+        "nickname": row["nickname"],
+        "login_type": row["login_type"],
+        "region": row["region"],
+        "point": row["point"],
+        "exp": row["exp"],
+        "level": level_from_exp(row["exp"]),
     }
 
 
@@ -353,7 +378,12 @@ def auth_link_kakao(body: LinkKakaoRequest, guest=Depends(get_current_user)):
                 move_user_data(conn, guest["id"], existing_id)
             conn.execute(delete(users).where(users.c.id == guest["id"]))
             user_id = existing_id
-    return {"status": "linked", "access_token": create_token(user_id), "token_type": "bearer"}
+    return {
+        "status": "linked",
+        "access_token": create_token(user_id),
+        "token_type": "bearer",
+        "user": user_info(user_id),
+    }
 
 
 @app.get("/me")
@@ -365,4 +395,116 @@ def read_me(user=Depends(get_current_user)):
         "region": user["region"],
         "point": user["point"],
         "exp": user["exp"],
+        "notify_todo": user["notify_todo"],
+        "notify_weather": user["notify_weather"],
+        "notify_point": user["notify_point"],
     }
+
+
+# 줄바꿈으로 취급하는 문자 (닉네임에 들어 있으면 거부)
+NICKNAME_LINE_BREAKS = {"\n", "\r", "\x0b", "\x0c", "\x85", "\u2028", "\u2029"}
+
+
+class NicknameRequest(BaseModel):
+    nickname: str
+
+
+def validate_nickname(raw: str) -> str:
+    """직접 바꾸는 닉네임 검사. 앞뒤 공백을 뺀 값을 돌려주고, 규칙에 어긋나면 400."""
+    nickname = raw.strip()
+    if not nickname:
+        raise HTTPException(400, "닉네임을 입력해 주세요.")
+    if any(ch in NICKNAME_LINE_BREAKS for ch in nickname):
+        raise HTTPException(400, "닉네임에는 줄바꿈을 넣을 수 없어요.")
+    if len(nickname) > NICKNAME_MAX_LENGTH:  # 이모티콘도 한 글자
+        raise HTTPException(400, f"닉네임은 1~{NICKNAME_MAX_LENGTH}자로 입력해 주세요.")
+    return nickname
+
+
+@app.patch("/me/nickname")
+def update_nickname(body: NicknameRequest, user=Depends(get_current_user)):
+    nickname = validate_nickname(body.nickname)
+    with engine.begin() as conn:
+        conn.execute(update(users).where(users.c.id == user["id"]).values(nickname=nickname))
+    return {"nickname": nickname}
+
+
+def _table_exists(conn, name: str) -> bool:
+    return name in set(inspect(conn).get_table_names())
+
+
+@app.get("/me/summary")
+def read_my_summary(user=Depends(get_current_user)):
+    """마이페이지용 통계와 최근 포인트 내역. 아직 만들어지지 않은 테이블은 0/빈 목록으로 돌려준다."""
+    uid = {"uid": user["id"]}
+    with engine.connect() as conn:
+        def count(table: str, sql: str) -> int:
+            if not _table_exists(conn, table):
+                return 0
+            return conn.execute(text(sql), uid).scalar_one()
+
+        has_plantings = _table_exists(conn, "plantings")
+        farms = count("farms", "SELECT COUNT(*) FROM farms WHERE user_id = :uid")
+        growing = count("plantings", "SELECT COUNT(*) FROM plantings WHERE user_id = :uid AND status = 'growing'")
+        harvested = (
+            conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM harvests h JOIN plantings p ON p.id = h.planting_id "
+                    "WHERE p.user_id = :uid"
+                ),
+                uid,
+            ).scalar_one()
+            if has_plantings and _table_exists(conn, "harvests")
+            else 0
+        )
+        journals = count("journals", "SELECT COUNT(*) FROM journals WHERE user_id = :uid")
+        diagnoses = (
+            conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM pest_diagnoses d JOIN plantings p ON p.id = d.planting_id "
+                    "WHERE p.user_id = :uid"
+                ),
+                uid,
+            ).scalar_one()
+            if has_plantings and _table_exists(conn, "pest_diagnoses")
+            else 0
+        )
+        point_logs = []
+        if _table_exists(conn, "point_logs"):
+            rows = conn.execute(
+                text(
+                    "SELECT reason, amount, created_at FROM point_logs "
+                    "WHERE user_id = :uid ORDER BY created_at DESC, id DESC LIMIT 5"
+                ),
+                uid,
+            ).mappings()
+            point_logs = [
+                {"name": r["reason"], "amount": r["amount"], "created_at": r["created_at"].isoformat()}
+                for r in rows
+            ]
+    return {
+        "farms": farms,
+        "growing_crops": growing,
+        "harvested": harvested,
+        "journals": journals,
+        "diagnoses": diagnoses,
+        "point_logs": point_logs,  # 최근 5건, 최신순 (경험치는 내려주지 않음)
+    }
+
+
+class NotificationRequest(BaseModel):
+    # 보낸 항목만 바꾼다
+    notify_todo: bool | None = None
+    notify_weather: bool | None = None
+    notify_point: bool | None = None
+
+
+@app.patch("/me/notifications")
+def update_notifications(body: NotificationRequest, user=Depends(get_current_user)):
+    values = body.model_dump(exclude_none=True)
+    if not values:
+        raise HTTPException(400, "바꿀 알림 설정을 보내 주세요.")
+    with engine.begin() as conn:
+        conn.execute(update(users).where(users.c.id == user["id"]).values(**values))
+        row = conn.execute(select(users).where(users.c.id == user["id"])).mappings().one()
+    return {k: row[k] for k in ("notify_todo", "notify_weather", "notify_point")}

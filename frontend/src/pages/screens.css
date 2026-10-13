@@ -1,0 +1,516 @@
+/* 메뉴·마이페이지 공통 */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: auto; /* .app의 세로 가운데 정렬을 막고 위에서부터 배치 */
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.screen-title {
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 24px;
+}
+
+.icon-btn,
+.icon-btn-spacer {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 24px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* 메뉴: 프로필 카드 */
+.profile-card {
+  display: block;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.profile-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 20px 20px 16px;
+}
+
+.profile-name {
+  min-width: 0;
+  font-family: var(--font-title);
+  font-size: 26px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-more {
+  flex: none;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.profile-stats {
+  display: flex;
+  align-items: center;
+  background: var(--profile-band);
+  padding: 12px 0;
+}
+
+.profile-stat {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-number);
+  font-size: 20px;
+}
+
+.profile-stats-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--card-border);
+}
+
+/* 메뉴: 항목 */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 20px;
+  color: var(--text);
+  font-size: 16px;
+  text-decoration: none;
+}
+
+.menu-item + .menu-item {
+  border-top: 1px solid var(--card-border);
+}
+
+/* 마이페이지 */
+.mypage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  padding: 20px;
+}
+
+.mypage-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mypage-name {
+  min-width: 0;
+  font-family: var(--font-title);
+  font-size: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pill-btn {
+  flex: none;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--pill-border);
+  border-radius: 22px;
+  background: var(--profile-band);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.login-pill {
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--profile-band);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.login-pill.kakao {
+  background: var(--kakao-pill);
+}
+
+.level-box {
+  display: flex;
+  align-items: stretch;
+  background: var(--profile-band);
+  border-radius: 16px;
+  padding: 14px 12px;
+}
+
+.level-side,
+.point-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.level-label {
+  font-family: var(--font-number);
+  font-size: 20px;
+}
+
+.level-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--pill-border);
+  overflow: hidden;
+}
+
+.level-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--primary);
+}
+
+.level-next {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.level-divider {
+  width: 1px;
+  margin: 0 12px;
+  background: var(--pill-border);
+}
+
+.point-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.point-value {
+  font-family: var(--font-number);
+  font-size: 22px;
+}
+
+.stat-row,
+.shortcut-row {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-cell,
+.shortcut {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 14px 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+}
+
+.stat-value {
+  font-family: var(--font-number);
+  font-size: 24px;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shortcut {
+  align-items: flex-start;
+  padding: 14px 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.shortcut-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.shortcut-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.log-section {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  padding: 16px 20px;
+}
+
+.log-title {
+  margin: 0 0 8px;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 20px;
+}
+
+.log-empty {
+  margin: 0;
+  padding: 12px 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.log-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.log-item + .log-item {
+  border-top: 1px solid var(--card-border);
+}
+
+.log-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-date {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.log-amount {
+  flex: none;
+  font-family: var(--font-number);
+  font-size: 18px;
+  color: var(--primary);
+}
+
+.log-amount.minus {
+  color: var(--minus);
+}
+
+/* 닉네임 변경 시트 */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--sheet-dim);
+}
+
+.sheet {
+  width: 100%;
+  max-width: 390px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px var(--page-pad-x) 28px;
+  border-radius: var(--card-radius) var(--card-radius) 0 0;
+  background: var(--card-bg);
+}
+
+.sheet-handle {
+  align-self: center;
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--card-border);
+}
+
+.sheet-title {
+  margin: 4px 0 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 22px;
+}
+
+.sheet-input {
+  height: 48px;
+  padding: 0 14px;
+  border: 2px solid var(--primary);
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+.sheet-input:focus-visible {
+  outline: 2px solid var(--ls-focus);
+  outline-offset: 2px;
+}
+
+.sheet-hint-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.sheet-hint,
+.sheet-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sheet-count {
+  flex: none;
+}
+
+.sheet-count.over {
+  color: var(--error);
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 마이페이지: 비회원 카카오톡 연동 안내 */
+.link-promo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--kakao-edge);
+  border-radius: var(--card-radius);
+  background: var(--kakao-soft);
+}
+
+.link-promo-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.link-promo-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 18px;
+}
+
+.link-promo-list {
+  margin: 0;
+  padding: 0 0 0 4px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.link-promo-list li::before {
+  content: '✓';
+  margin-right: 6px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.link-promo-btn {
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: 14px;
+  background: var(--ls-kakao);
+  color: #191919;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.kakao-badge {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ls-kakao);
+}
+
+.link-promo-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 안내 토스트 */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  max-width: calc(390px - 2 * var(--page-pad-x));
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #1f2a1c;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+}

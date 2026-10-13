@@ -68,8 +68,12 @@ export const api = {
     request('/auth/guest', { method: 'POST', body: guestToken ? { guest_token: guestToken } : {}, auth: false }),
   kakaoLogin: (code) => request('/auth/kakao', { method: 'POST', body: { code }, auth: false }),
   // 비회원 토큰이 무효(401)면 KakaoCallback이 일반 카카오 로그인으로 넘어가므로 자동 이동하지 않는다
-  linkKakao: (code) => request('/auth/link-kakao', { method: 'POST', body: { code }, redirectOn401: false }),
+  // body: { code } 또는 { link_ticket, choice }
+  linkKakao: (body) => request('/auth/link-kakao', { method: 'POST', body, redirectOn401: false }),
   me: () => request('/me'),
+  updateNotifications: (patch) => request('/me/notifications', { method: 'PATCH', body: patch }),
+  mySummary: () => request('/me/summary'),
+  updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
 }
 
 export function kakaoAuthorizeUrl() {

@@ -1,0 +1,169 @@
+/* 환경설정 */
+.set-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.set-label {
+  margin: 0;
+  padding-left: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.set-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 16px;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--row-line);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.set-row:last-child {
+  border-bottom: 0;
+}
+
+.set-link {
+  cursor: pointer;
+}
+
+.set-link .set-title {
+  flex: 1;
+}
+
+.set-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.set-title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.set-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.set-value {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 토글 스위치: 터치 영역 56x44, 눈에 보이는 트랙은 46x28 */
+.switch {
+  flex: none;
+  width: 56px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.switch-track {
+  position: relative;
+  width: 46px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--switch-off);
+  transition: background 0.15s;
+}
+
+.switch.on .switch-track {
+  background: var(--primary);
+}
+
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.switch.on .switch-knob {
+  transform: translateX(18px);
+}
+
+.switch:focus-visible,
+.set-link:focus-visible,
+.kakao-link-btn:focus-visible,
+.logout-btn:focus-visible {
+  outline: 3px solid var(--ls-focus);
+  outline-offset: 2px;
+}
+
+/* 계정: 비회원 연동 */
+.set-account {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+
+.kakao-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ls-kakao);
+  color: #191919;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kakao-link-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.set-note {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.logout-btn {
+  min-height: 48px;
+  border: 2px solid #e8b4b4;
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--minus);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}

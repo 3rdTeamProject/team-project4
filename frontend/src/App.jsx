@@ -2,6 +2,10 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Start from './pages/Start.jsx'
 import KakaoCallback from './pages/KakaoCallback.jsx'
 import Home from './pages/Home.jsx'
+import Menu from './pages/Menu.jsx'
+import MyPage from './pages/MyPage.jsx'
+import LinkChoice from './pages/LinkChoice.jsx'
+import Settings from './pages/Settings.jsx'
 import Intro from './pages/Intro.jsx'
 
 export default function App() {
@@ -12,6 +16,10 @@ export default function App() {
         <Route path="/auth/kakao/callback" element={<KakaoCallback />} />
         <Route path="/intro" element={<Intro />} />
         <Route path="/home" element={<Home />} />
+        <Route path="/menu" element={<Menu />} />
+        <Route path="/mypage" element={<MyPage />} />
+        <Route path="/link-choice" element={<LinkChoice />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
