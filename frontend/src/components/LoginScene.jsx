@@ -321,7 +321,10 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
         <div className="ls-sign">
           {me ? (
             <div className="ls-state in">
-              <p className="ls-intro">{me.nickname}님, 오늘도 반가워요</p>
+              <p className="ls-intro">
+                <span className="ls-intro-name">{me.nickname}님,</span>
+                <span>오늘도 반가워요</span>
+              </p>
               <motion.button type="button" className="ls-btn go" onClick={goNow} {...btnPop(6.3)}>
                 내 텃밭으로 가기
               </motion.button>

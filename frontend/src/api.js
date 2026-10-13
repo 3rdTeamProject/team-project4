@@ -70,6 +70,7 @@ export const api = {
   // 비회원 토큰이 무효(401)면 KakaoCallback이 일반 카카오 로그인으로 넘어가므로 자동 이동하지 않는다
   linkKakao: (code) => request('/auth/link-kakao', { method: 'POST', body: { code }, redirectOn401: false }),
   me: () => request('/me'),
+  mySummary: () => request('/me/summary'),
   updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
 }
 

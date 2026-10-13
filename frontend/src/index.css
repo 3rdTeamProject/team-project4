@@ -10,6 +10,9 @@
   --card-radius: 20px;
   --profile-band: #f4f8ee; /* 프로필 카드 아래 띠, 변경 버튼 바탕 */
   --pill-border: #cfe3c4;
+  --kakao-pill: #fff7c2;
+  --minus: #c62828;
+  --sheet-dim: rgba(31, 42, 28, 0.5);
   --font-title: 'Jua', 'Noto Sans KR', sans-serif;
   --font-number: 'Do Hyeon', 'Noto Sans KR', sans-serif;
 
