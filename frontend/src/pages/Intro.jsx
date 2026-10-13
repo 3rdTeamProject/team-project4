@@ -80,6 +80,7 @@ export default function Intro() {
   const navigate = useNavigate()
   const reduce = useReducedMotion()
   const [index, setIndex] = useState(0)
+  const [dir, setDir] = useState(1) // 1: 다음(오른쪽에서 들어옴), -1: 이전(왼쪽에서 들어옴)
   const [params, setParams] = useSearchParams()
 
   // /intro?reset: 완료 표시를 지워 안내를 다시 볼 수 있게 하고, 주소에서 reset을 뗀다
@@ -102,28 +103,55 @@ export default function Intro() {
   }
 
   function next() {
-    if (index === last) finish()
-    else setIndex(index + 1)
+    if (index === last) {
+      finish()
+      return
+    }
+    setDir(1)
+    setIndex(index + 1)
+  }
+
+  function prev() {
+    if (index === 0) return
+    setDir(-1)
+    setIndex(index - 1)
   }
 
   // 모션 줄이기: 옆으로 넘기는 효과 없이 바로 바꾼다
   const slide = reduce
     ? { initial: false, animate: {}, exit: undefined, transition: { duration: 0 } }
     : {
-        initial: { opacity: 0, x: SLIDE_OFFSET },
-        animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: -SLIDE_OFFSET },
+        variants: {
+          enter: (d) => ({ opacity: 0, x: d * SLIDE_OFFSET }),
+          center: { opacity: 1, x: 0 },
+          exit: (d) => ({ opacity: 0, x: -d * SLIDE_OFFSET }),
+        },
+        initial: 'enter',
+        animate: 'center',
+        exit: 'exit',
+        custom: dir,
         transition: { duration: 0.22, ease: [0.42, 0, 0.58, 1] },
       }
 
   return (
     <div className="intro">
-      <button type="button" className="intro-skip" onClick={finish}>
-        건너뛰기
-      </button>
+      <div className="intro-top">
+        <button
+          type="button"
+          className="intro-prev"
+          onClick={prev}
+          aria-label="이전 안내"
+          hidden={index === 0}
+        >
+          ‹ 이전
+        </button>
+        <button type="button" className="intro-skip" onClick={finish}>
+          건너뛰기
+        </button>
+      </div>
 
       <div className="intro-body">
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence mode="wait" initial={false} custom={dir}>
           <motion.div
             key={index}
             className="intro-slide"
