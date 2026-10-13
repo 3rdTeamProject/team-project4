@@ -104,7 +104,7 @@ export default function LinkChoice() {
       const data = await api.linkKakao({ link_ticket: state.link_ticket, choice: pick })
       storage.clearGuestToken() // 비회원 아이디는 어느 쪽을 골라도 삭제됨
       storage.saveLogin(data.access_token, 'kakao')
-      navigate(state.returnTo || '/settings', { replace: true, state: { linked: true } })
+      window.location.replace('/') // 카카오 로그인된 상태로 앱을 새로 시작
     } catch (e) {
       setError(e.message)
       setSaving(false)

@@ -26,9 +26,7 @@ export default function MyPage() {
   const [summary, setSummary] = useState(null)
   const [summaryError, setSummaryError] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [toast] = useToast(
-    location.state?.linkFailed ? '연동하지 못했어요. 다시 시도해 주세요' : location.state?.linked ? '카카오톡으로 연동했어요' : '',
-  )
+  const [toast] = useToast(location.state?.linkFailed ? '연동하지 못했어요. 다시 시도해 주세요' : '')
   const { linking, startLink } = useKakaoLink('/mypage')
 
   useEffect(() => {

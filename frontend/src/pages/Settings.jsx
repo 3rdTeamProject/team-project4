@@ -7,7 +7,6 @@ import './screens.css'
 import './settings.css'
 
 const LINK_FAILED = '연동하지 못했어요. 다시 시도해 주세요'
-const LINKED = '카카오톡으로 연동했어요'
 
 const NOTIFY_ROWS = [
   { key: 'notify_todo', title: '오늘 할 일 알림', sub: '매일 오전 9시' },
@@ -35,9 +34,7 @@ export default function Settings() {
   const navigate = useNavigate()
   const location = useLocation()
   const { me, setMe, error } = useMe()
-  const [toast, setToast] = useToast(
-    location.state?.linkFailed ? LINK_FAILED : location.state?.linked ? LINKED : '',
-  )
+  const [toast, setToast] = useToast(location.state?.linkFailed ? LINK_FAILED : '')
   const { linking, startLink } = useKakaoLink('/settings')
 
   if (!storage.token) return <Navigate to="/" replace />

@@ -60,8 +60,12 @@ export default function KakaoCallback() {
           data = await api.kakaoLogin(code)
         }
         storage.saveLogin(data.access_token, 'kakao')
-        if (returnTo) navigate(returnTo, { replace: true, state: { linked: true } })
-        else navigate('/home', { replace: true })
+        if (returnTo) {
+          // 연동 완료: 카카오 로그인된 상태로 앱을 새로 시작한다(시작 화면의 환영 인사 → 내 텃밭)
+          window.location.replace('/')
+        } else {
+          navigate('/home', { replace: true })
+        }
       } catch (e) {
         if (returnTo) backToSettings()
         else setError(e.message)
