@@ -1,0 +1,144 @@
+:root {
+  --bg: #f8f1e2;
+  --outside-bg: #ffffff; /* 앱 화면(390px) 바깥 */
+  --primary: #2f7d32;
+  --card-bg: #ffffff;
+  --card-border: #dde6d2;
+  --text: #2b2b2b;
+  --muted: #6b6b60;
+  --error: #c0392b;
+
+  /* 앱 공통 여백 */
+  --page-pad-x: 16px;
+  --page-pad-y: 24px;
+
+  /* 로그인 장면(LoginScene) 색 */
+  --ls-sky-top: #f2f3dd;
+  --ls-sky-mid: #f8f1e2;
+  --ls-hill-a: #e2ecc8;
+  --ls-hill-b: #cfe3b0;
+  --ls-fg: #1f2a1c;
+  --ls-muted: #55604f;
+  --ls-accent-edge: #4e8a4b;
+  --ls-focus: #1d4e73;
+  --ls-wood: #b9896f;
+  --ls-wood-edge: #8a5e47;
+  --ls-wood-edge-shadow: rgba(138, 94, 71, 0.35);
+  --ls-wood-edge-shadow-strong: rgba(138, 94, 71, 0.45);
+  --ls-wood-ink: #3b2618;
+  --ls-paper: #fffdf6;
+  --ls-kakao: #fee500;
+  --ls-kakao-edge: #cdb800;
+  --ls-go: #2f7d32;
+  --ls-go-edge: #1e5a21;
+  --ls-bar-track: rgba(255, 253, 246, 0.55);
+
+  /* 로그인 장면 간격 */
+  --ls-max-width: 430px;
+  --ls-pad-x: 20px;
+  --ls-pad-top: 44px;
+  --ls-pad-bottom: 36px;
+  --ls-gap: 10px;
+  --ls-sign-pad: 18px;
+  --ls-sign-gap: 10px;
+  --ls-btn-height: 52px;
+
+  /* 로그인 장면 폰트 */
+  --ls-display: 'Noto Sans KR', system-ui, sans-serif;
+  --ls-hand: 'Gamja Flower', 'Noto Sans KR', cursive;
+  --ls-body: 'Noto Sans KR', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--outside-bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
+}
+
+/* 모바일 폭 390px 기준 */
+.app {
+  width: 100%;
+  max-width: 390px;
+  background: var(--bg);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: var(--page-pad-y) var(--page-pad-x);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.muted {
+  margin: 0;
+  color: var(--muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--error);
+  word-break: break-word;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--primary);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn.secondary {
+  background: #fff;
+  color: var(--primary);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+}
+
+dt {
+  color: var(--muted);
+}
+
+dd {
+  margin: 0;
+  font-weight: 700;
+}
