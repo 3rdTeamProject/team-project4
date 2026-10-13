@@ -1,0 +1,208 @@
+/* 메뉴·마이페이지 공통 */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: flex-start;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.screen-title {
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 24px;
+}
+
+.icon-btn,
+.icon-btn-spacer {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 24px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* 메뉴: 프로필 카드 */
+.profile-card {
+  display: block;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.profile-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 20px 20px 16px;
+}
+
+.profile-name {
+  font-family: var(--font-title);
+  font-size: 26px;
+  word-break: break-all;
+}
+
+.profile-more {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.profile-stats {
+  display: flex;
+  align-items: center;
+  background: var(--profile-band);
+  padding: 12px 0;
+}
+
+.profile-stat {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-number);
+  font-size: 20px;
+}
+
+.profile-stats-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--card-border);
+}
+
+/* 메뉴: 항목 */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 20px;
+  color: var(--text);
+  font-size: 16px;
+  text-decoration: none;
+}
+
+.menu-item + .menu-item {
+  border-top: 1px solid var(--card-border);
+}
+
+.logout-link {
+  align-self: center;
+  margin-top: 8px;
+  padding: 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* 마이페이지 */
+.mypage-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  padding: 20px;
+}
+
+.mypage-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mypage-name {
+  font-family: var(--font-title);
+  font-size: 30px;
+  word-break: break-all;
+}
+
+.pill-btn {
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--pill-border);
+  border-radius: 22px;
+  background: var(--profile-band);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* 닉네임 변경 시트 */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.sheet {
+  width: 100%;
+  max-width: 390px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px var(--page-pad-x) 28px;
+  border-radius: var(--card-radius) var(--card-radius) 0 0;
+  background: var(--card-bg);
+}
+
+.sheet-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 22px;
+}
+
+.sheet-input {
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+.sheet-count {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 8px;
+}

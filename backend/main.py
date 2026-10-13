@@ -389,3 +389,20 @@ def read_me(user=Depends(get_current_user)):
         "point": user["point"],
         "exp": user["exp"],
     }
+
+
+NICKNAME_MAX_LENGTH = 10
+
+
+class NicknameRequest(BaseModel):
+    nickname: str
+
+
+@app.patch("/me/nickname")
+def update_nickname(body: NicknameRequest, user=Depends(get_current_user)):
+    nickname = body.nickname.strip()
+    if not nickname or len(nickname) > NICKNAME_MAX_LENGTH:
+        raise HTTPException(422, f"닉네임은 1~{NICKNAME_MAX_LENGTH}자로 입력해 주세요.")
+    with engine.begin() as conn:
+        conn.execute(update(users).where(users.c.id == user["id"]).values(nickname=nickname))
+    return {"nickname": nickname}
