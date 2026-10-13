@@ -1,0 +1,93 @@
+@font-face{font-family:"Pretendard";src:url("assets/fonts/PretendardVariable.woff2") format("woff2");font-style:normal;font-weight:45 920;font-display:swap}
+@font-face{font-family:"Nanum Pen";src:url("assets/fonts/NanumPenScript-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
+:root{--green:#4c8053;--bg:#f8f1e2;--ink:#304d35;--line:#e1dfc8}
+/* Consistent Korean typography and grounded crop placement. */
+#app{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-weight:400;letter-spacing:-.2px;font-synthesis:none}#app button,#app input,#app summary{font-family:inherit}#app button{letter-spacing:inherit}
+/* Single source of layout rules for the garden scene. */
+#app:has(.garden-field){min-height:0;background:#f4f5eb}
+.phone-shell:has(.garden-field){min-height:0}
+.garden-top{padding:22px 24px 0;background:#b6e0f3}
+.garden-nav{display:flex;align-items:center;gap:8px}
+.farm-picker{position:relative;max-width:calc(100% - 96px);min-width:0;z-index:20}
+.farm-select{display:flex;align-items:center;gap:13px;min-height:38px;padding:8px 14px;border:0;border-radius:22px;background:#fffffff2;font-size:14px;font-weight:700;letter-spacing:-.25px;line-height:1.5;cursor:pointer;list-style:none}
+.farm-select::-webkit-details-marker{display:none}.farm-select>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.farm-select svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}.farm-picker[open] .farm-select svg{rotate:180deg}
+.farm-options{position:absolute;top:calc(100% + 7px);left:0;width:220px;max-width:calc(100vw - 52px);padding:6px;border:1px solid #e1e8da;border-radius:15px;background:#fffef8;box-shadow:0 8px 26px #34482c26;overflow:hidden}
+.farm-options button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:10px 12px;min-height:41px;text-align:left;font-family:inherit;font-size:13px;font-weight:500;line-height:1.5;color:#30472e;background:transparent;border-radius:9px}.farm-options button:hover,.farm-options button:focus-visible{background:#edf3e6}.farm-options button[aria-current]{background:#e6efdd;font-weight:700}
+.garden-nav .icon-btn{width:38px;height:38px;background:#ffffffb3;font-size:19px;color:#476c55;border-radius:50%}
+.garden-nav .menu-button{margin-left:auto}
+.live-weather{border:1px solid #ffffffb3;box-shadow:0 3px 10px #35576a0c;position:relative;width:190px;max-width:100%;border:0;border-radius:14px;padding:10px 28px 10px 12px;margin-top:15px;background:#ffffffed;box-shadow:none}
+.weather-compact{gap:0}.weather-summary{display:flex;gap:8px;align-items:center;flex-wrap:nowrap}.weather-symbol{display:flex;align-items:center;width:25px;flex:none;color:#354633}.weather-symbol svg{width:25px;height:28px}.weather-copy b{font-size:13px;line-height:1.45;white-space:nowrap;font-weight:650}.weather-copy small{display:block;font-size:10px;line-height:1.4;margin-top:1px;color:#57634c;white-space:nowrap}.weather-reload{position:absolute;right:2px;top:4px;font-size:16px;min-width:24px;min-height:24px;padding:0;background:transparent}
+.weather-details{position:absolute;right:7px;bottom:5px;margin:0}.weather-details summary{font-size:12px;list-style:none;cursor:pointer;line-height:1;padding:2px;color:#6d7c6b}.weather-details summary::-webkit-details-marker{display:none}.weather-detail-body{position:absolute;top:20px;left:-155px;width:230px;padding:12px;background:#fffdf4;border:1px solid #d9e2d1;border-radius:12px;box-shadow:0 6px 24px #35463324;z-index:10}
+/* Shared illustration palette and proportions across every weather state. */
+#app{--sky-top:#b6e0f3;--sky-bottom:#d9eff5;--cloud-fill:#fffdf6;--cloud-shade:#dce7e7}
+.garden-top{background:var(--sky-top)}
+.sky{height:84px;background:linear-gradient(var(--sky-top),var(--sky-bottom));position:relative;overflow:hidden;flex:none}
+.sun,.moon{position:absolute;right:48px;top:0;width:52px;height:52px;pointer-events:none}
+.sun svg,.moon svg,.cloud svg{display:block;width:100%;height:100%;overflow:visible}
+.cloud{position:absolute;width:88px;height:43px;left:30px;top:16px;filter:drop-shadow(0 2px 2px #47657812);pointer-events:none}
+.cloud.c2{left:auto;right:112px;top:38px;width:63px;height:31px;opacity:.65}
+.cloud.c3{display:none;left:44%;top:2px;width:76px;height:37px;opacity:.65}
+.garden-field{position:relative;flex:0 0 auto;padding:42px 24px 24px;background:#98c768;min-height:0;overflow:visible;isolation:isolate}
+.terrain-grass-layer{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}.terrain-grass{width:100%;height:100%;display:block}
+.fence{position:absolute;left:0;right:0;top:4px;height:30px;display:flex;overflow:hidden;pointer-events:none;z-index:2}.terrain-fence{flex:0 0 34%;height:30px;display:block}
+.sky:after{content:"";position:absolute;bottom:-17px;left:-4%;width:108%;height:31px;border-radius:50% 45% 0 0;background:#9ac76b;pointer-events:none}
+.plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:72px 20px;max-width:410px;margin:0 auto 66px}
+.plot{position:relative;display:block;padding:0;border:0;border-radius:13px;overflow:visible;height:132px;background:transparent;color:#554322;box-shadow:none;transition:filter .15s}
+.terrain-bed{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0}
+.plot:hover{filter:brightness(1.04)}.plot:focus-visible{outline:3px solid #376d32;outline-offset:4px}
+.crop-row{display:flex;align-items:flex-end;justify-content:space-evenly;gap:9px;height:100%;width:100%;padding:12px 12px 25px;overflow:hidden;position:relative;z-index:1;--crop-height:68px}
+.crop-row.stage-1{--crop-height:30px}.crop-row.stage-2{--crop-height:52px}.crop-row.stage-3{--crop-height:76px}.crop-row.stage-4{--crop-height:88px}
+.crop-instance{position:relative;display:flex;align-items:flex-end;justify-content:center;flex:1;min-width:0;height:var(--crop-height);max-width:86px}
+.crop-instance:before{content:"";position:absolute;bottom:-3px;left:20%;right:20%;height:7px;border-radius:50%;background:#412e252e;filter:blur(2px)}
+.crop-instance .plant-art{position:relative;display:block;width:100%;height:100%;overflow:visible;transform-origin:50% 98%;animation:garden-sway 6s ease-in-out infinite alternate}
+.crop-instance:nth-child(2) .plant-art{animation-delay:-3s;scale:.96;transform-origin:50% 100%}
+.plant-art{display:block}.crop-detail-art .plant-art{width:140px;height:140px}
+/* A compact timber board and a stake, kept below the crop silhouette. */
+.plot-label{position:absolute;left:12px;top:calc(100% + 10px);bottom:auto;z-index:3;isolation:isolate;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:3px 7px;min-width:58px;background:repeating-linear-gradient(0deg,transparent 0 8px,#91602d0b 9px,transparent 10px),linear-gradient(105deg,#f6deb0,#ebca92 70%,#f3d9aa);border:1px solid #a9824b;border-radius:3px 5px 4px 3px;box-shadow:0 2px 0 #ac8248,inset 0 1px 0 #fff5db;line-height:1.2;pointer-events:none;text-align:center;transform:rotate(-2deg)}
+.plot:nth-child(even) .plot-label{transform:rotate(2deg)}
+.plot-label:before{content:"";position:absolute;left:calc(50% - 4px);top:100%;width:8px;height:14px;background:linear-gradient(90deg,#98703f,#c19860 45%,#ac804b);border:1px solid #926b3b;clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%);z-index:-1}
+.plot-label:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 4px 5px,#967344 1px,transparent 1.5px),radial-gradient(circle at calc(100% - 4px) 5px,#967344 1px,transparent 1.5px)}
+.plot-label b{font-family:"Nanum Pen","Pretendard",sans-serif;font-size:18px;font-weight:400;letter-spacing:0;line-height:1.05;white-space:nowrap;color:#624c2d}
+.plot-label small{font-family:"Pretendard",sans-serif;font-size:9.5px;font-weight:500;color:#75603e;white-space:nowrap;line-height:1.25;margin-top:1px;letter-spacing:.1px}
+.missing-original{font-size:11px;font-weight:400;line-height:1.6;color:#f6e4c9;text-align:center;align-self:center;opacity:.85}
+.alert-dot{position:absolute;right:-2px;top:-3px;width:12px;height:12px;border:2px solid #fff;border-radius:50%;background:#df8262;z-index:2}
+.empty-plot{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:7px;height:100%;color:#fff0d2;background:transparent;font-size:12px;color:#fff0d2}
+.empty-plot span{display:grid;place-items:center;width:32px;height:32px;border:1px dashed #f0d6ab;border-radius:50%;font-size:21px;font-weight:400}
+.garden-footer{padding:16px 24px;background:#f5f6ed;border-top:1px solid #dce3d0;gap:10px}
+.garden-footer .primary,.garden-footer .secondary{font-size:13px;min-height:45px}
+.rainfall{display:none;position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.weather-rain .rainfall{display:block}.rainfall i{position:absolute;left:var(--x);top:-22px;width:1.7px;height:var(--length);opacity:var(--alpha);background:linear-gradient(180deg,#e8f5ff20,#effaff 38%,#e7f7ff);border-radius:2px;animation:garden-rain var(--speed) linear var(--delay) infinite}
+/* All effect layers are clipped by .sky; the garden remains clear. */
+.sun{display:none}.weather-sun .sun{display:block;filter:drop-shadow(0 0 9px #fbe5a680);animation:garden-sunlight 5s ease-in-out infinite}
+.cloud{animation:garden-cloud 12s ease-in-out infinite alternate}.cloud.c2{animation-duration:17s;animation-delay:-7s}.cloud.c3{animation-duration:20s;animation-delay:-11s}
+#app.weather-cloud{--sky-top:#b9cfd9;--sky-bottom:#dee9ec;--cloud-fill:#f4f7f7;--cloud-shade:#cad9de}
+#app.weather-rain{--sky-top:#94aebf;--sky-bottom:#bdcfda;--cloud-fill:#d7e1e9;--cloud-shade:#abbfce}
+#app.weather-snow{--sky-top:#adcad9;--sky-bottom:#dfedf3;--cloud-fill:#f3f7fa;--cloud-shade:#c4d8e4}
+#app.weather-fog,#app.weather-unknown{--sky-top:#b9c9c9;--sky-bottom:#dce4df;--cloud-fill:#e5ece8;--cloud-shade:#cedbd5}
+.weather-cloud .cloud,.weather-rain .cloud,.weather-snow .cloud{width:120px;height:58px;left:22px;top:1px}
+.weather-cloud .cloud.c2,.weather-rain .cloud.c2,.weather-snow .cloud.c2{left:auto;right:14px;top:23px;width:103px;height:50px;opacity:.8}
+.weather-cloud .cloud.c3,.weather-rain .cloud.c3,.weather-snow .cloud.c3{display:block;left:44%;top:1px;width:76px;height:37px;opacity:.65}
+.moon,.stars,.snowfall,.mist{display:none;position:absolute;pointer-events:none}
+.snowfall{inset:0;overflow:hidden}.weather-snow .snowfall{display:block}
+.snowfall i{position:absolute;left:var(--x);top:-10px;width:var(--size);height:var(--size);opacity:var(--alpha);animation:garden-snow var(--speed) linear var(--delay) infinite}
+.snow-dot{border-radius:50%;background:#fff;box-shadow:0 0 3px #ffffff70}.snow-crystal svg{display:block;width:100%;height:100%}
+.weather-fog .cloud{opacity:.25}.weather-fog .mist{display:block;inset:0}
+.mist i{position:absolute;left:-12%;width:125%;height:26px;top:12px;border-radius:50%;background:linear-gradient(90deg,transparent,#eef5efaa 25%,#ffffff99 70%,transparent);filter:blur(6px);animation:garden-mist 10s ease-in-out infinite alternate}
+.mist i:nth-child(2){top:34px;left:-5%;opacity:.8;animation-delay:-4s}.mist i:nth-child(3){top:57px;left:-18%;opacity:.65;animation-delay:-8s}
+#app.weather-night{--sky-top:#3f536d;--sky-bottom:#71849b;--cloud-fill:#9caec4;--cloud-shade:#8095ae}
+.weather-night .sun{display:none}.weather-night .cloud{opacity:.5}
+.weather-night.weather-sun .moon,.weather-night.weather-cloud .moon{display:block;width:44px;height:44px;right:51px;top:2px;filter:drop-shadow(0 0 8px #fff1c630)}
+.weather-night.weather-cloud .moon{opacity:.65}
+.weather-night.weather-sun .stars{display:block;inset:0;background:radial-gradient(circle at 13% 17%,#f8f3d9 1px,transparent 2px),radial-gradient(circle at 29% 8%,#f8f3d9 1px,transparent 2px),radial-gradient(circle at 39% 36%,#f8f3d9 1.5px,transparent 2px),radial-gradient(circle at 64% 12%,#f8f3d9 1px,transparent 2px),radial-gradient(circle at 91% 62%,#f8f3d9 1px,transparent 2px);animation:garden-stars 5s ease-in-out infinite alternate}
+@keyframes garden-sunlight{50%{filter:drop-shadow(0 0 13px #fbe5a6c0);transform:scale(1.03)}}
+@keyframes garden-cloud{from{transform:translateX(-12px)}to{transform:translateX(16px)}}
+@keyframes garden-snow{from{transform:translate(-7px,-4px) rotate(0)}to{transform:translate(13px,106px) rotate(50deg)}}
+@keyframes garden-mist{to{transform:translateX(22px);opacity:.5}}
+@keyframes garden-stars{to{opacity:.45}}
+@keyframes garden-sway{from{rotate:-.6deg}to{rotate:.6deg}}
+@keyframes garden-rain{from{transform:translate(5px,-4px) rotate(9deg)}to{transform:translate(-8px,108px) rotate(9deg)}}
+@media(max-width:680px){.garden-top{padding:20px 18px 0}.garden-field{padding:37px 18px 22px}.plots{gap:72px 16px}.plot{height:118px}.crop-row{padding:9px 10px 22px;gap:7px}.crop-row.stage-4{--crop-height:78px}.crop-row.stage-3{--crop-height:67px}.plot-label b{font-size:18px}.garden-footer{padding:15px 18px max(15px,env(safe-area-inset-bottom))}}
+@media(prefers-reduced-motion:reduce){.crop-instance .plant-art,.sky *{animation:none!important}.rainfall,.snowfall{display:none!important}}
+
+.page-head h1{font-weight:750;letter-spacing:-.6px}.farm-card strong{font-weight:650;letter-spacing:-.3px}.primary,.secondary{font-weight:650;letter-spacing:-.15px}.garden-footer{background:#f8f1e2}.garden-footer .primary{background:#528457}.garden-footer .secondary{background:#fffdf7;border-color:#91ad82}.farm-select{font-weight:650}.weather-copy{display:flex;flex-direction:column;justify-content:center;text-align:left}.weather-symbol{align-self:center}.plot{filter:drop-shadow(0 2px 1px #5a74321a)}
