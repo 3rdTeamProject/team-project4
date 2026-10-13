@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { storage } from '../api.js'
 import { intro } from '../intro.js'
@@ -80,6 +80,16 @@ export default function Intro() {
   const navigate = useNavigate()
   const reduce = useReducedMotion()
   const [index, setIndex] = useState(0)
+  const [params, setParams] = useSearchParams()
+
+  // /intro?reset: 완료 표시를 지워 안내를 다시 볼 수 있게 하고, 주소에서 reset을 뗀다
+  // (새로고침해도 다시 지워지지 않도록). 토큰이 없어도 지워 두면 로그인 뒤 안내가 다시 나온다.
+  useEffect(() => {
+    if (!params.has('reset')) return
+    intro.reset()
+    // 토큰이 없으면 아래에서 /로 보내므로 주소는 건드리지 않는다(이동이 덮어써지지 않게)
+    if (storage.token) setParams({}, { replace: true })
+  }, [params, setParams])
 
   if (!storage.token) return <Navigate to="/" replace />
 
