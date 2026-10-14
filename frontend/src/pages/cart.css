@@ -278,7 +278,9 @@
   color: var(--primary);
   font-size: 15px;
   font-weight: 700;
+  font-family: inherit;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .cart-all input:focus-visible,

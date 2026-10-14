@@ -348,6 +348,35 @@
   color: var(--minus);
 }
 
+.log-more-link,
+.log-more-btn {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.log-more-btn:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.log-more-link:focus-visible,
+.log-more-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* 닉네임 변경 시트 */
 .sheet-backdrop {
   position: fixed;

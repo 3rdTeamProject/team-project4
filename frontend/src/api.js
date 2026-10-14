@@ -87,6 +87,7 @@ export const api = {
   deleteShippingAddress: () => request('/shipping-address', { method: 'DELETE' }),
   updateNotifications: (patch) => request('/me/notifications', { method: 'PATCH', body: patch }),
   mySummary: () => request('/me/summary'),
+  pointLogs: (offset = 0, limit = 20) => request(`/me/point-logs?offset=${offset}&limit=${limit}`),
   updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
 }
 
