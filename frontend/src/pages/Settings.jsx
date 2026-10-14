@@ -1,4 +1,5 @@
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { useGoBack } from '../hooks/useGoBack.js'
 import { useKakaoLink } from '../hooks/useKakaoLink.js'
@@ -35,9 +36,16 @@ export default function Settings() {
   const navigate = useNavigate()
   const location = useLocation()
   const { me, setMe, error } = useMe()
-  const [toast, setToast] = useToast(location.state?.linkFailed ? LINK_FAILED : '')
+  const [toast, setToast] = useToast(location.state?.toast ?? (location.state?.linkFailed ? LINK_FAILED : ''))
   const { linking, startLink } = useKakaoLink('/settings')
   const goBack = useGoBack('/menu')
+  const [hasAddress, setHasAddress] = useState(false)
+  const isMember = me?.login_type === 'kakao'
+
+  useEffect(() => {
+    if (!isMember) return
+    api.shippingAddress().then((saved) => setHasAddress(!!saved)).catch(() => {})
+  }, [isMember])
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -114,6 +122,15 @@ export default function Settings() {
                   <span className="kakao-badge" aria-hidden="true"><KakaoBubble /></span>
                   <span className="set-title">카카오톡 연동됨</span>
                 </div>
+              )}
+              {!isGuest && (
+                <Link className="set-row set-link" to="/settings/shipping">
+                  <div className="set-text">
+                    <span className="set-title">배송지 관리</span>
+                    {hasAddress && <span className="set-sub">저장된 배송지 1개</span>}
+                  </div>
+                  <Chevron />
+                </Link>
               )}
             </div>
           </section>
