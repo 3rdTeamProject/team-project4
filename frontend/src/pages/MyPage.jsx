@@ -3,22 +3,13 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, ReceiptIcon, SproutIcon } from '../components/Icons.jsx'
 import NicknameSheet from '../components/NicknameSheet.jsx'
+import PointLogList from '../components/PointLogList.jsx'
 import { levelProgress } from '../constants/level.js'
 import { useGoBack } from '../hooks/useGoBack.js'
 import { useKakaoLink } from '../hooks/useKakaoLink.js'
 import { useMe } from '../hooks/useMe.js'
 import { useToast } from '../hooks/useToast.js'
 import './screens.css'
-
-function formatDate(iso) {
-  const d = new Date(iso)
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`
-}
-
-function formatAmount(amount) {
-  const abs = Math.abs(amount).toLocaleString()
-  return amount < 0 ? `−${abs}P` : `+${abs}P`
-}
 
 export default function MyPage() {
   const location = useLocation()
@@ -171,17 +162,10 @@ export default function MyPage() {
             {summary.point_logs.length === 0 ? (
               <p className="log-empty">아직 받은 포인트가 없어요</p>
             ) : (
-              <ul className="log-list">
-                {summary.point_logs.map((log, i) => (
-                  <li key={i} className="log-item">
-                    <div className="log-main">
-                      <span className="log-name">{log.name}</span>
-                      <span className="log-date">{formatDate(log.created_at)}</span>
-                    </div>
-                    <span className={`log-amount${log.amount < 0 ? ' minus' : ''}`}>{formatAmount(log.amount)}</span>
-                  </li>
-                ))}
-              </ul>
+              <PointLogList logs={summary.point_logs} />
+            )}
+            {summary.point_logs.length > 0 && (
+              <Link className="log-more-link" to="/mypage/points">포인트 내역 자세히 보기</Link>
             )}
           </section>
         </>
