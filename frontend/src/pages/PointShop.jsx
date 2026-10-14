@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
-import { CoinIcon } from '../components/Icons.jsx'
+import { CoinIcon, ReceiptIcon } from '../components/Icons.jsx'
 import GuestNotice from '../components/GuestNotice.jsx'
 import RewardIcon from '../components/RewardIcon.jsx'
 import { useGoBack } from '../hooks/useGoBack.js'
@@ -115,7 +115,15 @@ export default function PointShop() {
         ))}
       </div>
 
-      {rewards && <p className="shop-count" aria-live="polite">상품 {shown.length}개</p>}
+      <div className="shop-sub">
+        <p className="shop-count" aria-live="polite">{rewards && `상품 ${shown.length}개`}</p>
+        {me && !isGuest && (
+          <Link className="shop-orders" to="/pointshop/orders">
+            <ReceiptIcon />
+            주문 내역
+          </Link>
+        )}
+      </div>
 
       {rewards && shown.length > 0 && (
         <div className="shop-grid">

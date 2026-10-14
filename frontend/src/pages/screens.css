@@ -516,3 +516,47 @@
   font-size: 14px;
   text-align: center;
 }
+
+/* 마이페이지: 주문 내역 바로가기 */
+.order-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.order-shortcut-icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--leaf-bg);
+  color: var(--primary);
+}
+
+.order-shortcut-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-shortcut-arrow {
+  flex: none;
+  color: var(--muted);
+}
+
+.order-shortcut:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

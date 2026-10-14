@@ -75,6 +75,8 @@ export const api = {
   me: () => request('/me'),
   rewards: () => request('/rewards'),
   exchange: (body) => request('/exchanges', { method: 'POST', body }),
+  orders: (status = 'all') => request(`/me/orders?status=${status}`),
+  order: (id) => request(`/me/orders/${id}`),
   cart: () => request('/cart'),
   setCartQuantity: (rewardId, quantity) => request(`/cart/items/${rewardId}`, { method: 'PATCH', body: { quantity } }),
   removeFromCart: (rewardIds) =>

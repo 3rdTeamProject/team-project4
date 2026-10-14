@@ -9,6 +9,8 @@ import Settings from './pages/Settings.jsx'
 import PointShop from './pages/PointShop.jsx'
 import PointExchange from './pages/PointExchange.jsx'
 import ExchangeBlocked from './pages/ExchangeBlocked.jsx'
+import OrderHistory from './pages/OrderHistory.jsx'
+import OrderDetail from './pages/OrderDetail.jsx'
 import Cart from './pages/Cart.jsx'
 import CartExchange from './pages/CartExchange.jsx'
 import ShippingAddress from './pages/ShippingAddress.jsx'
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="/journals" element={<Home key="journals" gardenView="journal" />} />
         <Route path="/diagnosis" element={<GardenPending title="AI 진단" description="사진 진단은 AI 서비스 연결 후 사용할 수 있어요." />} />
         <Route path="/pointshop" element={<PointShop />} />
+        <Route path="/pointshop/orders" element={<OrderHistory />} />
+        <Route path="/pointshop/orders/:orderId" element={<OrderDetail />} />
         <Route path="/pointshop/blocked" element={<ExchangeBlocked />} />
         <Route path="/pointshop/exchange/:rewardId" element={<PointExchange />} />
         <Route path="/cart" element={<Cart />} />

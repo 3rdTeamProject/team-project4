@@ -20,6 +20,9 @@
   --warn-bg: #fff1d6;
   --warn-border: #f0c36d;
   --warn-text: #4a2f00;
+  --info-bg: #e3f0fa; /* 안내(정보) 톤: 배송 중 칩 등 */
+  --info-text: #1d4e73;
+  --primary-dark: #1f5e24; /* 연한 초록 바탕 위의 진한 초록 글자(완료 칩 등) */
   --kakao-pill: #fff7c2;
   --minus: #c62828;
   --minus-edge: #e8b4b4; /* 삭제·로그아웃 같은 위험 버튼 테두리 */

@@ -217,6 +217,7 @@ GUEST_DATA_TABLES = [
     ("shipping_addresses", "user_id"),
     ("point_logs", "user_id"),
     ("reward_exchanges", "user_id"),
+    ("orders", "user_id"),  # reward_exchanges가 orders를 참조하므로 reward_exchanges 다음에 둔다
     ("journals", "user_id"),
     ("plantings", "user_id"),
     ("farms", "user_id"),
