@@ -52,7 +52,7 @@ export default function PointExchange() {
     setBusy(true)
     api
       .exchange(body)
-      .then(() => navigate('/pointshop', { replace: true, state: { toast: '교환했어요', afterAction: true } }))
+      .then(() => navigate('/pointshop', { replace: true, state: { toast: '교환했어요' } }))
       .catch((e) => {
         setToast(e.message)
         setBusy(false)

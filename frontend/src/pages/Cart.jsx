@@ -150,7 +150,7 @@ export default function Cart() {
               {canExchange && <span>교환 후 {(point - total).toLocaleString()}P</span>}
             </div>
             {canExchange ? (
-              <Link className="ex-submit cart-go" to={isGuest ? '/pointshop/blocked' : '/cart/exchange'} state={{ ids: picked.map((i) => i.reward_id) }}>선택 상품 교환하기</Link>
+              <Link className="ex-submit cart-go" to={isGuest ? '/pointshop/blocked' : '/cart/exchange'} state={{ ids: picked.map((i) => i.reward_id), from: '/cart' }}>선택 상품 교환하기</Link>
             ) : (
               <div className="cart-disabled">{noneSelected ? '상품을 선택해 주세요' : '포인트가 부족해요'}</div>
             )}

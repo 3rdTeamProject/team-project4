@@ -145,7 +145,7 @@ export default function MyPage() {
           </section>
 
           {isKakao && (
-            <Link className="order-shortcut" to="/pointshop/orders">
+            <Link className="order-shortcut" to="/pointshop/orders" state={{ from: '/mypage' }}>
               <span className="order-shortcut-icon"><ReceiptIcon size={20} /></span>
               <span className="order-shortcut-text">
                 <span className="shortcut-title">주문 내역</span>
