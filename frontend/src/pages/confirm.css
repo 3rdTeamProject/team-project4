@@ -1,0 +1,71 @@
+/* 확인 창 */
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--page-pad-x);
+  background: var(--sheet-dim);
+}
+
+.confirm {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 20px 20px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  text-align: center;
+}
+
+.confirm-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 20px;
+}
+
+.confirm-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+  word-break: keep-all;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.confirm-cancel,
+.confirm-ok {
+  flex: 1;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirm-cancel {
+  border: 2px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text);
+}
+
+.confirm-ok {
+  border: 0;
+  background: var(--minus);
+  color: #fff;
+}
+
+.confirm-cancel:focus-visible,
+.confirm-ok:focus-visible {
+  outline: 2px solid var(--ls-focus);
+  outline-offset: 2px;
+}

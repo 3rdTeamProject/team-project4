@@ -18,3 +18,11 @@ export function CoinIcon({ size = 24 }) {
     </svg>
   )
 }
+
+export function KakaoIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#191919" aria-hidden="true">
+      <path d="M12 4C7.6 4 4 6.9 4 10.4c0 2.2 1.4 4.2 3.6 5.3L6.8 19l3.6-2.2c.5.1 1.1.2 1.6.2 4.4 0 8-2.9 8-6.6S16.4 4 12 4z" />
+    </svg>
+  )
+}
