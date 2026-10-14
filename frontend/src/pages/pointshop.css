@@ -124,30 +124,6 @@
   color: #fff;
 }
 
-.shop-sub {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: -4px 0; /* 줄 높이를 44px로 키운 만큼 위아래 간격을 보정 */
-}
-
-.shop-orders {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--tap-min);
-  padding: 0 4px;
-  color: var(--primary);
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.shop-orders:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
 .shop-count {
   margin: 0;
   color: var(--muted);

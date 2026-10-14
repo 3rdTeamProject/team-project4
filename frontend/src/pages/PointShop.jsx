@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, ReceiptIcon } from '../components/Icons.jsx'
 import GuestNotice from '../components/GuestNotice.jsx'
+import { ORDER_STATUS } from '../constants/order.js'
 import RewardIcon from '../components/RewardIcon.jsx'
 import { useGoBack } from '../hooks/useGoBack.js'
 import { useMe } from '../hooks/useMe.js'
@@ -36,6 +37,7 @@ export default function PointShop() {
   const [toast, setToast] = useToast(state?.toast ?? (state?.linkFailed ? LINK_FAILED : ''), TOAST_MS)
   const goBack = useGoBack('/menu')
   const isGuest = me?.login_type === 'guest'
+  const [orders, setOrders] = useState(null) // 내 주문 목록(회원만 불러온다). 카드의 표시 여부와 진행 중 건수에 쓴다
 
   useEffect(() => {
     api.rewards().then(setRewards).catch((e) => setLoadError(e.message))
@@ -44,6 +46,13 @@ export default function PointShop() {
       .then((items) => setCartCount(items.reduce((sum, item) => sum + item.quantity, 0)))
       .catch(() => {})
   }, [])
+
+  // 주문은 카카오 회원만 만들 수 있어서 비회원은 부르지 않는다
+  const isMember = me?.login_type === 'kakao'
+  useEffect(() => {
+    if (!isMember) return
+    api.orders().then(setOrders).catch(() => {})
+  }, [isMember])
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -83,6 +92,20 @@ export default function PointShop() {
 
       {isGuest && <GuestNotice />}
 
+      {/* 주문이 한 번이라도 있으면 보인다(진행 중이 아니어도). 한 번도 교환 안 했으면 숨김 */}
+      {orders && orders.length > 0 && (
+        <Link className="order-shortcut" to="/pointshop/orders">
+          <span className="order-shortcut-icon"><ReceiptIcon size={20} /></span>
+          <span className="order-shortcut-text">
+            <span className="shortcut-title">주문 내역</span>
+            <span className="shortcut-sub">진행 중 {orders.filter((o) => ORDER_STATUS[o.status]?.group === 'ing').length}건</span>
+          </span>
+          <svg className="order-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </Link>
+      )}
+
       <div className="shop-search">
         <label htmlFor="shop-search" className="sr-only">상품 검색</label>
         <svg className="shop-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -115,15 +138,7 @@ export default function PointShop() {
         ))}
       </div>
 
-      <div className="shop-sub">
-        <p className="shop-count" aria-live="polite">{rewards && `상품 ${shown.length}개`}</p>
-        {me && !isGuest && (
-          <Link className="shop-orders" to="/pointshop/orders">
-            <ReceiptIcon />
-            주문 내역
-          </Link>
-        )}
-      </div>
+      {rewards && <p className="shop-count" aria-live="polite">상품 {shown.length}개</p>}
 
       {rewards && shown.length > 0 && (
         <div className="shop-grid">
