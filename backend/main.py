@@ -33,6 +33,7 @@ from pydantic import BaseModel
 
 from level import level_from_exp
 from garden import register_garden
+from shop import register_shop
 
 load_dotenv()
 
@@ -70,6 +71,7 @@ users = Table(
     Column("region", String(50), nullable=True),
     Column("point", Integer, nullable=False, default=0, server_default=text("0")),  # 현재 포인트(교환하면 줄어듦)
     Column("exp", Integer, nullable=False, default=0, server_default=text("0")),  # 누적 경험치(안 줄어듦)
+    Column("diag_credits", Integer, nullable=False, default=0, server_default=text("0")),  # AI진단 남은 횟수(포인트샵 기능 상품으로 충전)
     # 알림 설정 (실제 푸시 발송은 아직 없음, 설정값만 저장)
     Column("notify_todo", Boolean, nullable=False, default=True, server_default=text("true")),
     Column("notify_weather", Boolean, nullable=False, default=True, server_default=text("true")),
@@ -211,8 +213,11 @@ def fetch_kakao_profile(code: str) -> dict:
 # 목록 순서대로 삭제하므로 자식 테이블(다른 테이블을 참조하는 쪽)을 앞에 둔다.
 # user_id가 없는 테이블(plots, harvests, task_logs, pest_diagnoses)은 부모 행 삭제 시 ON DELETE CASCADE로 지워져야 한다.
 GUEST_DATA_TABLES = [
+    ("cart_items", "user_id"),  # 비회원 장바구니: 카카오 연동 때 이 목록 처리로 함께 옮겨지거나(비회원 선택) 지워진다(카카오 선택)
+    ("shipping_addresses", "user_id"),
     ("point_logs", "user_id"),
     ("reward_exchanges", "user_id"),
+    ("orders", "user_id"),  # reward_exchanges가 orders를 참조하므로 reward_exchanges 다음에 둔다
     ("journals", "user_id"),
     ("plantings", "user_id"),
     ("farms", "user_id"),
@@ -271,10 +276,10 @@ def has_data(summary: dict) -> bool:
 
 
 def delete_user_data(conn, user_id: int) -> None:
-    """GUEST_DATA_TABLES 기준으로 해당 사용자의 데이터를 지우고 포인트·경험치를 0으로 되돌린다."""
+    """GUEST_DATA_TABLES 기준으로 해당 사용자의 데이터를 지우고 포인트·경험치·AI진단 횟수를 0으로 되돌린다."""
     for table_name, column in _existing_data_tables(conn):
         conn.execute(text(f'DELETE FROM "{table_name}" WHERE "{column}" = :uid'), {"uid": user_id})
-    conn.execute(update(users).where(users.c.id == user_id).values(point=0, exp=0))
+    conn.execute(update(users).where(users.c.id == user_id).values(point=0, exp=0, diag_credits=0))
 
 
 def move_user_data(conn, from_id: int, to_id: int) -> None:
@@ -285,7 +290,9 @@ def move_user_data(conn, from_id: int, to_id: int) -> None:
             {"to": to_id, "frm": from_id},
         )
     src = conn.execute(select(users).where(users.c.id == from_id)).mappings().one()
-    conn.execute(update(users).where(users.c.id == to_id).values(point=src["point"], exp=src["exp"]))
+    conn.execute(
+        update(users).where(users.c.id == to_id).values(point=src["point"], exp=src["exp"], diag_credits=src["diag_credits"])
+    )
 
 
 def create_link_ticket(guest_id: int, kakao_id: str) -> str:
@@ -519,3 +526,4 @@ def update_notifications(body: NotificationRequest, user=Depends(get_current_use
 
 # Registered before lifespan creates the tables.
 register_garden(app, metadata, engine, get_current_user, users)
+register_shop(app, metadata, engine, get_current_user, users)

@@ -1,0 +1,255 @@
+/* 포인트샵 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.shop-header {
+  gap: 4px;
+}
+
+.shop-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.shop-cart {
+  position: relative;
+  flex: none;
+}
+
+.shop-badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shop-points {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px 3px 4px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--coin-text);
+  font-family: var(--font-number);
+  font-size: 16px;
+}
+
+/* 검색 */
+.shop-search {
+  position: relative;
+}
+
+.shop-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.shop-search-input {
+  width: 100%;
+  height: var(--tap-min);
+  padding: 0 44px 0 42px;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.shop-search-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.shop-search-clear {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* 탭 */
+.shop-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shop-tab {
+  height: var(--tap-min);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shop-tab[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.shop-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 상품 */
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--card-bg);
+}
+
+.shop-card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.shop-thumb {
+  height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--leaf-bg);
+}
+
+.shop-cat {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shop-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.shop-price {
+  color: var(--coin-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.shop-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: var(--tap-min);
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 검색 결과 없음 */
+.shop-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 20px 0;
+  text-align: center;
+}
+
+.shop-empty-art {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--leaf-bg);
+  color: var(--primary);
+}
+
+.shop-empty-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 20px;
+}
+
+.shop-empty-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.shop-reset {
+  margin-top: 6px;
+  height: var(--tap-min);
+  padding: 0 22px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shop-search-input:focus-visible,
+.shop-search-clear:focus-visible,
+.shop-tab:focus-visible,
+.shop-add:focus-visible,
+.shop-reset:focus-visible,
+.shop-cart:focus-visible,
+.shop-card-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

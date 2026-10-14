@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
-import { CoinIcon, SproutIcon } from '../components/Icons.jsx'
+import { CoinIcon, ReceiptIcon, SproutIcon } from '../components/Icons.jsx'
 import NicknameSheet from '../components/NicknameSheet.jsx'
 import { levelProgress } from '../constants/level.js'
 import { useGoBack } from '../hooks/useGoBack.js'
@@ -25,6 +25,7 @@ export default function MyPage() {
   const { me, setMe, error } = useMe()
   const [summary, setSummary] = useState(null)
   const [summaryError, setSummaryError] = useState('')
+  const [ingOrders, setIngOrders] = useState(null) // 진행 중인 주문 수 (불러오기 전에는 null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [toast] = useToast(location.state?.linkFailed ? '연동하지 못했어요. 다시 시도해 주세요' : '')
   const { linking, startLink } = useKakaoLink('/mypage')
@@ -39,10 +40,17 @@ export default function MyPage() {
       })
   }, [])
 
+  const isKakao = me?.login_type === 'kakao'
+
+  // 주문은 카카오 회원만 만들 수 있어서 비회원은 부르지 않는다. 개수는 GET /me/orders?status=ing 결과의 길이.
+  useEffect(() => {
+    if (!isKakao) return
+    api.orders('ing').then((list) => setIngOrders(list.length)).catch(() => {})
+  }, [isKakao])
+
   if (!storage.token) return <Navigate to="/" replace />
 
   const progress = me ? levelProgress(me.exp) : null
-  const isKakao = me?.login_type === 'kakao'
 
   return (
     <div className="screen">
@@ -144,6 +152,19 @@ export default function MyPage() {
               </span>
             </Link>
           </section>
+
+          {isKakao && (
+            <Link className="order-shortcut" to="/pointshop/orders">
+              <span className="order-shortcut-icon"><ReceiptIcon size={20} /></span>
+              <span className="order-shortcut-text">
+                <span className="shortcut-title">주문 내역</span>
+                {ingOrders !== null && <span className="shortcut-sub">진행 중 {ingOrders}건</span>}
+              </span>
+              <svg className="order-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </Link>
+          )}
 
           <section className="log-section">
             <h2 className="log-title">포인트 내역</h2>

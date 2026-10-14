@@ -1,0 +1,104 @@
+/* 배송지 관리 */
+.ship-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+}
+
+.ship-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ship-field label {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ship-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--tap-min);
+  padding: 0 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.ship-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.ship-input:focus-visible,
+.ship-find:focus-visible,
+.ship-delete:focus-visible,
+.ship-save:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.ship-zip-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ship-find {
+  flex: none;
+  height: var(--tap-min);
+  padding: 0 16px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ship-actions {
+  display: flex;
+  gap: 10px;
+  position: sticky;
+  bottom: 0;
+  padding: 12px 0 8px;
+  background: var(--bg);
+}
+
+.ship-delete,
+.ship-save {
+  height: 52px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ship-delete {
+  width: 96px;
+  border: 2px solid var(--minus-edge);
+  background: var(--card-bg);
+  color: var(--minus);
+}
+
+.ship-save {
+  flex: 1;
+  border: 0;
+  background: var(--primary);
+  color: #fff;
+}
+
+.ship-delete:disabled,
+.ship-save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

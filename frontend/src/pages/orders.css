@@ -1,0 +1,484 @@
+/* 주문 내역 */
+.order-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.order-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--card-bg);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.order-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.order-date {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.order-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.order-chip.warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.order-chip.info {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.order-chip.done {
+  background: var(--leaf-bg);
+  color: var(--primary-dark);
+}
+
+.order-card-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.order-thumb {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--leaf-bg);
+}
+
+.order-thumb svg {
+  width: 38px;
+  height: 38px;
+}
+
+.order-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-name {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+}
+
+.order-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.order-price {
+  flex: none;
+  font-family: var(--font-number);
+  font-size: 17px;
+  color: var(--coin-text);
+}
+
+.order-arrow {
+  flex: none;
+  color: var(--muted);
+}
+
+.order-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px 80px;
+  text-align: center;
+}
+
+.order-empty-art {
+  width: 104px;
+  height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--leaf-bg);
+  color: var(--primary);
+}
+
+.order-empty-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 22px;
+}
+
+.order-empty-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.order-empty-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  margin-top: 6px;
+  padding: 0 24px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.order-card:focus-visible,
+.order-empty-go:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* 주문 상세 */
+.od-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.od-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.od-headline {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--primary-dark);
+}
+
+.od-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.od-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.od-step-line {
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  right: -50%;
+  height: 3px;
+  background: var(--card-border);
+}
+
+.od-step.done .od-step-line {
+  background: var(--primary);
+}
+
+.od-dot {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--card-bg);
+  border: 2px solid var(--switch-off);
+}
+
+.od-step.done .od-dot,
+.od-step.current .od-dot {
+  border: 0;
+  background: var(--primary);
+}
+
+.od-step.current .od-dot {
+  box-shadow: 0 0 0 4px var(--pill-border);
+}
+
+.od-dot-core {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.od-step-label {
+  color: var(--muted);
+}
+
+.od-step.done .od-step-label {
+  color: var(--text);
+}
+
+.od-step.current .od-step-label {
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.od-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  background: var(--profile-band);
+}
+
+.od-track-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.od-track-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.od-track-no {
+  font-size: 15px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.od-track-empty {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--profile-band);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.od-copy {
+  flex: none;
+  height: var(--tap-min);
+  padding: 0 16px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.od-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.od-item + .od-item {
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+}
+
+.od-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.od-item-cat {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.od-item-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.od-item-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.od-item-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.od-item-price {
+  font-family: var(--font-number);
+  font-size: 17px;
+  color: var(--coin-text);
+}
+
+.od-item-chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.od-item-chip.info {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.od-item-chip.done {
+  background: var(--leaf-bg);
+  color: var(--primary-dark);
+}
+
+.od-ship-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.od-ship-phone {
+  font-weight: 400;
+}
+
+.od-ship-address {
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.od-ship-memo {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.od-ship-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.od-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.od-total-num {
+  font-family: var(--font-number);
+  font-size: 20px;
+  color: var(--coin-text);
+}
+
+.od-sum-num {
+  font-family: var(--font-number);
+  font-size: 16px;
+}
+
+/* 기능 충전 완료 안내 */
+.od-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 16px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--card-bg);
+  text-align: center;
+}
+
+.od-hero-check {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+}
+
+.od-hero-title {
+  margin: 4px 0 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 22px;
+}
+
+.od-hero-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.od-go {
+  width: 100%;
+  height: 52px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.od-copy:focus-visible,
+.od-go:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
