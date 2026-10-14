@@ -169,7 +169,8 @@ export default function Cart() {
           </div>
           <p className="cart-empty-title">장바구니가 비어 있어요</p>
           <p className="cart-empty-sub">포인트샵에서 마음에 드는 상품을<br />담아 보세요</p>
-          <Link className="cart-empty-go" to="/pointshop">포인트샵 가기</Link>
+          {/* 새로 이동하면 기록이 쌓여 포인트샵과 장바구니를 뒤로가기로 오가며 갇힌다 */}
+          <button type="button" className="cart-empty-go" onClick={goBack}>포인트샵 가기</button>
         </div>
       )}
 
