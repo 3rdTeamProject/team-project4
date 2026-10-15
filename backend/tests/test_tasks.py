@@ -80,6 +80,7 @@ class TaskTest(unittest.TestCase):
                 after=self.ids[after] if after else None)
             self.ids[key] = rows('SELECT id FROM crop_tasks WHERE title = :t AND crop_id = :c', t=title, c=crop)[0]['id']
         run('UPDATE crop_tasks SET info_only = :t WHERE id = :i', t=True, i=self.ids['lime'])
+        run('UPDATE crop_tasks SET plant_task = :t WHERE id = :i', t=True, i=self.ids['sow'])
         run('UPDATE crop_stages SET start_day = 5 WHERE crop_id = :c AND stage_no = 2', c=crop)
         for no, key in ((3, 'transplant'), (4, 'support'), (5, 'feed')):
             run('UPDATE crop_stages SET trigger_task_id = :t WHERE crop_id = :c AND stage_no = :n', t=self.ids[key], c=crop, n=no)
@@ -129,8 +130,12 @@ class TaskTest(unittest.TestCase):
         self.assertEqual(self.stage(), 1)
         self.assertEqual(rows('SELECT details FROM garden_plant_care')[-1]['details'].count('seed'), 1)
         # 시점이 되기 전에는 보이지 않는다
-        self.assertEqual(set(self.titles()), {'씨앗 심기', '석회·퇴비 섞기'})
-        self.assertEqual((self.titles()['석회·퇴비 섞기']['infoOnly'], self.titles()['씨앗 심기']['infoOnly']), (True, False))
+        self.assertEqual(set(self.titles()), {'석회·퇴비 섞기'})  # 씨앗 심기는 '심었어요'로 이미 완료돼 오늘 할 일에 없다
+        self.assertTrue(self.titles()['석회·퇴비 섞기']['infoOnly'])
+        sown = self.logs('sow')[0]
+        self.assertIsNotNone(sown['completed_at'])
+        self.assertEqual(self.user(), {'point': 5, 'exp': 5})  # 심은 순간 그 작업의 포인트를 받는다
+        self.assertEqual(rows('SELECT reason FROM point_logs WHERE user_id = :u', u=self.uid), [{'reason': '할 일 완료: 씨앗 심기'}])
 
     def test_seedling_skips_seed_only_and_starts_at_stage_3(self):
         self.plant('seedling')
@@ -142,18 +147,18 @@ class TaskTest(unittest.TestCase):
     def test_only_started_and_uncompleted_tasks_show_even_after_the_window(self):
         self.plant('seed')
         self.goto(3)
-        self.assertEqual(set(self.titles()), {'씨앗 심기', '석회·퇴비 섞기', '모종 물 주기'})  # 씨앗 심기는 구간(0~3)에 걸려 있다
+        self.assertEqual(set(self.titles()), {'석회·퇴비 섞기', '모종 물 주기'})
         self.goto(20)
-        self.assertIn('씨앗 심기', self.titles())  # 구간이 지나도 완료 전까지 보인다
+        self.assertIn('석회·퇴비 섞기', self.titles())  # 구간이 지나도 완료 전까지 보인다
 
     def test_completing_creates_journal_points_and_next_repeat(self):
         self.plant('seed')
         self.goto(3)
         result = self.complete('모종 물 주기', content='물을 줬어요')
         self.assertEqual(result['earned'], 3)
-        self.assertEqual(result['state']['points'], 3)
+        self.assertEqual(result['state']['points'], 8)  # 심을 때 5 + 3
         self.assertEqual(result['state']['records'][-1]['text'], '물을 줬어요')
-        self.assertEqual(self.user(), {'point': 3, 'exp': 3})
+        self.assertEqual(self.user(), {'point': 8, 'exp': 8})  # 심을 때 5 + 모종 물 주기 3
         done = [r for r in self.logs('pot_water') if r['completed_at']][0]
         self.assertIsNotNone(done['journal_id'])
         journal = rows('SELECT * FROM journals WHERE id = :i', i=done['journal_id'])[0]
@@ -161,7 +166,7 @@ class TaskTest(unittest.TestCase):
         # 완료한 날(3일) 기준 2일 뒤 하루짜리 다음 행
         nxt = [r for r in self.logs('pot_water') if not r['completed_at']][0]
         self.assertEqual((str(nxt['start_date']), str(nxt['end_date'])), ('2026-10-20', '2026-10-20'))
-        self.assertEqual(rows('SELECT amount FROM point_logs WHERE user_id = :u', u=self.uid), [{'amount': 3}])
+        self.assertEqual(rows('SELECT amount FROM point_logs WHERE user_id = :u', u=self.uid), [{'amount': 5}, {'amount': 3}])
 
     def test_transplant_starts_the_rest_and_stages_only_go_up(self):
         self.plant('seed')
@@ -222,7 +227,7 @@ class TaskTest(unittest.TestCase):
         self.plant('seed')
         self.goto(29)
         self.assertEqual(self.titles()['모종 옮겨심기']['triggersStage'], 3)
-        self.assertIsNone(self.titles()['씨앗 심기']['triggersStage'])
+        self.assertIsNone(self.titles()['석회·퇴비 섞기']['triggersStage'])
 
     def test_dev_day_tool_moves_the_server_clock(self):
         import tasks
@@ -252,6 +257,8 @@ class TaskTest(unittest.TestCase):
         self.assertEqual(len(crops), 8)
         self.assertTrue(crops['cucumber_spring']['hasTasks'])
         self.assertEqual([x['title'] for x in crops['cucumber_spring']['prep']], ['석회·퇴비 섞기'])
+        self.assertEqual((crops['cucumber_spring']['plant']['title'], crops['cucumber_spring']['plant']['points']), ('씨앗 심기', 5))
+        self.assertIsNone(crops['lettuce']['plant'])
         self.assertFalse(crops['lettuce']['hasTasks'])
         self.assertEqual(crops['lettuce']['prep'], [])
 

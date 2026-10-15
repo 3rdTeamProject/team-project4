@@ -73,8 +73,8 @@ def _next_span(done_on: date, task: dict) -> tuple[date, date]:
     return start, done_on + timedelta(days=task['repeat_max_days'] or task['repeat_min_days'])
 
 
-def start_planting(conn, t, planting_id: int, crop_id: int, method: str, planted_at: date) -> int:
-    """심기 시작: 처음 만들 할 일을 넣고 시작 단계를 돌려준다.
+def start_planting(conn, t, planting_id: int, crop_id: int, method: str, planted_at: date, user_id: int) -> int:
+    """심기 시작: 처음 만들 할 일을 넣고 시작 단계를 돌려준다. 심었어요로 끝나는 작업(plant_task)은 바로 완료로 기록한다.
 
     씨앗(seed)은 파종일 기준 할 일, 모종(seedling)은 씨앗 전용 할 일을 건너뛰고 옮겨심은 날(planted_at) 기준 할 일을 만든다.
     """
@@ -83,9 +83,17 @@ def start_planting(conn, t, planting_id: int, crop_id: int, method: str, planted
         mine = [x for x in tasks if x['anchor'] == 'sow']
     else:
         mine = [x for x in tasks if x['anchor'] == 'transplant' and not x['seed_only']]
-    rows = [_log_row(planting_id, x, *_first_span(planted_at, x)) for x in mine]
+    rows, done_now = [], []
+    for x in mine:
+        row = {**_log_row(planting_id, x, *_first_span(planted_at, x)), 'completed_at': None}
+        if method == 'seed' and x['plant_task']:  # '심었어요'를 누른 것이 곧 이 작업(예: 포트에 씨앗 심기)
+            row['completed_at'] = now_kst()
+            done_now.append(x)
+        rows.append(row)
     if rows:
         conn.execute(insert(t['task_logs']), rows)
+    for x in done_now:
+        grant_points(conn, t, user_id, x['points'], f"할 일 완료: {x['title']}")
     return TRANSPLANT_STAGE_NO if method == 'seedling' and tasks else 1
 
 

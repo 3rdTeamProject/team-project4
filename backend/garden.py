@@ -187,6 +187,8 @@ def register_garden(app, metadata, engine, get_current_user, users):
         Column('seed_only', Boolean, nullable=False, default=False, server_default=text('false')),
         # 체크하는 할 일이 아니라 '심기 전 준비' 화면에 바로 보여주기만 하는 안내(예: 밭에 석회·퇴비 섞기)
         Column('info_only', Boolean, nullable=False, default=False, server_default=text('false')),
+        # 씨앗으로 심을 때 '심었어요'를 누르는 순간 완료되는 작업(예: 포트에 씨앗 심기). 오늘 할 일에는 나오지 않는다
+        Column('plant_task', Boolean, nullable=False, default=False, server_default=text('false')),
         Column('anchor', String(10), nullable=False),  # 'sow'(파종일) / 'transplant'(옮겨심은 날)
         Column('start_day', Integer, nullable=True),
         Column('end_day', Integer, nullable=True),
@@ -442,7 +444,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
             row = fresh_planting['row']
             planting_id = conn.execute(insert(plantings).values(**row)).inserted_primary_key[0]
             if fresh_planting['tasked']:  # 심기 시작: 처음 할 일을 만들고 시작 단계를 정한다
-                stage = start_planting(conn, t, planting_id, row['crop_id'], fresh_planting['method'], row['planted_at'])
+                stage = start_planting(conn, t, planting_id, row['crop_id'], fresh_planting['method'], row['planted_at'], user_id)
                 if stage != 1:
                     conn.execute(update(plantings).where(plantings.c.id == planting_id).values(stage=stage))
 
@@ -504,16 +506,23 @@ def register_garden(app, metadata, engine, get_current_user, users):
             rows = {r['name']: dict(r) for r in conn.execute(select(crops.c.id, crops.c.name, crops.c.total_days)).mappings()}
             tasked = crops_with_tasks(conn, t)
             prep: dict[int, list] = {}
+            plant: dict[int, dict] = {}
             for r in conn.execute(
-                    select(crop_tasks.c.crop_id, crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.id)
-                    .where(crop_tasks.c.info_only.is_(True)).order_by(crop_tasks.c.id)).mappings():
-                prep.setdefault(r['crop_id'], []).append({'title': r['title'], 'howTo': r['how_to'], 'tip': r['tip']})
+                    select(crop_tasks.c.crop_id, crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.points,
+                           crop_tasks.c.info_only, crop_tasks.c.plant_task)
+                    .where(crop_tasks.c.info_only.is_(True) | crop_tasks.c.plant_task.is_(True)).order_by(crop_tasks.c.id)).mappings():
+                item = {'title': r['title'], 'howTo': r['how_to'], 'tip': r['tip'], 'points': r['points']}
+                if r['plant_task']:
+                    plant[r['crop_id']] = item
+                else:
+                    prep.setdefault(r['crop_id'], []).append(item)
         items = []
         for kind, name in KIND_CROPS.items():
             row = rows.get(name) or rows.get(LEGACY_NAMES.get(name, ''))
             items.append({
                 'kind': kind, 'name': name, 'days': row['total_days'] if row else KIND_DAYS[name],
                 'hasTasks': bool(row and row['id'] in tasked), 'prep': prep.get(row['id'], []) if row else [],
+                'plant': plant.get(row['id']) if row else None,
             })
         return {'crops': items}
 
