@@ -1,14 +1,16 @@
+@import url("/garden/design-tokens.css");
+
 :root {
-  --bg: #f8f1e2;
-  --outside-bg: #ffffff; /* 앱 화면 바깥 */
-  --app-max-width: 430px; /* 캔버스는 390px 기준 디자인이지만 구현은 화면 폭에 맞게 늘고 줄어든다(고정 390px 금지) */
-  --primary: #2f7d32;
-  --card-bg: #ffffff;
-  --card-border: #dde6d2;
-  --text: #2b2b2b;
-  --muted: #6b6b60;
-  --error: #c0392b;
-  --card-radius: 20px;
+  --bg: var(--color-bg);
+  --outside-bg: var(--color-card); /* 앱 화면 바깥 */
+  --app-max-width: var(--layout-max); /* 캔버스는 390px 기준 디자인이지만 구현은 화면 폭에 맞게 늘고 줄어든다(고정 390px 금지) */
+  --primary: var(--color-green-btn);
+  --card-bg: var(--color-card);
+  --card-border: var(--color-border);
+  --text: var(--color-text);
+  --muted: var(--color-text-sub);
+  --error: var(--color-danger);
+  --card-radius: var(--radius-card);
   --profile-band: #f4f8ee; /* 프로필 카드 아래 띠, 변경 버튼 바탕 */
   --pill-border: #cfe3c4;
   --kakao-soft: #fffbe0;
@@ -30,10 +32,10 @@
   --tap-min: 44px; /* 터치 영역 최소 크기 */
   --sheet-dim: rgba(31, 42, 28, 0.5);
   --font-title: 'Jua', 'Noto Sans KR', sans-serif;
-  --font-number: 'Do Hyeon', 'Noto Sans KR', sans-serif;
+  --font-number: var(--font-num);
 
   /* 앱 공통 여백 */
-  --page-pad-x: 16px;
+  --page-pad-x: var(--space-screen-x);
   --page-pad-y: 24px;
 
   /* 로그인 장면(LoginScene) 색 */
@@ -59,14 +61,14 @@
   --ls-bar-track: rgba(255, 253, 246, 0.55);
 
   /* 로그인 장면 간격 */
-  --ls-max-width: 430px;
-  --ls-pad-x: 20px;
+  --ls-max-width: var(--layout-max);
+  --ls-pad-x: var(--space-screen-x);
   --ls-pad-top: 44px;
   --ls-pad-bottom: 36px;
   --ls-gap: 10px;
   --ls-sign-pad: 18px;
   --ls-sign-gap: 10px;
-  --ls-btn-height: 52px;
+  --ls-btn-height: var(--size-button);
 
   /* 로그인 장면 폰트 */
   --ls-display: 'Noto Sans KR', system-ui, sans-serif;
@@ -76,11 +78,11 @@
   /* 첫 실행 안내(/intro) */
   --intro-circle-bg: #e6f4e1;
   --intro-circle-size: 230px;
-  --intro-desc: #5e6b58;
+  --intro-desc: var(--color-text-sub);
   --intro-dot: #c9d6be;
   --intro-dot-active: var(--primary);
-  --intro-btn-height: 52px;
-  --intro-btn-radius: 16px;
+  --intro-btn-height: var(--size-button);
+  --intro-btn-radius: var(--radius-button);
   --intro-title-font: 'Jua', 'Noto Sans KR', system-ui, sans-serif;
 }
 
@@ -92,7 +94,7 @@ body {
   margin: 0;
   background: var(--outside-bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-family: var(--font-body);
 }
 
 /* 모바일 폭: 화면에 맞게 늘고 줄고, 최대 430px */
@@ -111,16 +113,17 @@ body {
 .card {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
-  padding: 24px 20px;
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-gap);
 }
 
 h1 {
   margin: 0;
-  font-size: 22px;
+  font-family: var(--font-title);
+  font-size: var(--fs-screen-title);
 }
 
 .muted {
@@ -137,10 +140,11 @@ h1 {
 .btn {
   display: block;
   width: 100%;
-  padding: 14px;
-  border-radius: 12px;
+  padding: var(--space-card);
+  min-height: var(--size-button);
+  border-radius: var(--radius-button);
   border: 1px solid var(--primary);
-  font-size: 16px;
+  font-size: var(--fs-card-title);
   font-weight: 700;
   text-align: center;
   text-decoration: none;
@@ -149,11 +153,11 @@ h1 {
 
 .btn.primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--color-on-btn);
 }
 
 .btn.secondary {
-  background: #fff;
+  background: var(--color-card);
   color: var(--primary);
 }
 

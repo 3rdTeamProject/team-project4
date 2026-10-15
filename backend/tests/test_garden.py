@@ -55,6 +55,24 @@ class GardenIntegrationTest(unittest.TestCase):
         self.assertEqual(res.status_code, expect, res.text)
         return res.json()
 
+    def test_z_care_photos_and_harvest_survive_reload(self):
+        _, headers = self.guest()
+        photo = 'data:image/jpeg;base64,/9j/2Q=='
+        crop_doc = plant(stage=5, method='seedling', taskChecks={'2026-10-14': ['care']},
+                         draftMemo='잎 관찰', draftPhotos=[photo], harvestedAt='2026-10-14')
+        journal = {**record('사진 일지'), 'photos': [photo]}
+        state = {'farms': [farm(plots=[crop_doc] + [None] * 5)], 'records': [journal]}
+        revision = self.save(headers, self.load(headers)['revision'], state)['revision']
+        loaded = self.load(headers)
+        self.assertEqual(loaded['revision'], revision)
+        actual = loaded['state']['farms'][0]['plots'][0]
+        for key in ('method', 'taskChecks', 'draftMemo', 'draftPhotos', 'harvestedAt'):
+            self.assertEqual(actual[key], crop_doc[key])
+        self.assertEqual(loaded['state']['records'][0]['photos'], [photo])
+        self.save(headers, revision, loaded['state'])
+        self.assertEqual(len(self.load(headers)['state']['records']), 1)
+        self.assertEqual(self.load(self.guest()[1])['state']['records'], [])
+
     def test_requires_login(self):
         self.assertEqual(self.client.get('/garden/state').status_code, 401)
 
@@ -75,7 +93,7 @@ class GardenIntegrationTest(unittest.TestCase):
         self.assertEqual((len(planting), planting[0]['status'], planting[0]['crop']), (1, 'growing', '상추'))
         journal = rows('SELECT * FROM journals WHERE user_id = :u', u=uid)
         self.assertEqual((len(journal), journal[0]['planting_id']), (1, planting[0]['id']))
-        self.assertEqual(len(rows('SELECT * FROM crop_stages WHERE crop_id = (SELECT id FROM crops WHERE name = :n)', n='상추')), 4)
+        self.assertEqual(len(rows('SELECT * FROM crop_stages WHERE crop_id = (SELECT id FROM crops WHERE name = :n)', n='상추')), 5)
 
         loaded = self.load(ah)
         self.assertEqual(loaded['revision'], revision)
@@ -186,3 +204,8 @@ class GardenIntegrationTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def tearDownModule():
+    engine.dispose()
+    _temp.cleanup()
