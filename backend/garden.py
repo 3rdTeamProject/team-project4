@@ -35,7 +35,7 @@ from sqlalchemy import (
     update,
 )
 
-from tasks import crops_with_tasks, method_of, register_tasks, start_planting
+from tasks import crops_with_tasks, method_of, register_tasks, start_planting, transplant_task_id
 
 # 홈 화면의 작물 종류(kind) ↔ crops 테이블의 이름. 오이는 봄/여름 두 작물로 나뉜다.
 # 작물별 단계·할 일은 crops / crop_stages / crop_tasks 행(Supabase에 SQL로 입력)이 정한다.
@@ -51,7 +51,7 @@ KIND_CROPS = {
     'zucchini': '애호박',
 }
 KIND_DAYS = {
-    '방울토마토': 90, '상추': 45, '오이(봄)': 60, '오이(여름)': 60, '고추': 90, '감자': 100, '가지': 85, '애호박': 60,
+    '방울토마토': 90, '상추': 45, '오이(봄)': 60, '오이(여름)': 70, '고추': 90, '감자': 100, '가지': 85, '애호박': 60,
 }
 NAME_TO_KIND = {name: kind for kind, name in KIND_CROPS.items()}
 # 예전 '오이' 행은 오이(봄)으로 이름을 바꿔 쓴다. 바꾸기 전에도 같은 작물로 보고, 새 행을 따로 만들지 않는다.
@@ -68,6 +68,7 @@ class Plant(BaseModel):
     plantedAt: date
     method: Literal['seed', 'seedling'] | None = None
     harvestedAt: date | None = None
+    lastHarvestedAt: date | None = None  # 서버가 정한다(마지막 수확일). 화면이 보낸 값은 쓰지 않는다
     taskChecks: dict[str, list[Literal['water', 'care', 'observe']]] = Field(default_factory=dict)
     draftMemo: str = Field(default='', max_length=500)
     draftPhotos: list[str] = Field(default_factory=list, max_length=4)
@@ -318,10 +319,12 @@ def register_garden(app, metadata, engine, get_current_user, users):
             .where(journals.c.user_id == user_id).order_by(journals.c.id)).mappings()]
         motion = conn.execute(select(users.c.motion_effects).where(users.c.id == user_id)).scalar_one()
         care_rows = {r['planting_id']: r['details'] for r in conn.execute(select(care).join(plantings, care.c.planting_id == plantings.c.id).where(plantings.c.user_id == user_id)).mappings()}
-        first_harvest = {r[0]: str(r[1])[:10] for r in conn.execute(
-            select(harvests.c.planting_id, func.min(harvests.c.harvested_at))
+        harvest_days = {r[0]: (str(r[1])[:10], str(r[2])[:10]) for r in conn.execute(
+            select(harvests.c.planting_id, func.min(harvests.c.harvested_at), func.max(harvests.c.harvested_at))
             .where(harvests.c.planting_id.in_([a['id'] for a in active])).group_by(harvests.c.planting_id))} if active else {}
-        return {'care': care_rows, 'first_harvest': first_harvest, 'tasked': crops_with_tasks(conn, t), 'farms': farm_rows,
+        first_harvest = {k: v[0] for k, v in harvest_days.items()}
+        last_harvest = {k: v[1] for k, v in harvest_days.items()}
+        return {'care': care_rows, 'first_harvest': first_harvest, 'last_harvest': last_harvest, 'tasked': crops_with_tasks(conn, t), 'farms': farm_rows,
                 'plots': plot_rows, 'active': active, 'journals': journal_rows, 'motion': bool(motion)}
 
     def build_state(rows: dict) -> dict:
@@ -345,6 +348,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
             plant.update(rows['care'].get(row['id'], {}))
             if row['id'] in rows['first_harvest']:  # 첫 수확일은 서버(harvests)가 정한다
                 plant['harvestedAt'] = rows['first_harvest'][row['id']]
+                plant['lastHarvestedAt'] = rows['last_harvest'][row['id']]  # 마지막 수확일: 같은 날 또 수확하지 못하게 화면이 쓴다
             # 씨앗으로 심고 아직 옮겨심기 전인 칸은 싹이 없는 0단계(포트)로 보여준다(DB에는 1단계로 저장)
             if row['crop_id'] in rows['tasked'] and plant.get('method') == 'seed' and row['stage'] < 3:
                 plant['stage'] = 0
@@ -516,13 +520,20 @@ def register_garden(app, metadata, engine, get_current_user, users):
                     plant[r['crop_id']] = item
                 else:
                     prep.setdefault(r['crop_id'], []).append(item)
+            moving: dict[int, dict] = {}  # 모종으로 시작할 때 '심었어요'가 곧 이 작업
+            for crop_id in {r['id'] for r in rows.values()}:
+                move_id = transplant_task_id(conn, t, crop_id)
+                task = conn.execute(select(crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.points)
+                                    .where(crop_tasks.c.id == move_id)).mappings().first() if move_id else None
+                if task:
+                    moving[crop_id] = {'title': task['title'], 'howTo': task['how_to'], 'tip': task['tip'], 'points': task['points']}
         items = []
         for kind, name in KIND_CROPS.items():
             row = rows.get(name) or rows.get(LEGACY_NAMES.get(name, ''))
             items.append({
                 'kind': kind, 'name': name, 'days': row['total_days'] if row else KIND_DAYS[name],
                 'hasTasks': bool(row and row['id'] in tasked), 'prep': prep.get(row['id'], []) if row else [],
-                'plant': plant.get(row['id']) if row else None,
+                'plant': plant.get(row['id']) if row else None, 'transplant': moving.get(row['id']) if row else None,
             })
         return {'crops': items}
 

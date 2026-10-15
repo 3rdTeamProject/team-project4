@@ -111,10 +111,14 @@ function harvestBanner(f, i, p) {
   if (!done && !ready) return '';
   const marked = !!harvestMark[`${f.id}|${i}`];
   const note = marked ? (done ? '일지를 올리면 수확이 기록돼요' : '일지를 올리면 수확 보너스 +120P') : '';
-  const button = marked
-    ? '<button class="secondary" data-tk="mark-harvest" aria-pressed="true">✓ 수확했어요</button>'
-    : '<button class="primary" data-tk="mark-harvest" aria-pressed="false">수확하기</button>';
-  return `<div class="harvest-banner"><b>${done ? '수확을 마쳤어요' : '수확할 때가 됐어요'}</b><p>${done ? `${esc(fmtLong(p.harvestedAt))}에 처음 수확했어요. 수확 보너스는 이미 받았어요.` : '다 자란 모습을 보고, 알맞은 때에 수확해 주세요.'}</p>${note ? `<p><b>${note}</b></p>` : ''}${button}</div>`;
+  // 수확은 하루에 한 번만 기록한다: 오늘 수확을 기록했으면 내일까지 버튼을 막는다
+  const doneToday = p.lastHarvestedAt === day();
+  const button = doneToday
+    ? '<button class="secondary" disabled>오늘은 수확했어요</button>'
+    : marked
+      ? '<button class="secondary" data-tk="mark-harvest" aria-pressed="true">✓ 수확했어요</button>'
+      : '<button class="primary" data-tk="mark-harvest" aria-pressed="false">수확하기</button>';
+  return `<div class="harvest-banner"><b>${done ? '수확 중이에요 🧺' : '수확할 때가 됐어요'}</b><p>${done ? `${esc(fmtLong(p.harvestedAt))}에 처음 수확했어요. 수확 보너스는 이미 받았어요. 다 자란 열매는 알맞은 때에 계속 따 주세요.` : '다 자란 모습을 보고, 알맞은 때에 수확해 주세요.'}</p>${note ? `<p><b>${note}</b></p>` : ''}${button}</div>`;
 }
 
 // 칸 상세: 씨앗을 심은 뒤(옮겨심기 전, 0단계)도 3단계 이후와 같은 화면이다. 밭 준비 안내가 있으면 위에 보여 준다
@@ -122,7 +126,7 @@ function plotPage(f, i, p) {
   const all = plotTasks(f, i, true), info = all.filter(t => t.infoOnly), mine = all.filter(t => !t.infoOnly);
   const picked = mine.filter(t => checked.has(t.id)).length, days = GardenGrowth.elapsed(p.plantedAt, day());
   const stageText = p.harvestedAt ? '수확 중' : `${isPrep(p) ? 0 : p.stage}/5단계`;
-  return `<main class="page">${head(meta(p).name, 'garden')}<div class="detail-subhead"><small>${esc(f.name)} · 심은 지 ${days}일</small><span class="pill">${stageText}</span>${trashButton}</div>${harvestBanner(f, i, p)}${info.length ? `<h3 class="field-label tk-sub-title">미리 해 두면 좋아요</h3>${info.map(infoCard).join('')}` : ''}<div class="field-label tk-sub-title">오늘 할 일 <span class="count">${taskData.status === 'ready' ? `완료 ${picked} / ${mine.length}` : ''}</span></div>${statusNote()}${mine.length ? mine.map(taskCard).join('') : taskData.status === 'ready' ? '<p class="help">지금 할 일은 모두 마쳤어요. 🌿</p>' : ''}${photoSection(p.draftPhotos)}${memoBox(p)}<p class="help">체크한 할 일은 일지를 올려야 완료돼요.</p></main>${journalFooter('일지 올리기')}`;
+  return `<main class="page">${head(meta(p).name, 'garden')}<div class="detail-subhead"><small>${esc(f.name)} · 심은 지 ${days + 1}일</small><span class="pill">${stageText}</span>${trashButton}</div>${harvestBanner(f, i, p)}${info.length ? `<h3 class="field-label tk-sub-title">미리 해 두면 좋아요</h3>${info.map(infoCard).join('')}` : ''}<div class="field-label tk-sub-title">오늘 할 일 <span class="count">${taskData.status === 'ready' ? `완료 ${picked} / ${mine.length}` : ''}</span></div>${statusNote()}${mine.length ? mine.map(taskCard).join('') : taskData.status === 'ready' ? '<p class="help">지금 할 일은 모두 마쳤어요. 🌿</p>' : ''}${photoSection(p.draftPhotos)}${memoBox(p)}<p class="help">체크한 할 일은 일지를 올려야 완료돼요.</p></main>${journalFooter('일지 올리기')}`;
 }
 const baseDetailPage = detailPage;
 detailPage = function () {
@@ -132,11 +136,13 @@ detailPage = function () {
 };
 
 // 작물 선택 뒤의 '심기 전 준비'(작물이 생기기 전): 서버가 알려 준 안내 작업만 보여 준다
+// '심었어요'가 곧 끝내는 첫 작업: 씨앗이면 포트에 씨앗 심기, 모종이면 모종 옮겨심기
+const firstTask = () => (plantingMethod === 'seed' ? cropInfo[chosenCrop]?.plant : cropInfo[chosenCrop]?.transplant) || null;
 const basePreparationPage = preparationPage;
 preparationPage = function () {
   if (!isTaskKind(chosenCrop)) return basePreparationPage();
-  const name = CROPS.find(c => c.id === chosenCrop).name, prep = cropInfo[chosenCrop].prep, sow = plantingMethod === 'seed' ? cropInfo[chosenCrop].plant : null;
-  // 씨앗이면 첫 작업(예: 포트에 씨앗 심기)을 체크하고 '심었어요'를 누르면 완료된다(카드 어디를 눌러도 체크) — 오늘 할 일에는 나오지 않는다
+  const name = CROPS.find(c => c.id === chosenCrop).name, prep = cropInfo[chosenCrop].prep, sow = firstTask();
+  // 첫 작업(씨앗은 포트에 씨앗 심기, 모종은 모종 옮겨심기)을 체크하고 '심었어요'를 누르면 완료된다(카드 어디를 눌러도 체크) — 오늘 할 일에는 나오지 않는다
   const sowCard = sow ? `<h3>이번에 할 일</h3><div class="check-card tk-sow" role="checkbox" tabindex="0" aria-checked="${sowChecked}" aria-label="${esc(sow.title)}" data-tk="toggle-sow"><span class="check-box ${sowChecked ? 'checked' : ''}">${sowChecked ? '✓' : ''}</span><div class="task-content"><b>${esc(sow.title)}</b>${sow.howTo ? `<small>${esc(sow.howTo)}</small>` : ''}${sow.tip ? `<div class="tk-tip-open">💡 ${esc(sow.tip)}</div>` : ''}</div></div>` : '';
   return `<main class="page">${head('심기 전 준비', 'select')}<div class="seed-sign"><b>${esc(name)}</b><small>${plantingMethod === 'seed' ? '씨앗' : '모종'}으로 시작 · ${pendingPlot + 1}번째 칸</small></div>${prep.length ? `<h3 class="field-label tk-sub-title">미리 해 두면 좋아요</h3>${prep.map(infoCard).join('')}` : ''}${sowCard}${photoSection(plantingDraft.photos)}<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="준비하면서 한 일을 적어보세요 (선택)">${esc(plantingDraft.memo)}</textarea></div><div class="info">ⓘ 준비가 되면 아래 버튼을 눌러요. 누르면 오늘부터 재배가 시작돼요.</div></main>${footer('<button class="primary" data-feature="plant">심었어요</button>')}`;
 };
@@ -201,13 +207,13 @@ app.addEventListener('keydown', e => {
   const card = e.target.closest?.('.check-card[role="checkbox"]');
   if (card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); card.click(); }
 });
-// 씨앗으로 심을 때는 첫 작업을 체크해야 '심었어요'가 동작한다
+// 첫 작업을 체크해야 '심었어요'가 동작한다
 app.addEventListener('click', e => {
   const b = e.target.closest('[data-feature="plant"]');
-  if (!b || view !== 'prepare' || !isTaskKind(chosenCrop) || plantingMethod !== 'seed' || !cropInfo[chosenCrop].plant) return;
+  if (!b || view !== 'prepare' || !isTaskKind(chosenCrop) || !firstTask()) return;
   if (sowChecked) { sowChecked = false; return; }
   e.stopImmediatePropagation();
-  toast(`'${cropInfo[chosenCrop].plant.title}'를 체크한 뒤 눌러 주세요.`);
+  toast(`'${firstTask().title}'를 체크한 뒤 눌러 주세요.`);
 }, true);
 
 // ---------- 개발용 날짜 이동(서버 날짜를 며칠 앞으로)

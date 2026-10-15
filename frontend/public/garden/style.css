@@ -221,4 +221,4 @@ body{font-family:"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,
 .primary{box-shadow:0 2px 4px #2f663218}
 .secondary{border-color:#aac1a4;background:#ffffffb0}
 /* Embedded in the authenticated React app. */
-body{display:block;min-height:0;padding:0;background:#f8f1e2}.phone-shell{width:100%;max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;min-height:0}#app{min-height:0}
+body{display:block;min-height:0;padding:0;background:var(--color-bg)}.phone-shell{width:100%;max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;min-height:0}#app{min-height:0}
