@@ -113,7 +113,7 @@ export default function LinkChoice() {
   return (
     <div className="choice-screen">
       <header className="choice-header">
-        <Link className="choice-back" to={state.returnTo || '/settings'} replace state={{ fromKakao: true }} aria-label="돌아가기">‹</Link>
+        <Link className="choice-back" to={state.returnTo || '/settings'} replace aria-label="돌아가기">‹</Link>
         <h1 className="choice-title">데이터 선택</h1>
       </header>
 

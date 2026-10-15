@@ -165,11 +165,11 @@ class TaskTest(unittest.TestCase):
 
     def test_transplant_starts_the_rest_and_stages_only_go_up(self):
         self.plant('seed')
-        self.goto(5)
-        self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 2)  # 파종 5일 뒤
+        self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 0)  # 옮겨심기 전에는 싹 없는 0단계(포트)
         self.goto(29)
         self.complete('모종 옮겨심기')
         self.assertEqual(self.stage(), 3)
+        self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 3)
         starts = {r['crop_task_id']: str(r['start_date']) for r in self.logs() if not r['completed_at']}
         self.assertEqual(starts[self.ids['plant_water']], '2026-11-13')  # 옮겨심은 날(29일) 기준
         self.assertEqual(starts[self.ids['support']], '2026-11-20')
@@ -235,6 +235,25 @@ class TaskTest(unittest.TestCase):
         shifted = tasks.now_kst()
         tasks._day_offset = 0
         self.assertAlmostEqual((shifted - tasks.now_kst()).total_seconds(), 5 * 86400, delta=5)
+
+    def test_photos_ride_along_with_the_journal(self):
+        self.plant('seedling')
+        photo = 'data:image/jpeg;base64,/9j/2Q=='
+        res = self.client.post('/garden/tasks/complete', headers=self.h, json={
+            'planting_id': self.planting_id(), 'content': '사진 일지', 'photos': [photo]})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()['state']['records'][-1]['photos'], [photo])
+        bad = self.client.post('/garden/tasks/complete', headers=self.h, json={
+            'planting_id': self.planting_id(), 'content': '사진 일지', 'photos': ['http://x/y.png']})
+        self.assertEqual(bad.status_code, 422)
+
+    def test_crops_list_tells_which_crops_have_tasks_and_prep_notes(self):
+        crops = {c['kind']: c for c in self.client.get('/garden/crops', headers=self.h).json()['crops']}
+        self.assertEqual(len(crops), 8)
+        self.assertTrue(crops['cucumber_spring']['hasTasks'])
+        self.assertEqual([x['title'] for x in crops['cucumber_spring']['prep']], ['석회·퇴비 섞기'])
+        self.assertFalse(crops['lettuce']['hasTasks'])
+        self.assertEqual(crops['lettuce']['prep'], [])
 
     def test_complete_rejects_bad_requests(self):
         self.plant('seed')

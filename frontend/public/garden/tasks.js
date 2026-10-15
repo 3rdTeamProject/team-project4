@@ -1,0 +1,237 @@
+'use strict';
+// 작물별 할 일(task_logs)·성장 단계·수확을 서버 데이터로 보여 주는 화면.
+// features.js 화면 위에 덧붙인다. 서버에 할 일 데이터(crop_tasks)가 있는 작물(오이 등)만 이 화면을 쓰고,
+// 데이터가 아직 없는 작물은 기존 화면이 그대로 동작한다.
+//
+// 흐름: 작물 선택 → 심기 전 준비(밭 준비 안내) → 심었어요(작물 생성) → 칸은 포트·0단계 →
+//       칸 상세에서 할 일을 체크하고 '일지 올리기'로 완료(포인트) → 모종 옮겨심기를 마치면 3단계.
+// 수확하기는 표시만 하고, 일지를 올릴 때 수확 기록과 첫 수확 보너스가 생긴다.
+
+// ---------- 부모 화면(서버 연결)과 주고받기
+const pendingCalls = new Map();
+let callSeq = 0;
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin || e.source !== parent) return;
+  const m = e.data;
+  if (m?.type !== 'garden:api-result') return;
+  const call = pendingCalls.get(m.id);
+  if (!call) return;
+  pendingCalls.delete(m.id);
+  clearTimeout(call.timer);
+  m.ok ? call.resolve(m.data) : call.reject(new Error(m.error || '요청에 실패했어요.'));
+});
+function hostApi(op, payload) {
+  return new Promise((resolve, reject) => {
+    if (window.parent === window) { reject(new Error('서버에 연결되어 있지 않아요.')); return; }
+    const id = ++callSeq;
+    const timer = setTimeout(() => { pendingCalls.delete(id); reject(new Error('서버 응답이 늦어요. 잠시 후 다시 시도해 주세요.')); }, 30000);
+    pendingCalls.set(id, { resolve, reject, timer });
+    window.parent.postMessage({ type: 'garden:api', id, op, payload }, location.origin);
+  });
+}
+let dirty = 0;
+const baseSave = save;
+save = function () { dirty++; return baseSave.apply(this, arguments); };
+// 서버가 보낸 농장 내용으로 화면을 바꾼다(저장 요청은 보내지 않는다)
+function applyServerState(next) {
+  if (!isState(next)) return;
+  state = next;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  if (!state.farms.some(f => f.id === selected)) selected = state.farms[0]?.id;
+  render();
+}
+async function refreshFromServer() {
+  const mark = dirty;
+  try {
+    const r = await hostApi('refresh');
+    if (mark === dirty) { applyServerState(r.state); loadTasks(true); }
+  } catch {}
+}
+
+// ---------- 작물 정보(어떤 작물에 할 일 데이터가 있는지, 심기 전 안내)
+let cropInfo = {};
+const isTaskKind = kind => !!cropInfo[kind]?.hasTasks;
+function isTaskPlant(p) { return isTaskKind(p.kind); }
+// 씨앗으로 심고 아직 밭에 옮겨심기 전(0단계, 포트)
+const isPrep = p => isTaskPlant(p) && p.method === 'seed' && p.stage < 3;
+categories.cucumber_spring = 'fruit';
+categories.cucumber_summer = 'fruit';
+
+// ---------- 그림·단계: 오이는 한 종류 그림을 쓰고, 0단계는 포트, 단계는 서버가 정한다
+const potArt = () => '<svg class="plant-art pot-art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><ellipse cx="50" cy="94" rx="31" ry="5" fill="var(--color-text)" opacity=".18"/><path d="M21 46h58l-6 44a6 6 0 0 1-6 5H33a6 6 0 0 1-6-5z" fill="var(--color-soil)"/><rect x="15" y="35" width="70" height="15" rx="6" fill="var(--color-soil)"/><ellipse cx="50" cy="37" rx="31" ry="6" fill="var(--color-text)" opacity=".6"/><circle cx="39" cy="37" r="2.4" fill="var(--color-point-chip)"/><circle cx="52" cy="39" r="2.4" fill="var(--color-point-chip)"/><circle cx="63" cy="36" r="2.4" fill="var(--color-point-chip)"/></svg>';
+const baseCropSvg = CropArt.svg;
+CropArt.svg = (kind, stage = 5, preview = false) => stage === 0 ? potArt() : baseCropSvg(kind.startsWith('cucumber') ? 'cucumber' : kind, stage, preview);
+const basePlant = plant;
+plant = function (p) { return isTaskPlant(p) && isPrep(p) ? potArt() : basePlant(p); };
+const baseGrowthStage = GardenGrowth.stage;
+GardenGrowth.stage = function (p, total, today) { return isTaskPlant(p) ? p.stage : baseGrowthStage.call(this, p, total, today); };
+
+// ---------- 오늘 할 일(서버)
+let taskData = { status: 'idle', tasks: [], at: 0, loading: false, message: '' };
+const checked = new Set();
+let completing = false;
+const harvestMark = {};
+const hasTask = (farmId, i) => taskData.tasks.some(t => !t.infoOnly && t.farm === farmId && t.position === i + 1);
+const plotTasks = (f, i, withInfo = false) => taskData.tasks.filter(t => t.farm === f.id && t.position === i + 1 && (withInfo || !t.infoOnly));
+function ensureTasks() {
+  if (!state.farms.some(f => f.plots.some(p => p && isTaskPlant(p))) || taskData.loading) return;
+  if (taskData.status === 'idle' || Date.now() - taskData.at >= 30000) loadTasks();
+}
+async function loadTasks(force = false) {
+  if (taskData.loading) return;
+  taskData.loading = true;
+  const before = JSON.stringify([taskData.status, taskData.tasks]);
+  try {
+    const r = await hostApi('tasks');
+    taskData = { status: 'ready', tasks: r.tasks, at: Date.now(), loading: false, message: '' };
+    const ids = new Set(r.tasks.map(t => t.id));
+    [...checked].forEach(id => { if (!ids.has(id)) checked.delete(id); });
+  } catch (e) {
+    taskData = { ...taskData, status: 'error', at: Date.now(), loading: false, message: e.message };
+  }
+  if ((force || before !== JSON.stringify([taskData.status, taskData.tasks])) && ['farms', 'garden', 'tasks', 'detail'].includes(view)) render();
+}
+const fmtDay = d => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+const fmtLong = d => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
+const whenText = t => !t.endDate ? '언제든 해요' : t.endDate < day() ? `${fmtDay(t.endDate)}까지 · 기한이 지났어요` : `${fmtDay(t.endDate)}까지`;
+const statusNote = () => taskData.status === 'error'
+  ? `<div class="info">⚠ ${esc(taskData.message)} <button type="button" class="tk-link" data-tk="retry">다시 불러오기</button></div>`
+  : taskData.status !== 'ready' ? '<p class="help">할 일을 불러오는 중…</p>' : '';
+
+// 체크하면 '일지에 담을 할 일'로 표시되고, 일지를 올려야 완료된다
+const taskCard = t => {
+  const on = checked.has(t.id);
+  return `<div class="check-card"><button class="check-hit ${on ? 'checked' : ''}" data-tk="toggle-task" data-task="${t.id}" aria-label="${esc(t.title)} ${on ? '체크 해제' : '체크'}" aria-pressed="${on}"><span class="check-box ${on ? 'checked' : ''}">${on ? '✓' : ''}</span></button><div class="task-content"><b>${esc(t.title)}</b>${t.howTo ? `<small>${esc(t.howTo)}</small>` : ''}<small>${esc(whenText(t))} · +${t.points}P</small>${t.tip ? `<details class="tk-tip"><summary>팁 보기</summary><p>💡 ${esc(t.tip)}</p></details>` : ''}</div></div>`;
+};
+const infoCard = t => `<div class="tk-info-card"><b>${esc(t.title)}</b>${t.howTo ? `<small>${esc(t.howTo)}</small>` : ''}${t.tip ? `<div class="tk-tip-open">💡 ${esc(t.tip)}</div>` : ''}${t.endDate !== undefined ? `<small>${esc(whenText(t))}</small>` : ''}</div>`;
+const trashButton = '<button class="icon-btn" data-feature="delete-crop" aria-label="작물 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v7m4-7v7"/></svg></button>';
+const memoBox = p => `<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="오늘 텃밭 상태를 적어보세요 (선택)">${esc(p.draftMemo || '')}</textarea></div>`;
+const journalFooter = label => footer(`<button class="secondary diagnosis-button" data-feature="diagnosis">AI진단</button><button class="primary" data-tk="post-journal" ${completing ? 'disabled' : ''}>${completing ? '올리는 중…' : label}</button>`);
+function harvestBanner(f, i, p) {
+  const done = !!p.harvestedAt, ready = p.stage >= 5;
+  if (!done && !ready) return '';
+  const marked = !!harvestMark[`${f.id}|${i}`];
+  const note = marked ? (done ? '일지를 올리면 수확이 기록돼요' : '일지를 올리면 수확 보너스 +120P') : '';
+  const button = marked
+    ? '<button class="secondary" data-tk="mark-harvest" aria-pressed="true">✓ 수확했어요</button>'
+    : '<button class="primary" data-tk="mark-harvest" aria-pressed="false">수확하기</button>';
+  return `<div class="harvest-banner"><b>${done ? '수확을 마쳤어요' : '수확할 때가 됐어요'}</b><p>${done ? `${esc(fmtLong(p.harvestedAt))}에 처음 수확했어요. 수확 보너스는 이미 받았어요.` : '다 자란 모습을 보고, 알맞은 때에 수확해 주세요.'}</p>${note ? `<p><b>${note}</b></p>` : ''}${button}</div>`;
+}
+
+// 칸 상세(재배 중)
+function plotPage(f, i, p) {
+  const mine = plotTasks(f, i), picked = mine.filter(t => checked.has(t.id)).length, days = GardenGrowth.elapsed(p.plantedAt, day());
+  return `<main class="page">${head(meta(p).name, 'garden')}<div class="detail-subhead"><small>${esc(f.name)} · 심은 지 ${days}일</small><span class="pill">${p.harvestedAt ? '수확 중' : `${p.stage}/5단계`}</span>${trashButton}</div>${harvestBanner(f, i, p)}<div class="field-label">오늘 할 일 <span class="count">${taskData.status === 'ready' ? `완료 ${picked} / ${mine.length}` : ''}</span></div>${statusNote()}${mine.length ? mine.map(taskCard).join('') : taskData.status === 'ready' ? '<p class="help">지금 할 일은 모두 마쳤어요. 🌿</p>' : ''}${photoSection(p.draftPhotos)}${memoBox(p)}<p class="help">체크한 할 일은 일지를 올려야 완료돼요.</p></main>${journalFooter('일지 올리기')}`;
+}
+// 심기 전 준비(팻말): 씨앗으로 시작해 아직 밭에 옮겨심기 전. 모종 옮겨심기를 마치면 재배가 시작된다
+function prepPage(f, i, p) {
+  const all = plotTasks(f, i, true), info = all.filter(t => t.infoOnly), mine = all.filter(t => !t.infoOnly);
+  const planting = mine.some(t => t.triggersStage === 3 && checked.has(t.id)), picked = mine.filter(t => checked.has(t.id)).length;
+  return `<main class="page">${head('심기 전 준비', 'garden')}<div class="detail-subhead"><small>${esc(f.name)} · 심은 지 ${GardenGrowth.elapsed(p.plantedAt, day())}일</small><span class="pill">0/5단계</span>${trashButton}</div><div class="seed-sign"><b>${esc(meta(p).name)}</b><small>씨앗으로 시작 · ${i + 1}번째 칸</small></div>${info.length ? `<h3>심기 전에 준비해요</h3>${info.map(infoCard).join('')}` : ''}<div class="field-label">오늘 할 일 <span class="count">${taskData.status === 'ready' ? `완료 ${picked} / ${mine.length}` : ''}</span></div>${statusNote()}${mine.length ? mine.map(taskCard).join('') : taskData.status === 'ready' ? '<p class="help">지금 할 일은 없어요. 시기가 되면 나타나요.</p>' : ''}${photoSection(p.draftPhotos)}${memoBox(p)}<p class="help">${planting ? '누르면 오늘부터 재배가 시작돼요.' : '체크한 할 일은 일지를 올려야 완료돼요.'}</p></main>${journalFooter(planting ? '심었어요' : '일지 올리기')}`;
+}
+const baseDetailPage = detailPage;
+detailPage = function () {
+  const f = current(), p = f?.plots[plotIndex];
+  if (p && isTaskPlant(p)) return isPrep(p) ? prepPage(f, plotIndex, p) : plotPage(f, plotIndex, p);
+  return baseDetailPage();
+};
+
+// 작물 선택 뒤의 '심기 전 준비'(작물이 생기기 전): 서버가 알려 준 안내 작업만 보여 준다
+const basePreparationPage = preparationPage;
+preparationPage = function () {
+  if (!isTaskKind(chosenCrop)) return basePreparationPage();
+  const name = CROPS.find(c => c.id === chosenCrop).name, prep = cropInfo[chosenCrop].prep;
+  return `<main class="page">${head('심기 전 준비', 'select')}<div class="seed-sign"><b>${esc(name)}</b><small>${plantingMethod === 'seed' ? '씨앗' : '모종'}으로 시작 · ${pendingPlot + 1}번째 칸</small></div>${prep.length ? `<h3>심기 전에 준비해요</h3>${prep.map(infoCard).join('')}` : ''}${photoSection(plantingDraft.photos)}<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="준비하면서 한 일을 적어보세요 (선택)">${esc(plantingDraft.memo)}</textarea></div><div class="info">ⓘ 준비가 되면 아래 버튼을 눌러요. 누르면 오늘부터 재배가 시작돼요.</div></main>${footer('<button class="primary" data-feature="plant">심었어요</button>')}`;
+};
+
+// 오늘 할 일 모아보기: 농장별 목록(서버 할 일 + 서버 할 일이 없는 작물의 기존 할 일). 캘린더는 아직 없다
+const baseTasksPage = tasksPage;
+tasksPage = function () {
+  const hasTaskCrop = state.farms.some(f => f.plots.some(p => p && isTaskPlant(p)));
+  const groups = state.farms.map(f => ({ f, rows: f.plots.flatMap((p, i) => {
+    if (!p) return [];
+    if (isTaskPlant(p)) return plotTasks(f, i).map(t => ({ i, label: t.title, sub: `${meta(p).name}${t.howTo ? ' · ' + t.howTo : ''}` }));
+    return p.plantedAt <= day() && (!p.harvestedAt || day() <= p.harvestedAt)
+      ? careItems(p).filter(([key]) => !completed(p, key)).map(([, label, sub]) => ({ i, label, sub: `${meta(p).name} · ${sub}` })) : [];
+  }) }));
+  return `<main class="page">${head('오늘 할 일', current() ? 'garden' : 'farms')}${hasTaskCrop ? statusNote() : ''}${groups.map(({ f, rows }) => `<h3>${esc(f.name)} <span class="task-count">${rows.length}</span></h3>${rows.length ? rows.map(r => `<button class="check-card" data-feature="open-task" data-id="${esc(f.id)}" data-index="${r.i}"><span class="check-box"></span><span><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></span><span class="chevron">›</span></button>`).join('') : '<div class="no-tasks">오늘 할 일이 없어요</div>'}`).join('')}<p class="help">할 일을 누르면 작물 관리 화면으로 이동해요.</p></main>`;
+};
+
+// ---------- 일지 올리기: 체크한 할 일(과 수확)을 완료하고 일지·포인트를 서버에서 한 번에 처리
+async function postJournal() {
+  if (completing) return;
+  const f = current(), i = plotIndex, p = f?.plots[i];
+  if (!p) return;
+  if (!p.plantingId) { toast('서버와 맞추는 중이에요. 잠시 후 다시 눌러 주세요.'); return; }
+  const key = `${f.id}|${i}`, mine = plotTasks(f, i).filter(t => checked.has(t.id));
+  const memo = (p.draftMemo || '').trim(), photos = p.draftPhotos || [], harvest = !!harvestMark[key];
+  if (!mine.length && !harvest && !memo && !photos.length) { toast('완료한 할 일을 체크하거나 메모·사진을 추가해 주세요.'); return; }
+  const before = p.stage;
+  completing = true;
+  p.draftMemo = ''; p.draftPhotos = [];
+  save(); render();
+  try {
+    const r = await hostApi('complete', { planting_id: p.plantingId, task_log_ids: mine.map(t => t.id), content: memo, photos, harvest });
+    mine.forEach(t => checked.delete(t.id));
+    delete harvestMark[key];
+    completing = false;
+    applyServerState(r.state);
+    const after = state.farms.find(x => x.id === f.id)?.plots[i]?.stage;
+    toast(`일지를 올렸어요! +${r.earned}P${r.firstHarvest ? ' · 첫 수확 보너스 포함 🧺' : after > before ? ` · ${after}단계로 자랐어요 🌱` : ''}`);
+    await loadTasks(true);
+  } catch (e) {
+    completing = false;
+    const cur = state.farms.find(x => x.id === f.id)?.plots[i];
+    if (cur) { cur.draftMemo = memo; cur.draftPhotos = photos; save(); }
+    toast(e.message);
+    render();
+  }
+}
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-tk]');
+  if (!b) return;
+  switch (b.dataset.tk) {
+    case 'toggle-task': { const id = Number(b.dataset.task); checked.has(id) ? checked.delete(id) : checked.add(id); render(); break; }
+    case 'mark-harvest': { const k = `${current().id}|${plotIndex}`; harvestMark[k] = !harvestMark[k]; render(); break; }
+    case 'post-journal': postJournal(); break;
+    case 'retry': loadTasks(true); break;
+    case 'dev-day': moveDay(b); break;
+  }
+});
+
+// ---------- 개발용 날짜 이동(서버 날짜를 며칠 앞으로)
+const devBar = () => `<div class="tk-dev" role="group" aria-label="개발용 날짜 이동"><b>🛠 개발용</b><span>오늘 ${esc(day())} (+${dev.offset}일)</span>${[1, 5, 7, 30].map(n => `<button type="button" data-tk="dev-day" data-add="${n}">+${n}일</button>`).join('')}<button type="button" data-tk="dev-day" data-set="0">처음으로</button></div>`;
+async function moveDay(b) {
+  try {
+    const r = await hostApi('devdayset', { offset: b.dataset.set !== undefined ? Number(b.dataset.set) : dev.offset + Number(b.dataset.add) });
+    dev = { enabled: r.enabled, offset: r.offset };
+    toast(`서버 날짜를 ${r.today}로 옮겼어요.`);
+    await refreshFromServer();
+    await loadTasks(true);
+    render();
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- 화면 그릴 때마다: 할 일 불러오기, 방금 심은 작물을 서버와 맞추기, 개발용 줄
+const baseRender = render;
+let syncing = false;
+render = function () {
+  baseRender();
+  if (!['farms', 'garden', 'tasks', 'detail'].includes(view)) return;
+  ensureTasks();
+  if (!syncing && state.farms.some(f => f.plots.some(p => p && isTaskPlant(p) && !p.plantingId))) {
+    syncing = true;  // 새로 심은 작물은 저장이 끝난 뒤 서버 값(작물 번호·단계)을 받아 온다
+    refreshFromServer().finally(() => { syncing = false; });
+  }
+  if (dev.enabled) app.insertAdjacentHTML('afterbegin', devBar());
+};
+
+// ---------- 시작: 작물 정보와 개발용 날짜를 받아 온다
+Promise.all([
+  hostApi('crops').then(r => { r.crops.forEach(c => { cropInfo[c.kind] = c; }); }).catch(() => {}),
+  hostApi('devday').then(r => { if (r.enabled) dev = { enabled: true, offset: r.offset }; }).catch(() => {}),
+]).then(() => {
+  render();
+  // 작물 정보를 받기 전의 첫 화면에서 팀원 코드가 단계를 시간 기준으로 덮어썼으니, 할 일이 있는 작물은 서버 값으로 되돌린다
+  if (state.farms.some(f => f.plots.some(p => p && isTaskPlant(p)))) refreshFromServer();
+});

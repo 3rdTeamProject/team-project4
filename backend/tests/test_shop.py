@@ -55,6 +55,24 @@ class ShopTest(unittest.TestCase):
             conn.execute(text('UPDATE users SET point = :p WHERE id = :u'), {'p': point, 'u': uid})
         return {'Authorization': 'Bearer ' + linked['access_token']}, uid
 
+    def test_point_logs_paging(self):
+        h, uid = self.member()
+        other_h, other_uid = self.member()
+        with engine.begin() as conn:
+            for i in range(7):
+                conn.execute(text("INSERT INTO point_logs (user_id, amount, reason, created_at) VALUES (:u, :a, :r, :t)"),
+                             {'u': uid, 'a': 10, 'r': f'로그{i}', 't': f'2026-10-0{i + 1} 09:00:00'})
+            conn.execute(text("INSERT INTO point_logs (user_id, amount, reason) VALUES (:u, 5, '남의 로그')"), {'u': other_uid})
+        first = self.client.get('/me/point-logs?offset=0&limit=5', headers=h).json()
+        self.assertEqual([x['name'] for x in first['items']], ['로그6', '로그5', '로그4', '로그3', '로그2'])
+        self.assertTrue(first['has_more'])
+        second = self.client.get('/me/point-logs?offset=5&limit=5', headers=h).json()
+        self.assertEqual([x['name'] for x in second['items']], ['로그1', '로그0'])
+        self.assertFalse(second['has_more'])
+        self.assertEqual(self.client.get('/me/point-logs', headers=h).status_code, 200)
+        self.assertEqual(self.client.get('/me/point-logs?limit=0', headers=h).status_code, 422)
+        self.assertEqual(self.client.get('/me/point-logs').status_code, 401)
+
     def reward_id(self, name):
         return rows('SELECT id FROM rewards WHERE name = :n', n=name)[0]['id']
 

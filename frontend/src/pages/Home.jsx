@@ -72,6 +72,7 @@ export default function Home({ gardenView = 'farms' }) {
 
   // 농장 화면(iframe)이 요청하는 서버 작업. 할 일 목록 / 서버 내용 다시 받기 / 일지 올리기(수확 포함)
   const gardenOps = {
+    crops: () => api.gardenCrops(),
     tasks: () => api.gardenTasks(),
     devday: () => api.gardenDevDay(),
     devdayset: body => api.setGardenDevDay(body.offset),

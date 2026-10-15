@@ -150,7 +150,7 @@ export default function Cart() {
               {canExchange && <span>교환 후 {(point - total).toLocaleString()}P</span>}
             </div>
             {canExchange ? (
-              <Link className="ex-submit cart-go" to={isGuest ? '/pointshop/blocked' : '/cart/exchange'} state={{ ids: picked.map((i) => i.reward_id) }}>선택 상품 교환하기</Link>
+              <Link className="ex-submit cart-go" to={isGuest ? '/pointshop/blocked' : '/cart/exchange'} state={{ ids: picked.map((i) => i.reward_id), from: '/cart' }}>선택 상품 교환하기</Link>
             ) : (
               <div className="cart-disabled">{noneSelected ? '상품을 선택해 주세요' : '포인트가 부족해요'}</div>
             )}
@@ -169,7 +169,8 @@ export default function Cart() {
           </div>
           <p className="cart-empty-title">장바구니가 비어 있어요</p>
           <p className="cart-empty-sub">포인트샵에서 마음에 드는 상품을<br />담아 보세요</p>
-          <Link className="cart-empty-go" to="/pointshop">포인트샵 가기</Link>
+          {/* 새로 이동하면 기록이 쌓여 포인트샵과 장바구니를 뒤로가기로 오가며 갇힌다 */}
+          <button type="button" className="cart-empty-go" onClick={goBack}>포인트샵 가기</button>
         </div>
       )}
 

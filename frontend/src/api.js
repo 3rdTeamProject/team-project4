@@ -73,6 +73,7 @@ export const api = {
   gardenState: () => request('/garden/state'),
   saveGarden: (revision, state) => request('/garden/state', {method: 'PUT', body: {revision, state}}),
   gardenTasks: () => request('/garden/tasks'),
+  gardenCrops: () => request('/garden/crops'),
   gardenDevDay: () => request('/garden/dev/day'),
   setGardenDevDay: (offset) => request('/garden/dev/day', { method: 'POST', body: { offset } }),
   completeGardenTasks: (body) => request('/garden/tasks/complete', { method: 'POST', body }),
@@ -91,6 +92,7 @@ export const api = {
   deleteShippingAddress: () => request('/shipping-address', { method: 'DELETE' }),
   updateNotifications: (patch) => request('/me/notifications', { method: 'PATCH', body: patch }),
   mySummary: () => request('/me/summary'),
+  pointLogs: (offset = 0, limit = 20) => request(`/me/point-logs?offset=${offset}&limit=${limit}`),
   updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
 }
 

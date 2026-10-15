@@ -4,10 +4,11 @@
 - task_logs는 한꺼번에 만들지 않는다. 심기 시작 때 첫 할 일만 만들고, 이어지는 할 일은 완료할 때 만든다.
 - 할 일은 '일지 올리기'로만 완료된다(일지 생성 + 포인트 지급이 한 번에 일어남).
 - 수확도 '일지 올리기'에 실려 온다. 수확 버튼은 화면에서 표시만 하고, 일지를 올릴 때 수확 기록과 첫 수확 보너스가 생긴다.
-- 성장 단계는 올라가기만 한다. 단계를 올리는 것은 crop_stages.trigger_task_id(할 일 완료) 또는
-  시간(crop_stages.start_day, 씨앗으로 심은 경우만)이다.
+- 성장 단계는 올라가기만 한다. 단계를 올리는 것은 crop_stages.trigger_task_id(할 일 완료)다.
+  씨앗으로 심은 칸은 모종을 밭에 옮겨심기 전까지 화면에 0단계(포트)로 보이고, 옮겨심기를 마치면 3단계가 된다.
 - crop_tasks가 하나도 없는 작물은 예전 방식(화면이 정한 단계)을 그대로 쓴다.
 """
+import json
 import os
 from datetime import date, datetime, timedelta, timezone
 
@@ -17,7 +18,6 @@ from sqlalchemy import and_, delete, insert, select, update
 
 KST = timezone(timedelta(hours=9))
 TRANSPLANT_STAGE_NO = 3  # 이 단계를 올리는 할 일이 '모종 옮겨심기'
-TIME_STAGE_NO = 2        # 씨앗으로 심었을 때 시간(start_day)으로 올라가는 단계
 FIRST_HARVEST_BONUS = 120
 ACTIVE_STATUSES = ('growing', 'harvested')
 
@@ -89,25 +89,6 @@ def start_planting(conn, t, planting_id: int, crop_id: int, method: str, planted
     return TRANSPLANT_STAGE_NO if method == 'seedling' and tasks else 1
 
 
-def refresh_time_stages(conn, t, user_id: int) -> None:
-    """씨앗으로 심고 1단계에 있는 재배가 start_day를 넘었으면 2단계로 올린다(단계는 올라가기만 함)."""
-    plantings, stages, care = t['plantings'], t['crop_stages'], t['garden_plant_care']
-    today = today_kst()
-    due = [
-        r['id'] for r in conn.execute(
-            select(plantings.c.id, plantings.c.planted_at, stages.c.start_day, care.c.details)
-            .join(stages, and_(stages.c.crop_id == plantings.c.crop_id, stages.c.stage_no == TIME_STAGE_NO))
-            .join(care, care.c.planting_id == plantings.c.id)
-            .where(plantings.c.user_id == user_id, plantings.c.status.in_(ACTIVE_STATUSES), plantings.c.stage == 1,
-                   stages.c.start_day.is_not(None),
-                   plantings.c.crop_id.in_(select(t['crop_tasks'].c.crop_id)))
-        ).mappings()
-        if method_of(r['details']) == 'seed' and (today - r['planted_at']).days >= r['start_day']
-    ]
-    if due:
-        conn.execute(update(plantings).where(plantings.c.id.in_(due), plantings.c.stage == 1).values(stage=TIME_STAGE_NO))
-
-
 def grant_points(conn, t, user_id: int, amount: int, reason: str) -> None:
     """포인트와 경험치를 같이 올리고 내역을 남긴다(경험치는 번 포인트만큼 쌓이고 줄지 않는다)."""
     if amount <= 0:
@@ -170,13 +151,20 @@ class CompleteTasks(BaseModel):
     planting_id: int
     task_log_ids: list[int] = Field(default_factory=list, max_length=30)
     content: str = Field(default='', max_length=500)
-    photo_url: str | None = Field(default=None, max_length=2000)
+    photos: list[str] = Field(default_factory=list, max_length=4)  # data:image/jpeg;base64,... (화면이 줄여서 보냄)
     harvest: bool = False  # 이 일지와 함께 수확을 기록한다
 
     @field_validator('content')
     @classmethod
     def strip_content(cls, value):
         return value.strip()
+
+    @field_validator('photos')
+    @classmethod
+    def validate_photos(cls, photos):
+        if any(not photo.startswith('data:image/jpeg;base64,') or len(photo) > 2000000 for photo in photos):
+            raise ValueError('유효한 JPG 사진만 저장할 수 있어요.')
+        return photos
 
     @model_validator(mode='after')
     def not_empty(self):
@@ -217,7 +205,6 @@ def register_tasks(app, engine, get_current_user, t, full_state):
         logs, ct, pl, plots, farms, crops = (t[k] for k in ('task_logs', 'crop_tasks', 'plantings', 'plots', 'farms', 'crops'))
         stages = t['crop_stages']
         with engine.begin() as conn:
-            refresh_time_stages(conn, t, user['id'])
             rows = conn.execute(
                 select(logs.c.id, logs.c.planting_id, logs.c.start_date, logs.c.end_date,
                        ct.c.title, ct.c.points, ct.c.tip, ct.c.how_to, ct.c.image_url, ct.c.info_only,
@@ -272,13 +259,14 @@ def register_tasks(app, engine, get_current_user, t, full_state):
             by_id = {x['id']: x for x in tasks}
             content = body.content or ' · '.join(
                 [by_id[r['crop_task_id']]['title'] + ' 완료' for r in found] + (['수확했어요 🧺'] if body.harvest else []))
+            photo_json = json.dumps(body.photos) if body.photos else None
             names = conn.execute(
                 select(farms.c.name.label('farm_name'), crops.c.name.label('crop_name'))
                 .select_from(pl).join(crops, crops.c.id == pl.c.crop_id)
                 .outerjoin(plots, plots.c.id == pl.c.plot_id).outerjoin(farms, farms.c.id == plots.c.farm_id)
                 .where(pl.c.id == planting['id'])).mappings().one()
             journal_id = conn.execute(insert(t['journals']).values(
-                planting_id=planting['id'], user_id=user['id'], content=content[:500], photo_url=body.photo_url,
+                planting_id=planting['id'], user_id=user['id'], content=content[:500], photo_url=photo_json,
                 farm_name=names['farm_name'], crop_name=names['crop_name'], date_label=date_label(moment),
             )).inserted_primary_key[0]
 
@@ -292,7 +280,7 @@ def register_tasks(app, engine, get_current_user, t, full_state):
             for row in sorted(found, key=lambda r: r['id']):
                 task = by_id[row['crop_task_id']]
                 conn.execute(update(logs).where(logs.c.id == row['id'], logs.c.completed_at.is_(None))
-                             .values(completed_at=moment, journal_id=journal_id, photo_url=body.photo_url))
+                             .values(completed_at=moment, journal_id=journal_id, photo_url=photo_json))
                 grant_points(conn, t, user['id'], task['points'], f"할 일 완료: {task['title']}")
                 earned += task['points']
                 _complete_follow_ups(conn, t, planting, method, task, moment.date(), tasks, stages)

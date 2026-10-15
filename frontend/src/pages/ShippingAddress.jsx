@@ -36,7 +36,7 @@ export default function ShippingAddress() {
     setAskDelete(false)
     setBusy(true)
     action()
-      .then(() => navigate('/settings', { replace: true, state: { toast: message, afterAction: true } }))
+      .then(() => navigate('/settings', { replace: true, state: { toast: message } }))
       .catch((e) => {
         setToast(e.message)
         setBusy(false)

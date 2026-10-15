@@ -6,6 +6,7 @@
 """
 import hashlib
 import json
+import math
 from datetime import date
 from typing import Literal
 
@@ -34,10 +35,11 @@ from sqlalchemy import (
     update,
 )
 
-from tasks import crops_with_tasks, method_of, refresh_time_stages, register_tasks, start_planting
+from tasks import crops_with_tasks, method_of, register_tasks, start_planting
 
 # 홈 화면의 작물 종류(kind) ↔ crops 테이블의 이름. 오이는 봄/여름 두 작물로 나뉜다.
 # 작물별 단계·할 일은 crops / crop_stages / crop_tasks 행(Supabase에 SQL로 입력)이 정한다.
+# 재배 일수(예상 수확까지)는 새 작물 행을 만들 때의 임시 값이고, 오이는 DB 행의 total_days를 쓰지 않는다.
 KIND_CROPS = {
     'tomato': '방울토마토',
     'lettuce': '상추',
@@ -48,6 +50,9 @@ KIND_CROPS = {
     'eggplant': '가지',
     'zucchini': '애호박',
 }
+KIND_DAYS = {
+    '방울토마토': 90, '상추': 45, '오이(봄)': 60, '오이(여름)': 60, '고추': 90, '감자': 100, '가지': 85, '애호박': 60,
+}
 NAME_TO_KIND = {name: kind for kind, name in KIND_CROPS.items()}
 # 예전 '오이' 행은 오이(봄)으로 이름을 바꿔 쓴다. 바꾸기 전에도 같은 작물로 보고, 새 행을 따로 만들지 않는다.
 LEGACY_NAMES = {'오이(봄)': '오이'}
@@ -56,13 +61,23 @@ NAME_TO_KIND['오이'] = 'cucumber_spring'
 
 class Plant(BaseModel):
     kind: Literal['lettuce', 'cucumber_spring', 'cucumber_summer', 'pepper', 'eggplant', 'zucchini', 'tomato', 'potato']
-    # 단계는 할 일 완료·시간으로 서버가 정한다. 할 일이 없는 작물만 화면이 보낸 값을 쓴다.
-    stage: int = Field(ge=1, le=5)
-    # 심은 방법(garden_plant_care.details.method). 새로 심을 때만 쓴다.
-    method: Literal['seed', 'seedling'] = 'seed'
+    # 단계는 재배 기간으로 화면이 계산한다. 할 일이 있는 작물은 서버가 정한 값을 쓴다(씨앗을 옮겨심기 전에는 0단계).
+    stage: int = Field(ge=0, le=5)
     needsWater: bool = False
     wateredAt: date | None = None
     plantedAt: date
+    method: Literal['seed', 'seedling'] | None = None
+    harvestedAt: date | None = None
+    taskChecks: dict[str, list[Literal['water', 'care', 'observe']]] = Field(default_factory=dict)
+    draftMemo: str = Field(default='', max_length=500)
+    draftPhotos: list[str] = Field(default_factory=list, max_length=4)
+
+    @field_validator('draftPhotos')
+    @classmethod
+    def validate_draft_photos(cls, photos):
+        if any(not photo.startswith('data:image/jpeg;base64,') or len(photo) > 2000000 for photo in photos):
+            raise ValueError('유효한 JPG 사진만 저장할 수 있어요.')
+        return photos
 
 
 class Location(BaseModel):
@@ -91,6 +106,14 @@ class Record(BaseModel):
     crop: str = Field(max_length=20)
     text: str = Field(max_length=500)
     date: str = Field(max_length=80)
+    photos: list[str] = Field(default_factory=list, max_length=4)
+
+    @field_validator('photos')
+    @classmethod
+    def validate_photos(cls, photos):
+        if any(not photo.startswith('data:image/jpeg;base64,') or len(photo) > 2000000 for photo in photos):
+            raise ValueError('유효한 JPG 사진만 저장할 수 있어요.')
+        return photos
 
 
 class Settings(BaseModel):
@@ -223,10 +246,10 @@ def register_garden(app, metadata, engine, get_current_user, users):
         Column('date_label', String(80), nullable=True),
     )
 
-    garden_plant_care = Table(
+    care = Table(
         'garden_plant_care', metadata,
         Column('planting_id', Integer, ForeignKey('plantings.id', ondelete='CASCADE'), primary_key=True),
-        Column('details', JSON, nullable=False),  # method: 'seed' | 'seedling'
+        Column('details', JSON, nullable=False),  # method, harvestedAt, taskChecks, draftMemo, draftPhotos
     )
     task_logs = Table(
         'task_logs', metadata,
@@ -266,8 +289,13 @@ def register_garden(app, metadata, engine, get_current_user, users):
             if LEGACY_NAMES.get(name) in have:
                 have[name] = have[LEGACY_NAMES[name]]
                 continue
-            crop_id = conn.execute(insert(crops).values(name=name)).inserted_primary_key[0]
-            conn.execute(insert(crop_stages), [{'crop_id': crop_id, 'stage_no': n, 'name': f'{n}단계'} for n in range(1, 6)])
+            days = KIND_DAYS[name]
+            crop_id = conn.execute(insert(crops).values(name=name, total_days=days)).inserted_primary_key[0]
+            # 단계별 시작일은 임시 값(재배 일수의 0·10·30·65·100%). 실제 값은 작물 자료 정리 후 교체한다.
+            conn.execute(insert(crop_stages), [
+                {'crop_id': crop_id, 'stage_no': n, 'start_day': math.ceil(days * (0, .1, .3, .65, 1)[n - 1]), 'name': ('심음', '새싹', '성장', '개화', '열매')[n - 1]}
+                for n in range(1, 6)
+            ])
             have[name] = crop_id
         return have
 
@@ -279,20 +307,20 @@ def register_garden(app, metadata, engine, get_current_user, users):
         plot_rows = [dict(r) for r in conn.execute(
             select(plots).where(plots.c.farm_id.in_(farm_ids))).mappings()] if farm_ids else []
         active = [dict(r) for r in conn.execute(
-            select(plantings, crops.c.name.label('crop_name'), garden_plant_care.c.details.label('care'))
+            select(plantings, crops.c.name.label('crop_name'))
             .join(crops, plantings.c.crop_id == crops.c.id)
-            .outerjoin(garden_plant_care, garden_plant_care.c.planting_id == plantings.c.id)
             .where(plantings.c.user_id == user_id, plantings.c.status != 'ended', plantings.c.plot_id.is_not(None))
         ).mappings()]
         journal_rows = [dict(r) for r in conn.execute(
-            select(journals.c.farm_name, journals.c.crop_name, journals.c.content, journals.c.date_label)
+            select(journals.c.farm_name, journals.c.crop_name, journals.c.content, journals.c.date_label, journals.c.photo_url)
             .where(journals.c.user_id == user_id).order_by(journals.c.id)).mappings()]
         motion = conn.execute(select(users.c.motion_effects).where(users.c.id == user_id)).scalar_one()
+        care_rows = {r['planting_id']: r['details'] for r in conn.execute(select(care).join(plantings, care.c.planting_id == plantings.c.id).where(plantings.c.user_id == user_id)).mappings()}
         first_harvest = {r[0]: str(r[1])[:10] for r in conn.execute(
             select(harvests.c.planting_id, func.min(harvests.c.harvested_at))
             .where(harvests.c.planting_id.in_([a['id'] for a in active])).group_by(harvests.c.planting_id))} if active else {}
-        return {'farms': farm_rows, 'plots': plot_rows, 'active': active, 'journals': journal_rows, 'motion': bool(motion),
-                'first_harvest': first_harvest}
+        return {'care': care_rows, 'first_harvest': first_harvest, 'tasked': crops_with_tasks(conn, t), 'farms': farm_rows,
+                'plots': plot_rows, 'active': active, 'journals': journal_rows, 'motion': bool(motion)}
 
     def build_state(rows: dict) -> dict:
         """읽어 온 내용을 홈 화면이 쓰는 문서 모양으로 조립한다."""
@@ -312,10 +340,12 @@ def register_garden(app, metadata, engine, get_current_user, users):
             }
             if row['watered_at'] is not None:
                 plant['wateredAt'] = row['watered_at'].isoformat()
-            if method_of(row['care']):
-                plant['method'] = method_of(row['care'])
-            if row['id'] in rows['first_harvest']:  # 첫 수확일(수확을 한 번이라도 기록한 칸)
+            plant.update(rows['care'].get(row['id'], {}))
+            if row['id'] in rows['first_harvest']:  # 첫 수확일은 서버(harvests)가 정한다
                 plant['harvestedAt'] = rows['first_harvest'][row['id']]
+            # 씨앗으로 심고 아직 옮겨심기 전인 칸은 싹이 없는 0단계(포트)로 보여준다(DB에는 1단계로 저장)
+            if row['crop_id'] in rows['tasked'] and plant.get('method') == 'seed' and row['stage'] < 3:
+                plant['stage'] = 0
             return plant
 
         farm_docs = []
@@ -331,7 +361,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
         return {
             'farms': farm_docs,
             'records': [
-                {'farm': j['farm_name'] or '', 'crop': j['crop_name'] or '', 'text': j['content'], 'date': j['date_label'] or ''}
+                {'farm': j['farm_name'] or '', 'crop': j['crop_name'] or '', 'text': j['content'], 'date': j['date_label'] or '', **({'photos': json.loads(j['photo_url'])} if j['photo_url'] else {})}
                 for j in rows['journals']
             ],
             'settings': {'motion': rows['motion']},
@@ -385,6 +415,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 crop_id = crop_ids[KIND_CROPS[plant['kind']]]
                 tasked = crop_id in tasked_crops
                 values = {
+                    'status': 'harvested' if plant.get('harvestedAt') else 'growing',
                     'needs_water': plant.get('needsWater', False),
                     'watered_at': date.fromisoformat(plant['wateredAt']) if plant.get('wateredAt') else None,
                     'planted_at': date.fromisoformat(plant['plantedAt']),
@@ -398,8 +429,8 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 if current:  # 같은 칸에 다른 작물을 새로 심음
                     end_ids.append(current['id'])
                 fresh_plantings.append({
-                    'method': plant.get('method', 'seed'), 'tasked': tasked,
-                    'row': {'user_id': user_id, 'plot_id': plot_id, 'crop_id': crop_id, 'status': 'growing', **values},
+                    'method': plant.get('method') or 'seed', 'tasked': tasked,
+                    'row': {'user_id': user_id, 'plot_id': plot_id, 'crop_id': crop_id, **values},
                 })
 
         # 끝낸 재배를 먼저 처리해야 같은 칸에 새로 심을 수 있다(칸당 진행 중인 재배는 하나)
@@ -410,15 +441,26 @@ def register_garden(app, metadata, engine, get_current_user, users):
         for fresh_planting in fresh_plantings:
             row = fresh_planting['row']
             planting_id = conn.execute(insert(plantings).values(**row)).inserted_primary_key[0]
-            conn.execute(insert(garden_plant_care).values(planting_id=planting_id, details={'method': fresh_planting['method']}))
             if fresh_planting['tasked']:  # 심기 시작: 처음 할 일을 만들고 시작 단계를 정한다
                 stage = start_planting(conn, t, planting_id, row['crop_id'], fresh_planting['method'], row['planted_at'])
                 if stage != 1:
                     conn.execute(update(plantings).where(plantings.c.id == planting_id).values(stage=stage))
 
         # 일지: 기록은 뒤에 덧붙기만 하므로 앞부분이 같으면 새 기록만 넣고, 다르면 전부 다시 쓴다
-        incoming = [(r['farm'], r['crop'], r['text'], r['date']) for r in new['records']]
-        saved = [(j['farm_name'] or '', j['crop_name'] or '', j['content'], j['date_label'] or '') for j in rows['journals']]
+        active_now = {r['plot_id']: r['id'] for r in conn.execute(select(plantings.c.id, plantings.c.plot_id).where(plantings.c.user_id == user_id, plantings.c.status != 'ended')).mappings()}
+        for farm_doc in new['farms']:
+            positions = {r['position']: r['id'] for r in conn.execute(select(plots).where(plots.c.farm_id == farm_pk_by_client[farm_doc['id']])).mappings()}
+            for position, plant_doc in enumerate(farm_doc['plots'], 1):
+                if not plant_doc:
+                    continue
+                planting_id = active_now[positions[position]]
+                details = {key: plant_doc[key] for key in ('method', 'harvestedAt', 'taskChecks', 'draftMemo', 'draftPhotos') if plant_doc.get(key)}
+                conn.execute(delete(care).where(care.c.planting_id == planting_id))
+                if details:
+                    conn.execute(insert(care).values(planting_id=planting_id, details=details))
+
+        incoming = [(r['farm'], r['crop'], r['text'], r['date'], json.dumps(r['photos']) if r.get('photos') else None) for r in new['records']]
+        saved = [(j['farm_name'] or '', j['crop_name'] or '', j['content'], j['date_label'] or '', j['photo_url']) for j in rows['journals']]
         if incoming[:len(saved)] != saved:
             conn.execute(delete(journals).where(journals.c.user_id == user_id))
             saved = []
@@ -437,11 +479,11 @@ def register_garden(app, metadata, engine, get_current_user, users):
             for f in new['farms']:
                 pks_by_name.setdefault(f['name'], []).append(farm_pk_by_client[f['id']])
             batch = []
-            for farm_name, crop_name, content, date_label in fresh:
+            for farm_name, crop_name, content, date_label, photo_url in fresh:
                 found = [latest[(pk, crop_name)] for pk in pks_by_name.get(farm_name, []) if (pk, crop_name) in latest]
                 batch.append({
                     'user_id': user_id, 'planting_id': max(found) if found else None,
-                    'content': content, 'farm_name': farm_name, 'crop_name': crop_name, 'date_label': date_label,
+                    'photo_url': photo_url, 'content': content, 'farm_name': farm_name, 'crop_name': crop_name, 'date_label': date_label,
                 })
             conn.execute(insert(journals), batch)
 
@@ -454,10 +496,30 @@ def register_garden(app, metadata, engine, get_current_user, users):
         point = conn.execute(select(users.c.point).where(users.c.id == user_id)).scalar_one()
         return {'revision': revision_of(state), 'state': {**state, 'points': point}}
 
+    @router.get('/crops')
+    def read_crops(user=Depends(get_current_user)):
+        """작물 선택 화면용: 작물 종류(kind), 이름, 예상 재배 일수(비어 있을 수 있음), 할 일 데이터 유무, 심기 전 안내 작업."""
+        crop_tasks = t['crop_tasks']
+        with engine.connect() as conn:
+            rows = {r['name']: dict(r) for r in conn.execute(select(crops.c.id, crops.c.name, crops.c.total_days)).mappings()}
+            tasked = crops_with_tasks(conn, t)
+            prep: dict[int, list] = {}
+            for r in conn.execute(
+                    select(crop_tasks.c.crop_id, crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.id)
+                    .where(crop_tasks.c.info_only.is_(True)).order_by(crop_tasks.c.id)).mappings():
+                prep.setdefault(r['crop_id'], []).append({'title': r['title'], 'howTo': r['how_to'], 'tip': r['tip']})
+        items = []
+        for kind, name in KIND_CROPS.items():
+            row = rows.get(name) or rows.get(LEGACY_NAMES.get(name, ''))
+            items.append({
+                'kind': kind, 'name': name, 'days': row['total_days'] if row else KIND_DAYS[name],
+                'hasTasks': bool(row and row['id'] in tasked), 'prep': prep.get(row['id'], []) if row else [],
+            })
+        return {'crops': items}
+
     @router.get('/state')
     def read_state(user=Depends(get_current_user)):
         with engine.begin() as conn:
-            refresh_time_stages(conn, t, user['id'])  # 시간이 지나 올라갈 단계가 있으면 올린다
             return full_state(conn, user['id'])
 
     @router.put('/state')
@@ -466,7 +528,6 @@ def register_garden(app, metadata, engine, get_current_user, users):
         with engine.begin() as conn:
             # 같은 사용자의 저장이 동시에 들어와도 한 번에 하나씩 처리한다
             conn.execute(select(users.c.id).where(users.c.id == user['id']).with_for_update())
-            refresh_time_stages(conn, t, user['id'])
             rows = load_rows(conn, user['id'])
             # 마지막으로 받은 내용에서 바뀌었으면(다른 탭에서 저장) 덮어쓰지 않는다
             if revision_of(build_state(rows)) != body.revision:
@@ -478,7 +539,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
     app.include_router(router)
     t = {
         'farms': farms, 'plots': plots, 'crops': crops, 'crop_tasks': crop_tasks, 'crop_stages': crop_stages,
-        'plantings': plantings, 'journals': journals, 'garden_plant_care': garden_plant_care, 'task_logs': task_logs,
+        'plantings': plantings, 'journals': journals, 'garden_plant_care': care, 'task_logs': task_logs,
         'harvests': harvests, 'users': users, 'metadata': metadata,
     }
     register_tasks(app, engine, get_current_user, t, full_state)

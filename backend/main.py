@@ -7,7 +7,7 @@ from typing import Literal
 import httpx
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import (
@@ -503,6 +503,32 @@ def read_my_summary(user=Depends(get_current_user)):
         "journals": journals,
         "diagnoses": diagnoses,
         "point_logs": point_logs,  # 최근 5건, 최신순 (경험치는 내려주지 않음)
+    }
+
+
+@app.get("/me/point-logs")
+def read_point_logs(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    user=Depends(get_current_user),
+):
+    """포인트 내역 전체 보기. offset부터 limit건씩 최신순으로 내려주고, 더 있는지(has_more)도 알려준다."""
+    with engine.connect() as conn:
+        if "point_logs" not in set(inspect(conn).get_table_names()):
+            return {"items": [], "has_more": False}
+        rows = conn.execute(
+            text(
+                "SELECT reason, amount, created_at FROM point_logs "
+                "WHERE user_id = :uid ORDER BY created_at DESC, id DESC LIMIT :n OFFSET :off"
+            ).columns(reason=String, amount=Integer, created_at=DateTime),  # 날짜를 DB 종류와 무관하게 datetime으로 받는다
+            {"uid": user["id"], "n": limit + 1, "off": offset},  # 한 건 더 읽어 다음 페이지 유무를 안다
+        ).mappings().all()
+    return {
+        "items": [
+            {"name": r["reason"], "amount": r["amount"], "created_at": r["created_at"].isoformat()}
+            for r in rows[:limit]
+        ],
+        "has_more": len(rows) > limit,
     }
 
 
