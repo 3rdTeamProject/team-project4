@@ -65,13 +65,14 @@ function weatherPanel(f,loading=false){
   let content,details='';
   if(loading||!w){content='<div class="weather-summary"><span class="weather-symbol">◌</span><b>날씨 확인 중…</b></div>'}
   else if(w.status==='ready'){
-    content=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(w.current.temperature_2m)}°C</b><small>${w.theme==='rain'?'비가 내리고 있어요':w.theme==='snow'?'눈이 내리고 있어요':'농장 주변의 현재 날씨'}</small></span></div>`;
+    const place=w.place.label==='현재 위치로 지정한 농장'?(f.region||'현재 위치'):w.place.label.replace(/\s*·\s*(지역 기준|양평읍 기준)$/,'');
+    content=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(w.current.temperature_2m)}°C</b></span></div><div class="weather-extra"><small class="weather-place">${esc(place)}</small><small class="weather-note">${esc(GardenWeather.message(w.theme,w.current.is_day))}</small></div>`;
     const humidity=Number.isFinite(w.current.relative_humidity_2m)?` · 습도 ${Math.round(w.current.relative_humidity_2m)}%`:'';
     details=`<p class="weather-time">${esc(w.place.label)}${humidity}<br>${esc(w.current.time.replace('T',' '))} KST 기준 · 10분마다 조회</p>`;
   }else if(w.status==='choose'){
     content='<b class="weather-message">농장 지역을 확인해 주세요</b><div class="weather-places">'+w.choices.map((p,i)=>`<button data-action="weather-place" data-index="${i}">${esc(p.label)}</button>`).join('')+'</div>';
   }else{content=`<p class="weather-message">${esc(w.message)}</p>`}
-  return `<div class="weather-compact">${content}<button class="weather-reload" data-action="weather-refresh" aria-label="날씨 새로고침" ${loading?'disabled':''}>↻</button></div><details class="weather-details"><summary aria-label="날씨 상세 정보">ⓘ</summary><div class="weather-detail-body">${details}<div class="weather-actions"><button data-action="weather-location" ${locating?'disabled':''}>⌖ ${locating?'위치 확인 중…':'현재 위치로 지정'}</button>${f.weatherLocation?'<button data-action="weather-region">입력한 지역으로 복원</button>':''}</div><div class="weather-credit"><a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><span>현재 날씨는 모델 추정값이에요.</span></div></div></details>`;
+  return `<div class="weather-compact">${content}<button class="weather-reload" data-action="weather-refresh" aria-label="날씨 새로고침" ${loading?'disabled':''}>↻</button></div><details class="weather-details"><summary aria-label="날씨 상세 정보">ⓘ</summary><div class="weather-detail-body">${details}<div class="weather-actions"><button data-action="weather-location" ${locating?'disabled':''}>⌖ ${locating?'위치 확인 중…':'현재 위치로 지정'}</button>${f.weatherLocation?'<button data-action="weather-region">입력한 지역으로 복원</button>':''}</div><div class="weather-credit"><a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><span>현재 날씨는 모델 추정값이에요.</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">지역명 © OpenStreetMap contributors</a></div></div></details>`;
 }
 async function refreshWeather(force=false){
   const f=current();if(view!=='garden'||!f)return;
@@ -87,10 +88,13 @@ function useWeatherLocation(){
   if(!navigator.geolocation){toast('이 브라우저에서는 현재 위치를 사용할 수 없어요. 농장 지역을 입력해 주세요.');return}
   const farm=current();if(!farm)return;
   locating=true;document.querySelector('#live-weather').innerHTML=weatherPanel(farm);
-  navigator.geolocation.getCurrentPosition(position=>{
+  navigator.geolocation.getCurrentPosition(async position=>{
+    if(!state.farms.includes(farm)){locating=false;return}
+    const latitude=Number(position.coords.latitude.toFixed(4)),longitude=Number(position.coords.longitude.toFixed(4));
+    let label;
+    try{label=await GardenWeather.reverseGeocode(latitude,longitude)}catch{label=farm.region||'현재 위치'}
     locating=false;
-    if(!state.farms.includes(farm))return;
-    farm.weatherLocation={latitude:Number(position.coords.latitude.toFixed(4)),longitude:Number(position.coords.longitude.toFixed(4)),label:'현재 위치로 지정한 농장'};
+    farm.weatherLocation={latitude,longitude,label};
     save();if(view==='garden'&&current()===farm)render();toast('현재 위치를 이 농장의 날씨 조회 위치로 저장했어요.');
   },error=>{
     locating=false;
