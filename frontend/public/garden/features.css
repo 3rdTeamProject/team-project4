@@ -6,15 +6,22 @@
 .leaf-status-options{display:flex;flex-wrap:wrap;gap:var(--space-gap)}
 .leaf-status-option{min-height:var(--size-touch);padding:var(--space-gap) var(--space-card);border:1px solid var(--color-border);border-radius:var(--radius-chip);background:var(--color-card);color:var(--ink)}
 .leaf-status-option.active{background:var(--color-done-bg);border-color:var(--color-green-leaf);color:var(--green);font-weight:700}
+.leaf-other-field{margin-top:var(--space-card)}
+.leaf-other-field textarea{width:100%;min-height:calc(var(--size-touch)*2)}
 .leaf-status-summary{display:flex;justify-content:space-between;gap:var(--space-gap);padding:var(--space-card);margin-bottom:var(--space-card);background:var(--color-done-bg);border-radius:var(--radius-card);color:var(--green);font-size:var(--fs-sub)}
+.leaf-status-summary span{min-width:0;overflow-wrap:anywhere;text-align:right}
 .leaf-page .photo-strip{margin-bottom:var(--space-card)}
 .leaf-result-image{display:grid;place-items:center;width:100%;aspect-ratio:1.4;background:var(--color-done-bg);border-radius:var(--radius-card);overflow:hidden;margin:var(--space-card) 0}
 .leaf-result-image img{width:100%;height:100%;object-fit:contain}.leaf-result-image span{font-size:calc(var(--size-touch)*2)}
 .leaf-result-card{padding:var(--space-card);background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-card)}
-.leaf-result-card b{color:var(--green)}.leaf-result-card p{color:var(--muted);font-size:var(--fs-sub);line-height:1.6}
+.leaf-result-card b{color:var(--green);overflow-wrap:anywhere}.leaf-result-card p{color:var(--muted);font-size:var(--fs-sub);line-height:1.6}
 .leaf-result-page+.footer{flex-wrap:wrap}.leaf-result-page+.footer .primary{flex-basis:100%}.leaf-result-page+.footer .secondary{flex:1}
 .diagnosis-crops{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-gap);margin:var(--space-gap) 0 var(--space-card)}
 .diagnosis-crop{min-height:var(--size-touch);padding:var(--space-gap);border:1px solid var(--color-border);border-radius:var(--radius-small);background:var(--color-card);color:var(--ink);text-align:left}
 .diagnosis-crop.active{border-color:var(--green);background:var(--color-done-bg);color:var(--green);font-weight:700}
 .diagnosis-page .field-label{margin-top:var(--space-card)}.diagnosis-page .photo-strip{margin-bottom:var(--space-card)}
 .diagnosis-page+.footer .primary:disabled{opacity:.65;cursor:not-allowed}
+.seed-sign{font-synthesis:weight}
+.seed-sign b{display:block;font-size:30px;font-weight:700;line-height:1.15}
+.seed-sign small{font-size:13px;font-weight:700;line-height:1.35;margin-top:8px}
+.footer .primary[data-feature="plant"]:disabled{opacity:.55;cursor:not-allowed}
