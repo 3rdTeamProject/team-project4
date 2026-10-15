@@ -493,7 +493,7 @@ def read_my_summary(user=Depends(get_current_user)):
                 uid,
             ).mappings()
             point_logs = [
-                {"name": r["reason"], "amount": r["amount"], "created_at": r["created_at"].isoformat()}
+                {"name": r["reason"], "amount": r["amount"], "created_at": (r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else r["created_at"])}
                 for r in rows
             ]
     return {

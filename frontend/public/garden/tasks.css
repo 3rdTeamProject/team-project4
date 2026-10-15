@@ -1,0 +1,24 @@
+/* 작물별 할 일 화면(tasks.js)의 스타일. 색·글꼴·크기·간격은 design-tokens.css 변수만 쓴다. */
+.crop-row.stage-0{--crop-height:var(--size-touch)}
+.pot-art{width:100%;height:100%}
+
+.tk-info-card{display:flex;flex-direction:column;gap:calc(var(--space-gap) / 4);padding:var(--space-card);margin-bottom:calc(var(--space-gap) / 2);background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-card);color:var(--color-text)}
+.tk-info-card b{font-size:var(--fs-card-title)}
+.tk-info-card small{font-size:var(--fs-sub);color:var(--color-text-sub)}
+.tk-tip-open{margin-top:calc(var(--space-gap) / 4);padding:calc(var(--space-card) / 2) calc(var(--space-card) * .75);border-radius:var(--radius-small);background:var(--color-info-bg);color:var(--color-info-text);font-size:var(--fs-sub);line-height:1.6}
+
+.tk-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:calc(var(--space-gap) / 2)}
+.tk-title-row b{min-width:0}
+.tk-point-chip{flex:none;padding:calc(var(--space-gap) / 4) calc(var(--space-gap) / 2);border-radius:var(--radius-chip);background:var(--color-point-chip);color:var(--color-point-text);font-size:var(--fs-sub);font-weight:700;white-space:nowrap}
+.tk-tip{font-size:var(--fs-sub);line-height:1.6;color:var(--color-text)}
+.tk-tip summary{cursor:pointer;color:var(--color-green-btn);font-weight:700}
+.tk-tip p{margin:calc(var(--space-gap) / 4) 0 0}
+.tk-link{padding:0;border:0;background:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
+
+.tk-dev{display:flex;flex-wrap:wrap;align-items:center;gap:calc(var(--space-gap) / 2);padding:calc(var(--space-card) / 2) var(--space-screen-x);background:var(--color-warn-bg);border-bottom:1px solid var(--color-warn-border);color:var(--color-warn-text);font-size:var(--fs-sub)}
+.tk-dev span{flex:1}
+.tk-dev button{padding:calc(var(--space-card) / 3) calc(var(--space-card) * .6);border:1px solid var(--color-warn-border);border-radius:var(--radius-chip);background:var(--color-card);color:var(--color-point-text);font-size:var(--fs-sub);font-weight:700;cursor:pointer}
+
+.check-card[role="checkbox"]{cursor:pointer}
+.check-card[role="checkbox"]:focus-visible{outline:2px solid var(--color-green-btn);outline-offset:2px}
+.tk-sub-title{font-family:var(--font-title);font-size:var(--fs-section-title);font-weight:400;margin-top:0}

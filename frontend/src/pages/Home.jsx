@@ -55,6 +55,31 @@ export default function Home({ gardenView = 'farms' }) {
     }
   }
 
+  // 저장하지 않은 변경이 서버에 올라갈 때까지 기다린다(할 일 완료·수확은 저장된 농장을 기준으로 처리되므로)
+  async function settle() {
+    for (let i = 0; i < 200 && (latest.current || busy.current); i++) {
+      if (busy.current) await new Promise(resolve => setTimeout(resolve, 50))
+      else await flush()
+    }
+    if (latest.current || busy.current) throw new Error('농장을 서버에 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
+  }
+
+  function remember(data) {
+    session.current.revision = data.revision
+    session.current.state = data.state
+    return data
+  }
+
+  // 농장 화면(iframe)이 요청하는 서버 작업. 할 일 목록 / 서버 내용 다시 받기 / 일지 올리기(수확 포함)
+  const gardenOps = {
+    crops: () => api.gardenCrops(),
+    tasks: () => api.gardenTasks(),
+    devday: () => api.gardenDevDay(),
+    devdayset: body => api.setGardenDevDay(body.offset),
+    refresh: async () => { await settle(); return remember(await api.gardenState()) },
+    complete: async body => { await settle(); return remember(await api.completeGardenTasks(body)) },
+  }
+
   useEffect(() => {
     const onMessage = event => {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return
@@ -67,6 +92,9 @@ export default function Home({ gardenView = 'farms' }) {
       } else if (message?.type === 'garden:save' && message.state) {
         latest.current = message.state
         flush()
+      } else if (message?.type === 'garden:api' && Object.hasOwn(gardenOps, message.op)) {
+        const reply = result => frame.current?.contentWindow?.postMessage({ type: 'garden:api-result', id: message.id, ...result }, window.location.origin)
+        gardenOps[message.op](message.payload).then(data => reply({ ok: true, data }), e => reply({ ok: false, error: e.message, status: e.status }))
       } else if (message?.type === 'garden:navigate' && message.to === '/menu') {
         // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
         destination.current = gardenView === 'farms' ? '/menu' : 'back'

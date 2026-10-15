@@ -125,7 +125,11 @@ class GardenIntegrationTest(unittest.TestCase):
         _, ah = self.guest()
         rev = self.load(ah)['revision']
         rev = self.save(ah, rev, {'farms': [farm(plots=[plant()] + [None] * 5)], 'records': []})['revision']
-        # 수확: 칸을 비우고 기록을 남긴다 → 재배 줄은 지우지 않고 ended
+        # 수확: 수확 버튼(harvests 행) 뒤 칸을 비우고 기록을 남긴다 → 재배 줄은 지우지 않고 ended
+        planting_id = rows("SELECT id FROM plantings WHERE status = 'growing'")[0]['id']
+        done = self.client.post('/garden/tasks/complete', headers=ah, json={'planting_id': planting_id, 'harvest': True, 'content': '수확을 마쳤어요! 🧺'})
+        self.assertEqual(done.status_code, 200, done.text)
+        rev = done.json()['revision']  # 일지가 서버에서 생겼으니 새 revision으로 이어 간다
         rev = self.save(ah, rev, {'farms': [farm()], 'records': [record('수확을 마쳤어요! 🧺')]})['revision']
         plantings = rows('SELECT status FROM plantings')
         self.assertEqual([p['status'] for p in plantings][-1], 'ended')
