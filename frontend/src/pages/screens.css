@@ -36,7 +36,11 @@
 
 /* 메뉴: 프로필 카드 */
 .profile-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-gap);
+  padding: var(--space-card);
+  box-sizing: border-box;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
@@ -51,7 +55,6 @@
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  padding: 20px 20px 16px;
 }
 
 .profile-name {
@@ -77,7 +80,8 @@
   display: flex;
   align-items: center;
   background: var(--profile-band);
-  padding: 12px 0;
+  border-radius: var(--radius-small);
+  padding: calc(var(--space-gap) * .7) var(--space-gap);
 }
 
 .profile-stat {
@@ -85,9 +89,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: calc(var(--space-gap) / 2);
   font-family: var(--font-number);
-  font-size: 20px;
+  font-size: var(--fs-section-title);
+}
+
+.profile-stat-level {
+  color: var(--color-green-dark);
+}
+
+.profile-stat-point {
+  color: var(--color-point-text);
 }
 
 .profile-stats-divider {
@@ -608,4 +620,8 @@
 
 .menu-title {
   font-size: var(--fs-screen-title);
+}
+
+.profile-stat-level svg {
+  color: var(--primary);
 }

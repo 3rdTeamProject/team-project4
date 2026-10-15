@@ -1,6 +1,6 @@
 import { Link, Navigate } from 'react-router-dom'
 import { storage } from '../api.js'
-import { ChevronRightIcon, CloseIcon, CoinIcon, DiagnosisIcon, JournalIcon, SettingsIcon, ShopIcon, SproutIcon } from '../components/Icons.jsx'
+import { ChevronRightIcon, CloseIcon, CoinIcon, DiagnosisIcon, JournalIcon, LevelIcon, SettingsIcon, ShopIcon } from '../components/Icons.jsx'
 import { levelFromExp } from '../constants/level.js'
 import { useGoBack } from '../hooks/useGoBack.js'
 import { useMe } from '../hooks/useMe.js'
@@ -35,9 +35,9 @@ export default function Menu() {
             <span className="profile-more">내 정보<ChevronRightIcon /></span>
           </div>
           <div className="profile-stats">
-            <span className="profile-stat"><SproutIcon /> Lv.{levelFromExp(me.exp)}</span>
+            <span className="profile-stat profile-stat-level"><LevelIcon size={20} /> Lv.{levelFromExp(me.exp)}</span>
             <span className="profile-stats-divider" />
-            <span className="profile-stat"><CoinIcon /> {me.point.toLocaleString()}P</span>
+            <span className="profile-stat profile-stat-point"><CoinIcon size={22} /> {me.point.toLocaleString()}P</span>
           </div>
         </Link>
       )}

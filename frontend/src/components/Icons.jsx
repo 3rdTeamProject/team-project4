@@ -60,6 +60,11 @@ export function SettingsIcon({ size = 24 }) {
   return <LineIcon size={size}><path d="M12 15a3 3 0 100-6 3 3 0 000 6zM19 12l2-1-2-4-2 1-2-1V5h-4v2l-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1v2h4v-2l2-1 2 1 2-4-2-1z" /></LineIcon>
 }
 
+// 메뉴 프로필의 레벨 표시: 초록 선 새싹
+export function LevelIcon({ size = 20 }) {
+  return <LineIcon size={size}><path d="M12 21V9M12 9c0-4 3-6 7-6 0 4-3 6-7 6zM12 13c0-3-2-5-6-5 0 3 2 5 6 5z" /></LineIcon>
+}
+
 export function ChevronRightIcon({ size = 18 }) {
   return <LineIcon size={size} strokeWidth={2.4}><path d="M9 6l6 6-6 6" /></LineIcon>
 }
