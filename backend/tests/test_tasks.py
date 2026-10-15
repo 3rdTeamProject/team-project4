@@ -140,7 +140,11 @@ class TaskTest(unittest.TestCase):
     def test_seedling_skips_seed_only_and_starts_at_stage_3(self):
         self.plant('seedling')
         self.assertEqual({r['crop_task_id'] for r in self.logs()},
-                         {self.ids['plant_water'], self.ids['support'], self.ids['feed'], self.ids['water']})  # 웃거름(수확 중)은 완료 후
+                         {self.ids['transplant'], self.ids['plant_water'], self.ids['support'], self.ids['feed'], self.ids['water']})  # 웃거름(수확 중)은 완료 후
+        moved = self.logs('transplant')[0]  # '심었어요'가 곧 모종 옮겨심기라서 바로 완료로 기록되고 포인트를 받는다
+        self.assertIsNotNone(moved['completed_at'])
+        self.assertEqual(self.user(), {'point': 10, 'exp': 10})
+        self.assertEqual(rows('SELECT reason FROM point_logs WHERE user_id = :u', u=self.uid), [{'reason': '할 일 완료: 모종 옮겨심기'}])
         self.assertEqual(self.stage(), 3)
         self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['method'], 'seedling')
 
@@ -172,6 +176,7 @@ class TaskTest(unittest.TestCase):
         self.plant('seed')
         self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 0)  # 옮겨심기 전에는 싹 없는 0단계(포트)
         self.goto(29)
+        self.assertNotIn('모종 물 주기', self.titles())  # 옮겨심을 때가 되면 포트 물 주기는 더 보이지 않는다
         self.complete('모종 옮겨심기')
         self.assertEqual(self.stage(), 3)
         self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 3)
@@ -201,15 +206,18 @@ class TaskTest(unittest.TestCase):
     def test_harvest_is_recorded_with_the_journal_and_bonus_is_given_once(self):
         self.plant('seedling')
         first = self.complete(content='수확했어요', harvest=True)
-        self.assertEqual((first['firstHarvest'], first['bonus'], first['earned'], first['state']['points']), (True, 120, 120, 120))
+        self.assertEqual((first['firstHarvest'], first['bonus'], first['earned'], first['state']['points']), (True, 120, 120, 130))
         plot = first['state']['farms'][0]['plots'][0]
         self.assertEqual(plot['harvestedAt'], DAY0.date().isoformat())  # 첫 수확일이 칸 정보로 내려간다
+        self.assertEqual(plot['lastHarvestedAt'], DAY0.date().isoformat())
+        self.complete(content='같은 날 또 수확', harvest=True, expect=409)  # 수확은 하루에 한 번만 기록한다
+        self.goto(1)
         second = self.complete(content='또 수확', harvest=True)
-        self.assertEqual((second['firstHarvest'], second['state']['points']), (False, 120))
+        self.assertEqual((second['firstHarvest'], second['state']['points']), (False, 130))
         self.assertEqual(rows('SELECT COUNT(*) AS n FROM harvests h JOIN plantings p ON p.id = h.planting_id WHERE p.user_id = :u', u=self.uid)[0]['n'], 2)
         self.assertEqual(rows("SELECT status FROM plantings WHERE user_id = :u", u=self.uid)[-1]['status'], 'harvested')
         # 수확 버튼만으로는 할 일이 완료되지 않는다
-        self.assertEqual(len([r for r in self.logs() if r['completed_at']]), 0)
+        self.assertEqual(len([r for r in self.logs() if r['completed_at']]), 1)  # 모종 옮겨심기만 심을 때 완료됐다
         # 수확한 뒤에도 할 일은 이어지고, 칸을 정리하면 끝난다
         self.goto(10)
         self.assertIn('물 주기', self.titles())
@@ -257,6 +265,7 @@ class TaskTest(unittest.TestCase):
         self.assertEqual(len(crops), 8)
         self.assertTrue(crops['cucumber_spring']['hasTasks'])
         self.assertEqual([x['title'] for x in crops['cucumber_spring']['prep']], ['석회·퇴비 섞기'])
+        self.assertEqual(crops['cucumber_spring']['transplant']['title'], '모종 옮겨심기')  # 모종으로 시작할 때 '심었어요'가 곧 이 작업
         self.assertEqual((crops['cucumber_spring']['plant']['title'], crops['cucumber_spring']['plant']['points']), ('씨앗 심기', 5))
         self.assertIsNone(crops['lettuce']['plant'])
         self.assertFalse(crops['lettuce']['hasTasks'])
