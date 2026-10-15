@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>작물 이미지 크기 비교</title>
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="garden.css">
+  <link rel="stylesheet" href="features.css">
+  <link rel="stylesheet" href="common.css">
+  <style>
+    body { padding: var(--space-card); background: var(--color-bg); color: var(--color-text); }
+    h1 { margin: 0 0 var(--space-gap); font-size: var(--fs-screen-title); }
+    p { margin: 0 0 var(--space-card); color: var(--color-text-sub); }
+    .comparison-scroll { overflow-x: auto; padding-bottom: var(--space-card); }
+    .comparison-grid { display: grid; grid-template-columns: 7rem 9rem repeat(5, 10rem); gap: var(--space-gap); width: max-content; align-items: center; }
+    .column-label { text-align: center; font-weight: bold; }
+    .crop-name { font-weight: bold; }
+    .sample-card { width: 9rem; padding: calc(var(--space-gap) / 2); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-card); }
+    .sample-card .selection-art { margin-bottom: calc(var(--space-gap) / 2); }
+    .sample-card b { display: block; }
+    .plot-cell { height: 10rem; display: flex; align-items: flex-start; justify-content: center; }
+    .plot-cell .plot { width: 10rem; height: 8.5rem; flex: none; pointer-events: none; }
+    .plot-cell .crop-row { box-sizing: border-box; }
+    .plot-cell .crop-instance { max-width: 5.375rem; }
+  </style>
+</head>
+<body>
+  <h1>작물 이미지 크기 비교</h1>
+  <p>실제 선택 카드와 텃밭 칸에 표시되는 크기입니다. 1단계는 처음 심은 직후의 공통 그림입니다.</p>
+  <div class="comparison-scroll"><div id="comparison" class="comparison-grid"></div></div>
+  <script src="crop-art.js"></script>
+  <script>
+    const crops = [
+      ['tomato', '방울토마토'], ['lettuce', '상추'], ['cucumber', '오이'],
+      ['pepper', '고추'], ['potato', '감자'], ['eggplant', '가지'], ['zucchini', '애호박'],
+    ];
+    const labels = ['처음 심음', '새싹', '성장', '개화', '열매'];
+    const terrain = '<svg class="terrain-bed" viewBox="70 88 490 466" preserveAspectRatio="none" aria-hidden="true"><image href="assets/terrain.png" width="1254" height="1254"/></svg>';
+    const plot = (kind, stage) => {
+      const count = stage === 1 ? 3 : 2;
+      const art = Array.from({length: count}, () => `<span class="crop-instance">${CropArt.svg(kind, stage)}</span>`).join('');
+      return `<div class="plot-cell"><div class="plot">${terrain}<span class="crop-row crop-cluster stage-${stage}">${art}</span></div></div>`;
+    };
+    document.querySelector('#comparison').innerHTML = [
+      '<span></span><span class="column-label">선택 카드</span>',
+      ...labels.map((label, index) => `<span class="column-label">${index + 1}단계 · ${label}</span>`),
+      ...crops.flatMap(([kind, name]) => [
+        `<span class="crop-name">${name}</span>`,
+        `<div class="sample-card"><span class="selection-art">${CropArt.svg(kind, 5, true)}</span><b>${name}</b></div>`,
+        ...[1, 2, 3, 4, 5].map(stage => plot(kind, stage)),
+      ]),
+    ].join('');
+  </script>
+</body>
+</html>

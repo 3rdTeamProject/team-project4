@@ -32,19 +32,28 @@ body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
 .terrain-grass-layer{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}.terrain-grass{width:100%;height:100%;display:block}
 .fence{position:absolute;left:0;right:0;top:4px;height:30px;display:flex;overflow:hidden;pointer-events:none;z-index:2}.terrain-fence{flex:0 0 34%;height:30px;display:block}
 .sky:after{content:"";position:absolute;bottom:-17px;left:-4%;width:108%;height:31px;border-radius:50% 45% 0 0;background:#9ac76b;pointer-events:none}
-.plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:72px 20px;max-width:410px;margin:0 auto 66px}
-.plot{position:relative;display:block;padding:0;border:0;border-radius:13px;overflow:visible;height:132px;background:transparent;color:#554322;box-shadow:none;transition:filter .15s}
+.plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:86px 20px;max-width:410px;margin:calc(var(--space-gap) + 2px) auto 66px}
+.plot{position:relative;display:block;padding:0;border:0;border-radius:13px;overflow:visible;height:150px;background:transparent;color:#554322;box-shadow:none;transition:filter .15s}
+.plots>.plot:nth-child(-n+2){z-index:3}.plots>.plot:nth-child(n+3):nth-child(-n+4){z-index:2}.plots>.plot:nth-child(n+5){z-index:1}
 .terrain-bed{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0}
 .plot:hover{filter:brightness(1.04)}.plot:focus-visible{outline:3px solid #376d32;outline-offset:4px}
 .crop-row{display:flex;align-items:flex-end;justify-content:space-evenly;gap:9px;height:100%;width:100%;padding:12px 12px 25px;overflow:hidden;position:relative;z-index:1;--crop-height:68px}
-.crop-row.stage-1{--crop-height:30px}.crop-row.stage-2{--crop-height:52px}.crop-row.stage-3{--crop-height:76px}.crop-row.stage-4{--crop-height:88px}
+.crop-row.stage-1{--crop-height:37px}.crop-row.stage-2{--crop-height:32px}.crop-row.stage-3{--crop-height:76px}.crop-row.stage-4{--crop-height:88px}
 .crop-instance{position:relative;display:flex;align-items:flex-end;justify-content:center;flex:1;min-width:0;height:var(--crop-height);max-width:86px}
 .crop-instance:before{content:"";position:absolute;bottom:-3px;left:20%;right:20%;height:7px;border-radius:50%;background:#412e252e;filter:blur(2px)}
 .crop-instance .plant-art{position:relative;display:block;width:100%;height:100%;overflow:visible;transform-origin:50% 98%;animation:garden-sway 6s ease-in-out infinite alternate}
 .crop-instance:nth-child(2) .plant-art{animation-delay:-3s;scale:.96;transform-origin:50% 100%}
+.crop-row:is(.stage-3,.stage-4,.stage-5) :is(.crop-lettuce,.crop-zucchini),.crop-row.stage-4 .crop-potato{scale:1.08}
+.crop-row:is(.stage-3,.stage-4,.stage-5) .crop-instance:nth-child(2) :is(.crop-lettuce,.crop-zucchini),.crop-row.stage-4 .crop-instance:nth-child(2) .crop-potato{scale:1.04}
+.crop-row:is(.stage-4,.stage-5) :is(.crop-potato,.crop-eggplant,.crop-zucchini,.crop-tomato){scale:1.14}
+.crop-row:is(.stage-4,.stage-5) .crop-instance:nth-child(2) :is(.crop-potato,.crop-eggplant,.crop-zucchini,.crop-tomato){scale:1.10}
+.crop-row.stage-3 .plant-art{scale:.9}
+.crop-row.stage-3 .crop-instance:nth-child(2) .plant-art{scale:.86}
+.crop-row.stage-3 .crop-pepper{scale:.8}
+.crop-row.stage-3 .crop-instance:nth-child(2) .crop-pepper{scale:.76}
 .plant-art{display:block}.crop-detail-art .plant-art{width:140px;height:140px}
 /* A compact timber board and a stake, kept below the crop silhouette. */
-.plot-label{position:absolute;left:12px;top:calc(100% + 10px);bottom:auto;z-index:3;isolation:isolate;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:3px 7px;min-width:58px;background:repeating-linear-gradient(0deg,transparent 0 8px,#91602d0b 9px,transparent 10px),linear-gradient(105deg,#f6deb0,#ebca92 70%,#f3d9aa);border:1px solid #a9824b;border-radius:3px 5px 4px 3px;box-shadow:0 2px 0 #ac8248,inset 0 1px 0 #fff5db;line-height:1.2;pointer-events:none;text-align:center;transform:rotate(-2deg)}
+.plot-label{position:absolute;left:12px;top:calc(100% + 7px);bottom:auto;z-index:3;isolation:isolate;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:3px 7px;min-width:58px;background:repeating-linear-gradient(0deg,transparent 0 8px,#91602d0b 9px,transparent 10px),linear-gradient(105deg,#f6deb0,#ebca92 70%,#f3d9aa);border:1px solid #a9824b;border-radius:3px 5px 4px 3px;box-shadow:0 2px 0 #ac8248,inset 0 1px 0 #fff5db;line-height:1.2;pointer-events:none;text-align:center;transform:rotate(-2deg)}
 .plot:nth-child(even) .plot-label{transform:rotate(2deg)}
 .plot-label:before{content:"";position:absolute;left:calc(50% - 4px);top:100%;width:8px;height:14px;background:linear-gradient(90deg,#98703f,#c19860 45%,#ac804b);border:1px solid #926b3b;clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%);z-index:-1}
 .plot-label:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 4px 5px,#967344 1px,transparent 1.5px),radial-gradient(circle at calc(100% - 4px) 5px,#967344 1px,transparent 1.5px)}
@@ -52,7 +61,7 @@ body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
 .plot-label small{font-family:"Pretendard",sans-serif;font-size:9.5px;font-weight:500;color:#75603e;white-space:nowrap;line-height:1.25;margin-top:1px;letter-spacing:.1px}
 .missing-original{font-size:11px;font-weight:400;line-height:1.6;color:#f6e4c9;text-align:center;align-self:center;opacity:.85}
 .alert-dot{position:absolute;right:-2px;top:-3px;width:12px;height:12px;border:2px solid #fff;border-radius:50%;background:#df8262;z-index:2}
-.empty-plot{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:7px;height:100%;color:#fff0d2;background:transparent;font-size:12px;color:#fff0d2}
+.empty-plot{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:7px;color:#fff0d2;background:transparent;font-size:12px}
 .empty-plot span{display:grid;place-items:center;width:32px;height:32px;border:1px dashed #f0d6ab;border-radius:50%;font-size:21px;font-weight:400}
 .garden-footer{padding:16px 24px;background:#f5f6ed;border-top:1px solid #dce3d0;gap:10px}
 .garden-footer .primary,.garden-footer .secondary{font-size:13px;min-height:45px}
@@ -87,7 +96,7 @@ body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
 @keyframes garden-stars{to{opacity:.45}}
 @keyframes garden-sway{from{rotate:-.6deg}to{rotate:.6deg}}
 @keyframes garden-rain{from{transform:translate(5px,-4px) rotate(9deg)}to{transform:translate(-8px,108px) rotate(9deg)}}
-@media(max-width:680px){.garden-top{padding:20px 18px 0}.garden-field{padding:37px 18px 22px}.plots{gap:72px 16px}.plot{height:118px}.crop-row{padding:9px 10px 22px;gap:7px}.crop-row.stage-4{--crop-height:78px}.crop-row.stage-3{--crop-height:67px}.plot-label b{font-size:18px}.garden-footer{padding:15px 18px max(15px,env(safe-area-inset-bottom))}}
+@media(max-width:680px){.garden-top{padding:20px 18px 0}.garden-field{padding:37px 18px 22px}.plots{gap:86px 16px}.plot{height:136px}.crop-row{padding:9px 10px 22px;gap:7px}.crop-row.stage-4{--crop-height:78px}.crop-row.stage-3{--crop-height:67px}.plot-label b{font-size:18px}.garden-footer{padding:15px 18px max(15px,env(safe-area-inset-bottom))}}
 @media(prefers-reduced-motion:reduce){.crop-instance .plant-art,.sky *{animation:none!important}.rainfall,.snowfall{display:none!important}}
 
 .page-head h1{font-weight:750;letter-spacing:-.6px}.farm-card strong{font-weight:650;letter-spacing:-.3px}.primary,.secondary{font-weight:650;letter-spacing:-.15px}.garden-footer{background:#f8f1e2}.garden-footer .primary{background:#528457}.garden-footer .secondary{background:#fffdf7;border-color:#91ad82}.farm-select{font-weight:650}.weather-copy{display:flex;flex-direction:column;justify-content:center;text-align:left}.weather-symbol{align-self:center}.plot{filter:drop-shadow(0 2px 1px #5a74321a)}
