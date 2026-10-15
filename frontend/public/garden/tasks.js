@@ -179,6 +179,7 @@ async function postJournal() {
     delete harvestMark[key];
     completing = false;
     applyServerState(r.state);
+    if (typeof journalCaptureTasks === 'function') journalCaptureTasks(f, p, mine.map(t => t.title));
     const after = state.farms.find(x => x.id === f.id)?.plots[i]?.stage;
     toast(`일지를 올렸어요! +${r.earned}P${r.firstHarvest ? ' · 첫 수확 보너스 포함 🧺' : after > before ? ` · ${after}단계로 자랐어요 🌱` : ''}`);
     await loadTasks(true);
