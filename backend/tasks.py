@@ -73,10 +73,17 @@ def _next_span(done_on: date, task: dict) -> tuple[date, date]:
     return start, done_on + timedelta(days=task['repeat_max_days'] or task['repeat_min_days'])
 
 
+def transplant_task_id(conn, t, crop_id: int) -> int | None:
+    """'모종 옮겨심기' 할 일(3단계를 올리는 할 일)의 id. 없으면 None."""
+    stages = t['crop_stages']
+    return conn.execute(select(stages.c.trigger_task_id).where(stages.c.crop_id == crop_id, stages.c.stage_no == TRANSPLANT_STAGE_NO)).scalar()
+
+
 def start_planting(conn, t, planting_id: int, crop_id: int, method: str, planted_at: date, user_id: int) -> int:
     """심기 시작: 처음 만들 할 일을 넣고 시작 단계를 돌려준다. 심었어요로 끝나는 작업(plant_task)은 바로 완료로 기록한다.
 
     씨앗(seed)은 파종일 기준 할 일, 모종(seedling)은 씨앗 전용 할 일을 건너뛰고 옮겨심은 날(planted_at) 기준 할 일을 만든다.
+    모종은 '심었어요'를 누른 것이 곧 '모종 옮겨심기'라서 그 작업도 바로 완료로 기록한다.
     """
     tasks = [x for x in crop_tasks_of(conn, t, crop_id) if x['after_task_id'] is None]
     if method == 'seed':
@@ -84,6 +91,11 @@ def start_planting(conn, t, planting_id: int, crop_id: int, method: str, planted
     else:
         mine = [x for x in tasks if x['anchor'] == 'transplant' and not x['seed_only']]
     rows, done_now = [], []
+    if method == 'seedling':
+        moving = next((x for x in crop_tasks_of(conn, t, crop_id) if x['id'] == transplant_task_id(conn, t, crop_id)), None)
+        if moving:
+            rows.append({**_log_row(planting_id, moving, planted_at, planted_at), 'completed_at': now_kst()})
+            done_now.append(moving)
     for x in mine:
         row = {**_log_row(planting_id, x, *_first_span(planted_at, x)), 'completed_at': None}
         if method == 'seed' and x['plant_task']:  # '심었어요'를 누른 것이 곧 이 작업(예: 포트에 씨앗 심기)
@@ -215,7 +227,7 @@ def register_tasks(app, engine, get_current_user, t, full_state):
         with engine.begin() as conn:
             rows = conn.execute(
                 select(logs.c.id, logs.c.planting_id, logs.c.start_date, logs.c.end_date,
-                       ct.c.title, ct.c.points, ct.c.tip, ct.c.how_to, ct.c.image_url, ct.c.info_only,
+                       ct.c.title, ct.c.points, ct.c.tip, ct.c.how_to, ct.c.image_url, ct.c.info_only, ct.c.seed_only, ct.c.repeat_min_days,
                        crops.c.name.label('crop_name'), farms.c.client_id.label('farm'), farms.c.name.label('farm_name'),
                        plots.c.position, stages.c.stage_no.label('triggers_stage'))
                 .join(ct, ct.c.id == logs.c.crop_task_id)
@@ -227,6 +239,9 @@ def register_tasks(app, engine, get_current_user, t, full_state):
                 .where(pl.c.user_id == user['id'], pl.c.status.in_(ACTIVE_STATUSES),
                        logs.c.completed_at.is_(None), logs.c.start_date <= today_kst())
                 .order_by(logs.c.start_date, logs.c.id)).mappings().all()
+        # 모종 옮겨심기를 할 때가 된 작물은 포트 물 주기 같은 '옮기기 전' 반복 할 일을 더 보여 주지 않는다(옮겨심는 날 포트에 물 줄 일은 없다)
+        moving = {r['planting_id'] for r in rows if r['triggers_stage'] == TRANSPLANT_STAGE_NO}
+        rows = [r for r in rows if not (r['planting_id'] in moving and r['seed_only'] and r['repeat_min_days'] is not None)]
         return {'tasks': [{
             'id': r['id'], 'plantingId': r['planting_id'], 'farm': r['farm'], 'farmName': r['farm_name'], 'position': r['position'],
             'crop': r['crop_name'], 'title': r['title'], 'points': r['points'], 'tip': r['tip'], 'howTo': r['how_to'],
@@ -262,6 +277,10 @@ def register_tasks(app, engine, get_current_user, t, full_state):
                 raise HTTPException(409, '이미 완료한 할 일이에요.')
             if any(r['start_date'] > today for r in found):
                 raise HTTPException(409, '아직 시작할 때가 되지 않은 할 일이에요.')
+            if body.harvest and conn.execute(
+                    select(t['harvests'].c.id).where(t['harvests'].c.planting_id == planting['id'],
+                                                     t['harvests'].c.harvested_at >= datetime.combine(today, datetime.min.time())).limit(1)).first():
+                raise HTTPException(409, '오늘은 이미 수확을 기록했어요. 내일 다시 기록할 수 있어요.')
 
             tasks = crop_tasks_of(conn, t, planting['crop_id'])
             by_id = {x['id']: x for x in tasks}
