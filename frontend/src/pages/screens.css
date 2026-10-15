@@ -65,6 +65,9 @@
 
 .profile-more {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-gap) / 4);
   color: var(--muted);
   font-size: 14px;
   white-space: nowrap;
@@ -93,29 +96,42 @@
   background: var(--card-border);
 }
 
-/* 메뉴: 항목 */
+/* 메뉴: 항목마다 따로 떨어진 카드 (왼쪽 초록 아이콘, 오른쪽 화살표) */
 .menu-list {
   display: flex;
   flex-direction: column;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--card-radius);
-  overflow: hidden;
+  gap: calc(var(--space-gap) * .7);
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 52px;
-  padding: 0 20px;
+  gap: var(--space-gap);
+  min-height: var(--size-button);
+  padding: var(--space-card);
+  box-sizing: border-box;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
   color: var(--text);
-  font-size: 16px;
+  font-size: var(--fs-card-title);
+  font-weight: 700;
   text-decoration: none;
 }
 
-.menu-item + .menu-item {
-  border-top: 1px solid var(--card-border);
+.menu-item-icon {
+  display: flex;
+  color: var(--primary);
+}
+
+.menu-item-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-item-arrow {
+  display: flex;
+  color: var(--muted);
 }
 
 /* 마이페이지 */
@@ -588,4 +604,8 @@
 .order-shortcut:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+.menu-title {
+  font-size: var(--fs-screen-title);
 }
