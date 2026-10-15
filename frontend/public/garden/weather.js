@@ -2,7 +2,8 @@
 // Open-Meteo current model data. Public non-commercial endpoint; no API key.
 // Coordinates are approximate region reference points, not the user's farm address.
 const GardenWeather=(()=>{
-  const TTL=10*60*1000, cache=new Map(), pending=new Map();
+  const TTL=10*60*1000, cache=new Map(), pending=new Map(),reverseCache=new Map();
+  let lastReverseRequest=0;
   const regions={
     '경기 양평군':{latitude:37.489,longitude:127.49,label:'경기 양평군 · 양평읍 기준'},
     '경기도 양평군':{latitude:37.489,longitude:127.49,label:'경기 양평군 · 양평읍 기준'},
@@ -23,6 +24,38 @@ const GardenWeather=(()=>{
     if([95,96,97,99].includes(code))return {theme:'rain',icon:'ϟ',label:'뇌우'};
     if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code))return {theme:'rain',icon:'☂',label:[51,53,55,56,57].includes(code)?'이슬비':'비'};
     return {theme:'unknown',icon:'—',label:'날씨 정보 없음'};
+  }
+  function message(theme,isDay=1){
+    const examples={
+      sun:isDay?'햇볕이 좋아요.\n흙마름을 살펴봐요.':'밤에는 추워요.\n어린 작물을 살펴봐요.',
+      cloud:'구름 낀 날이에요.\n흙 상태를 살펴봐요.',
+      rain:'비가 와요.\n물주기 전 흙을 확인해요.',
+      snow:'눈이 와요.\n작물의 추위를 살펴봐요.',
+      fog:'안개가 꼈어요.\n잎의 물기를 살펴봐요.'
+    };
+    return examples[theme]||'오늘 날씨를 확인하고\n작물 상태를 살펴봐요.';
+  }
+  function regionName(address){
+    if(!address||typeof address!=='object')return '';
+    const province=provinces[address.state]||address.state||address.province||address.city;
+    const city=[address.city,address.county,address.state_district].find(name=>typeof name==='string'&&name!==province&&/[시군]$/.test(name));
+    const district=[address.city_district,address.borough,address.district,address.suburb,address.county].find(name=>typeof name==='string'&&name!==province&&name!==city&&/[구군]$/.test(name));
+    return [province,city,district].filter(Boolean).join(' ');
+  }
+  async function reverseGeocode(latitude,longitude){
+    if(!valid({latitude,longitude}))throw new Error('위치 좌표를 확인하지 못했어요.');
+    const key=`${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+    if(reverseCache.has(key))return reverseCache.get(key);
+    const wait=Math.max(0,1000-(Date.now()-lastReverseRequest));
+    if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
+    lastReverseRequest=Date.now();
+    const url=new URL('https://nominatim.openstreetmap.org/reverse');
+    url.search=new URLSearchParams({format:'jsonv2',lat:String(latitude),lon:String(longitude),addressdetails:'1','accept-language':'ko',zoom:'12',layer:'address'});
+    const data=await json(url);
+    const label=regionName(data.address);
+    if(!label)throw new Error('현재 위치의 지역명을 찾지 못했어요. 지역을 직접 입력해 주세요.');
+    reverseCache.set(key,label);
+    return label;
   }
   async function json(url){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
@@ -65,5 +98,5 @@ const GardenWeather=(()=>{
       finally{pending.delete(k)}
     })();pending.set(k,task);return task;
   }
-  return {load,peek,key,describe,valid};
+  return {load,peek,key,describe,valid,message,reverseGeocode};
 })();

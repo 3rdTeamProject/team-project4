@@ -54,6 +54,8 @@ input, textarea { min-width: 0; max-width: 100%; font-size: var(--fs-body); bord
 .region-row input { width: 0; min-width: 0; flex: 1; }
 .region-row .location-button { width: auto; min-height: var(--size-touch); flex: none; padding: calc(var(--space-gap) / 2); border-radius: var(--radius-small); font-size: var(--fs-sub); }
 .region-row .location-button:disabled { opacity: .6; cursor: wait; }
+.region-credit { display: block; margin-top: calc(var(--space-gap) / 2); color: var(--color-text-sub); font-size: var(--fs-sub); }
+.region-credit a { color: inherit; }
 .selection-art { height: calc(var(--size-touch) * 2); overflow: hidden; }
 .selection-art .vector-crop { width: calc(var(--size-touch) * 2); height: calc(var(--size-touch) * 1.5); max-width: 100%; max-height: 100%; position: static; transform: none; animation: none; }
 .selection-art .crop-lettuce { height: calc(var(--size-touch) * 1.25); }
