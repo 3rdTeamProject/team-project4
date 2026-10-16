@@ -32,6 +32,8 @@
 
 .ls-logo-wrap {
   position: relative;
+  /* logo.png는 왼쪽 투명 여백이 오른쪽보다 좁아 글자가 왼쪽으로 쏠려 보인다. 그만큼(3.96%) 오른쪽으로 옮긴다 */
+  left: 3.96%;
   width: var(--ls-logo-w);
   max-width: 100%;
 }
