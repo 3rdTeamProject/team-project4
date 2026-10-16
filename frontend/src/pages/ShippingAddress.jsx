@@ -52,7 +52,7 @@ export default function ShippingAddress() {
       </header>
 
       <section className="ship-card">
-        <AddressFields form={form} onChange={set} onFind={() => setToast('준비 중이에요')} idPrefix="ship" />
+        <AddressFields form={form} onChange={set} idPrefix="ship" />
       </section>
 
       <div className="ship-actions">

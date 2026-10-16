@@ -95,7 +95,7 @@ export default function CartExchange() {
             <ShippingBlock
               useSaved={useSaved} saved={saved} onEdit={() => setEditing(true)}
               form={form} onField={set} note={note} onNote={setNote}
-              saveAddress={saveAddress} onSaveAddress={setSaveAddress} onFind={() => setToast('준비 중이에요')}
+              saveAddress={saveAddress} onSaveAddress={setSaveAddress}
               hint={hasInstant ? '씨앗·도구 상품만 배송돼요. 기능 상품은 교환 후 바로 쓸 수 있어요.' : undefined}
             />
           )}
