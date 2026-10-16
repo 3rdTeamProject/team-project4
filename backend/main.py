@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -74,6 +75,7 @@ users = Table(
     Column("diag_credits", Integer, nullable=False, default=0, server_default=text("0")),  # AI진단 남은 횟수(포인트샵 기능 상품으로 충전)
     # 알림 설정 (실제 푸시 발송은 아직 없음, 설정값만 저장)
     Column("notify_todo", Boolean, nullable=False, default=True, server_default=text("true")),
+    Column("notify_todo_time", String(5), nullable=False, default="09:00", server_default=text("'09:00'")),  # 오늘 할 일 알림 시간 (HH:MM)
     Column("notify_weather", Boolean, nullable=False, default=True, server_default=text("true")),
     Column("notify_point", Boolean, nullable=False, default=False, server_default=text("false")),
     # 텃밭 화면의 움직임 효과 켜짐/꺼짐
@@ -413,6 +415,7 @@ def read_me(user=Depends(get_current_user)):
         "point": user["point"],
         "exp": user["exp"],
         "notify_todo": user["notify_todo"],
+        "notify_todo_time": user["notify_todo_time"],
         "notify_weather": user["notify_weather"],
         "notify_point": user["notify_point"],
     }
@@ -535,6 +538,7 @@ def read_point_logs(
 class NotificationRequest(BaseModel):
     # 보낸 항목만 바꾼다
     notify_todo: bool | None = None
+    notify_todo_time: str | None = None  # HH:MM (24시간)
     notify_weather: bool | None = None
     notify_point: bool | None = None
 
@@ -544,10 +548,12 @@ def update_notifications(body: NotificationRequest, user=Depends(get_current_use
     values = body.model_dump(exclude_none=True)
     if not values:
         raise HTTPException(400, "바꿀 알림 설정을 보내 주세요.")
+    if "notify_todo_time" in values and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", values["notify_todo_time"]):
+        raise HTTPException(400, "알림 시간은 HH:MM 형식으로 보내 주세요.")
     with engine.begin() as conn:
         conn.execute(update(users).where(users.c.id == user["id"]).values(**values))
         row = conn.execute(select(users).where(users.c.id == user["id"])).mappings().one()
-    return {k: row[k] for k in ("notify_todo", "notify_weather", "notify_point")}
+    return {k: row[k] for k in ("notify_todo", "notify_todo_time", "notify_weather", "notify_point")}
 
 
 # Registered before lifespan creates the tables.
