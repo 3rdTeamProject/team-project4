@@ -30,11 +30,17 @@
   gap: var(--ls-logo-gap);
 }
 
-.ls-logo {
-  display: block;
+.ls-logo-wrap {
+  position: relative;
   width: var(--ls-logo-w);
   max-width: 100%;
+}
+
+.ls-logo {
+  display: block;
+  width: 100%;
   height: auto;
+  animation: ls-logo-in 0.9s cubic-bezier(0.2, 1.2, 0.4, 1) 4.9s both;
 }
 
 .ls-chips {
@@ -54,6 +60,8 @@
   color: var(--ls-chip-ink);
   font: 400 16px/22px var(--ls-chip-font);
   box-shadow: 0 3px 0 var(--ls-chip-shadow);
+  transform: rotate(var(--r));
+  animation: ls-chip-pop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) var(--cd) both;
 }
 
 .ls-chip-leaf {
@@ -62,11 +70,11 @@
   height: 13px;
 }
 
-/* 로고 주변 반짝이: 5초 뒤부터 깜빡인다(시작 시각은 style의 animation-delay) */
+/* 로고 주변 반짝이: 로고 크기 기준 % 위치, 5초 뒤부터 깜빡인다 */
 .ls-sparkle {
   position: absolute;
-  opacity: 0;
-  animation: ls-twinkle 2.4s ease-in-out infinite;
+  opacity: 0.8;
+  animation: ls-twinkle 2.4s ease-in-out var(--d) infinite alternate both;
 }
 .ls-sparkle svg {
   display: block;
@@ -74,39 +82,28 @@
   height: auto;
 }
 .ls-sparkle.s1 {
-  left: 40px;
-  top: 186px;
+  left: -4%;
+  top: 2%;
   width: 12px;
-  --ls-spark-o: 0.9;
+  --d: 5s;
 }
 .ls-sparkle.s2 {
-  right: 34px;
-  top: 168px;
+  right: -3%;
+  top: -12%;
   width: 10px;
-  --ls-spark-o: 0.8;
+  --d: 5.4s;
 }
 .ls-sparkle.s3 {
-  left: 332px;
-  top: 232px;
+  right: -8%;
+  bottom: 6%;
   width: 8px;
-  --ls-spark-o: 0.7;
+  --d: 5.8s;
 }
 .ls-sparkle.s4 {
-  left: 70px;
-  top: 250px;
+  left: 6%;
+  bottom: -14%;
   width: 8px;
-  --ls-spark-o: 0.7;
-}
-@keyframes ls-twinkle {
-  0%,
-  100% {
-    opacity: 0.15;
-    transform: scale(0.6);
-  }
-  50% {
-    opacity: var(--ls-spark-o);
-    transform: scale(1);
-  }
+  --d: 6.2s;
 }
 
 /* ---- 하늘: 배경 맨 뒤 층 ---- */
@@ -125,6 +122,9 @@
   height: 140px;
   border-radius: 50%;
   background: radial-gradient(circle, var(--ls-sun-glow) 0%, transparent 68%);
+  animation:
+    ls-sun-in 1s ease-out 0.2s both,
+    ls-glow-pulse 4.5s ease-in-out 1.4s infinite alternate;
 }
 .ls-sun {
   position: absolute;
@@ -154,18 +154,24 @@
 }
 .ls-bird {
   position: absolute;
+  animation: ls-bird-in 1.4s ease-out var(--bd) both;
+}
+.ls-bird svg {
+  animation: ls-bob 3.2s ease-in-out calc(var(--bd) + 1.4s) infinite alternate;
 }
 .ls-bird.b1 {
   left: 54px;
   top: 46px;
   width: 42px;
-  opacity: 0.95;
+  --o: 0.95;
+  --bd: 1.2s;
 }
 .ls-bird.b2 {
   left: 104px;
   top: 72px;
   width: 28px;
-  opacity: 0.85;
+  --o: 0.85;
+  --bd: 1.5s;
 }
 .ls-sky svg {
   display: block;
@@ -228,57 +234,128 @@
 /* ---- 나비: 정원 그림 위 층, 위치·크기는 정원 크기 기준 % ---- */
 .ls-bf {
   position: absolute;
-  z-index: 2;
+  z-index: 6;
   pointer-events: none;
+  animation: ls-fly-in 1.2s ease-out var(--fd) both;
 }
 .ls-bf.pink {
   left: 16.4%;
   top: 5.5%;
   width: 10.97%;
-  --ls-bf-tilt: -14deg;
+  --rot: -14deg;
 }
 .ls-bf.yellow {
   left: 52.3%;
   top: 22%;
   width: 8.69%;
-  --ls-bf-tilt: 16deg;
+  --rot: 16deg;
 }
-.ls-bf-tilt {
-  transform: rotate(var(--ls-bf-tilt));
-  animation: ls-bf-float 2.6s ease-in-out infinite;
+.ls-bf-float {
+  animation: ls-floaty 3.6s ease-in-out calc(var(--fd) + 1.2s) infinite alternate;
 }
-.ls-bf.yellow .ls-bf-tilt {
-  animation-duration: 3.1s;
-  animation-delay: -1s;
+.ls-bf-rot {
+  transform: rotate(var(--rot));
 }
 .ls-bf svg {
   display: block;
   width: 100%;
   height: auto;
   overflow: visible;
+  transform-origin: 50% 50%;
+  animation: ls-flap 0.45s ease-in-out calc(var(--fd) + 1.2s) infinite alternate;
 }
-.bf-wing {
-  transform-origin: 24px 20px;
-  animation: ls-bf-flap 0.5s ease-in-out infinite alternate;
+
+/* ---- 로고·칩·하늘·나비 애니메이션 ---- */
+@keyframes ls-logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-.ls-bf.yellow .bf-wing {
-  animation-duration: 0.42s;
+@keyframes ls-chip-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.6) rotate(var(--r));
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--r));
+  }
 }
-@keyframes ls-bf-flap {
+@keyframes ls-sun-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ls-glow-pulse {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ls-bird-in {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  to {
+    opacity: var(--o);
+    transform: none;
+  }
+}
+@keyframes ls-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-5px);
+  }
+}
+@keyframes ls-twinkle {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0.85;
+    transform: scale(1.1);
+  }
+}
+@keyframes ls-fly-in {
+  from {
+    opacity: 0;
+    transform: translate(-28px, 22px) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ls-floaty {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(7px, -11px);
+  }
+}
+@keyframes ls-flap {
   from {
     transform: scaleX(1);
   }
   to {
-    transform: scaleX(0.25);
-  }
-}
-@keyframes ls-bf-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(var(--ls-bf-tilt));
-  }
-  50% {
-    transform: translateY(-6%) rotate(var(--ls-bf-tilt));
+    transform: scaleX(0.6);
   }
 }
 
@@ -485,12 +562,21 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ls-bf-tilt,
-  .bf-wing,
-  .ls-sparkle {
+  .ls-logo,
+  .ls-chip,
+  .ls-glow,
+  .ls-bird,
+  .ls-bird svg,
+  .ls-sparkle,
+  .ls-bf,
+  .ls-bf-float,
+  .ls-bf svg {
     animation: none;
   }
-  .ls-sparkle {
-    opacity: 1;
+  .ls-bird.b1 {
+    opacity: 0.95;
+  }
+  .ls-bird.b2 {
+    opacity: 0.85;
   }
 }

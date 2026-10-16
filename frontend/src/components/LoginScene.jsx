@@ -111,7 +111,7 @@ function Bird() {
   )
 }
 
-// 나비: 날개는 접었다 폈다(.bf-wing), 몸은 위아래로 둥실(.ls-bf-tilt). 움직임은 CSS 애니메이션이다.
+// 나비 그림. 날갯짓·둥실거림은 CSS 애니메이션이다(.ls-bf).
 function Butterfly({ id, colorA, colorB, edge }) {
   const wing = (
     <>
@@ -130,10 +130,8 @@ function Butterfly({ id, colorA, colorB, edge }) {
           <stop offset="1" stopColor={colorB} />
         </linearGradient>
       </defs>
-      <g className="bf-wing l">{wing}</g>
-      <g className="bf-wing r">
-        <g transform="translate(48 0) scale(-1 1)">{wing}</g>
-      </g>
+      <g>{wing}</g>
+      <g transform="translate(48 0) scale(-1 1)">{wing}</g>
       <rect x="22.7" y="9" width="2.6" height="22" rx="1.3" fill="#6B4A36" />
       <circle cx="24" cy="8.6" r="2.3" fill="#6B4A36" />
       <path d="M23.3 7C22 3.5 20 2 18 2.2M24.7 7C26 3.5 28 2 30 2.2" fill="none" stroke="#6B4A36" strokeWidth="1.1" strokeLinecap="round" />
@@ -222,14 +220,7 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
   return (
     <div className="ls-scene">
       <div className="ls-sky" aria-hidden="true">
-        <motion.div
-          className="ls-glow"
-          {...m({
-            initial: { opacity: 0, scale: 0.4 },
-            animate: { opacity: 1, scale: 1 },
-            transition: { duration: 1.2, delay: 0.2, ease: EASE_OUT },
-          })}
-        />
+        <div className="ls-glow" />
         <motion.div
           className="ls-sun"
           {...m({
@@ -269,62 +260,36 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
         <motion.div
           className="ls-cloud c3"
           {...m({
-            initial: { x: -8 },
-            animate: { x: [-8, 12] },
-            transition: { duration: 11, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
+            initial: { x: -10 },
+            animate: { x: [-10, 14] },
+            transition: { duration: 7, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
           })}
         >
           <CloudSvg />
         </motion.div>
-        {[
-          { cls: 'b1', delay: 1.2 },
-          { cls: 'b2', delay: 1.5 },
-        ].map((b) => (
-          <motion.div
-            key={b.cls}
-            className={`ls-bird ${b.cls}`}
-            {...m({
-              initial: { opacity: 0, x: -16 },
-              animate: { opacity: 1, x: 0 },
-              transition: { duration: 0.9, delay: b.delay, ease: EASE_OUT },
-            })}
-          >
-            <Bird />
-          </motion.div>
-        ))}
-        {['s1', 's2', 's3', 's4'].map((cls, i) => (
-          <div key={cls} className={`ls-sparkle ${cls}`} style={{ animationDelay: `${5 + i * 0.4}s` }}>
-            <Sparkle />
-          </div>
-        ))}
+        <div className="ls-bird b1">
+          <Bird />
+        </div>
+        <div className="ls-bird b2">
+          <Bird />
+        </div>
       </div>
 
       <div className="ls-head">
-        <motion.img
-          className="ls-logo"
-          src={logoImg}
-          alt="우리텃밭"
-          {...m({
-            initial: { opacity: 0, scale: 0.6 },
-            animate: { opacity: 1, scale: [0.6, 1.08, 1] },
-            transition: { duration: 0.8, delay: 4.9, ease: EASE_OUT, times: [0, 0.6, 1] },
-          })}
-        />
+        <div className="ls-logo-wrap">
+          <img className="ls-logo" src={logoImg} alt="우리텃밭" />
+          {['s1', 's2', 's3', 's4'].map((cls) => (
+            <div key={cls} className={`ls-sparkle ${cls}`}>
+              <Sparkle />
+            </div>
+          ))}
+        </div>
         <div className="ls-chips">
           {CHIPS.map((c) => (
-            <motion.span
-              key={c.label}
-              className="ls-chip"
-              style={{ rotate: c.rot }}
-              {...m({
-                initial: { opacity: 0, scale: 0.5, y: 10 },
-                animate: { opacity: 1, scale: [0.5, 1.12, 1], y: 0 },
-                transition: { duration: 0.5, delay: c.delay, ease: EASE_OUT, times: [0, 0.6, 1] },
-              })}
-            >
+            <span key={c.label} className="ls-chip" style={{ '--r': `${c.rot}deg`, '--cd': `${c.delay}s` }}>
               <LeafIcon />
               {c.label}
-            </motion.span>
+            </span>
           ))}
         </div>
       </div>
@@ -475,20 +440,13 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
 
         {/* 나비는 정원 그림 위 층. 정원 크기 기준 % 위치라 화면이 달라도 같은 자리에 있다 */}
         {BUTTERFLIES.map((f) => (
-          <motion.div
-            key={f.cls}
-            className={`ls-bf ${f.cls}`}
-            aria-hidden="true"
-            {...m({
-              initial: { opacity: 0, scale: 0.3 },
-              animate: { opacity: 1, scale: 1 },
-              transition: { duration: 0.6, delay: f.delay, ease: [0.2, 1.4, 0.4, 1] },
-            })}
-          >
-            <div className="ls-bf-tilt">
-              <Butterfly id={f.id} colorA={f.a} colorB={f.b} edge={f.edge} />
+          <div key={f.cls} className={`ls-bf ${f.cls}`} style={{ '--fd': `${f.delay}s` }} aria-hidden="true">
+            <div className="ls-bf-float">
+              <div className="ls-bf-rot">
+                <Butterfly id={f.id} colorA={f.a} colorB={f.b} edge={f.edge} />
+              </div>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
