@@ -71,7 +71,7 @@ function MemoField({ value, onChange }) {
 
 // 배송지 영역. 저장된 배송지를 쓰면 카드 + 변경 버튼, 아니면 입력란 + "다음에도 이 배송지 사용".
 // 어느 쪽이든 배송 요청사항(한 줄)을 받는다. hint는 배송지 아래 안내 문구.
-export function ShippingBlock({ useSaved, saved, onEdit, form, onField, note, onNote, saveAddress, onSaveAddress, onFind, hint }) {
+export function ShippingBlock({ useSaved, saved, onEdit, form, onField, note, onNote, saveAddress, onSaveAddress, hint }) {
   if (useSaved) {
     return (
       <section className="ex-card">
@@ -83,7 +83,7 @@ export function ShippingBlock({ useSaved, saved, onEdit, form, onField, note, on
   }
   return (
     <ExchangeCard title="배송지">
-      <AddressFields form={form} onChange={onField} onFind={onFind} idPrefix="ex" />
+      <AddressFields form={form} onChange={onField} idPrefix="ex" />
       {hint && <p className="ex-hint">{hint}</p>}
       <MemoField value={note} onChange={onNote} />
       <label className="ex-check">

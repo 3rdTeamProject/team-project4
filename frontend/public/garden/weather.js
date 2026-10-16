@@ -80,8 +80,17 @@ const GardenWeather=(()=>{
     }
     throw new Error('이 지역의 위치를 찾지 못했어요. 지역명을 수정하거나 농장에서 현재 위치를 지정해 주세요.');
   }
-  function peek(f){return cache.get(key(f))}
+  // 개발용: 날씨를 원하는 값으로 덮어써서 날씨별 화면을 확인한다(null이면 실제 날씨)
+  let override=null;
+  function setOverride(o){override=o}
+  function getOverride(){return override}
+  function fake(f){
+    const code=override.code,isDay=override.isDay,rain=describe(code,isDay).theme==='rain';
+    return {status:'ready',at:Date.now(),place:{label:f.region||'개발용 지역'},current:{temperature_2m:21,apparent_temperature:20,relative_humidity_2m:rain?88:55,wind_speed_10m:2.3,precipitation:rain?2.4:0,weather_code:code,is_day:isDay,time:new Date().toISOString().slice(0,16)},...describe(code,isDay)};
+  }
+  function peek(f){return override?fake(f):cache.get(key(f))}
   async function load(f,force=false){
+    if(override)return fake(f);
     const k=key(f),old=cache.get(k);
     if(pending.has(k))return pending.get(k);
     if(!force&&old&&Date.now()-old.at<(old.status==='error'?60000:TTL))return old;
@@ -89,7 +98,7 @@ const GardenWeather=(()=>{
       try{
         const found=await resolve(f);
         if(found.choices){const item={status:'choose',choices:found.choices,at:Date.now()};cache.set(k,item);return item}
-        const url=new URL('https://api.open-meteo.com/v1/forecast');url.search=new URLSearchParams({latitude:String(found.place.latitude),longitude:String(found.place.longitude),current:'temperature_2m,relative_humidity_2m,weather_code,is_day',timezone:'Asia/Seoul',forecast_days:'1'});
+        const url=new URL('https://api.open-meteo.com/v1/forecast');url.search=new URLSearchParams({latitude:String(found.place.latitude),longitude:String(found.place.longitude),current:'temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,precipitation,weather_code,is_day',wind_speed_unit:'ms',timezone:'Asia/Seoul',forecast_days:'1'});
         const data=await json(url),c=data.current;
         if(!c||!Number.isFinite(c.temperature_2m)||!Number.isInteger(c.weather_code)||typeof c.time!=='string'||!Number.isFinite(Date.parse(c.time+'+09:00')))throw new Error('날씨 응답이 올바르지 않아요. 다시 시도해 주세요.');
         if(Math.abs(Date.now()-Date.parse(c.time+'+09:00'))>90*60*1000)throw new Error('최신 날씨 정보가 아직 없어요. 잠시 후 다시 시도해 주세요.');
@@ -98,5 +107,5 @@ const GardenWeather=(()=>{
       finally{pending.delete(k)}
     })();pending.set(k,task);return task;
   }
-  return {load,peek,key,describe,valid,message,reverseGeocode};
+  return {load,peek,key,describe,valid,message,reverseGeocode,setOverride,getOverride};
 })();

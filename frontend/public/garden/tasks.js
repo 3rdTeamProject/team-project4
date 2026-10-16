@@ -201,6 +201,7 @@ app.addEventListener('click', e => {
     case 'toggle-sow': sowChecked = !sowChecked; render(); break;
     case 'retry': loadTasks(true); break;
     case 'dev-day': moveDay(b); break;
+    case 'dev-weather': { const o = DEV_WEATHER[Number(b.dataset.i)].o; GardenWeather.setOverride(o); render(); break; }
   }
 });
 
@@ -218,6 +219,24 @@ app.addEventListener('click', e => {
 }, true);
 
 // ---------- 개발용 날짜 이동(서버 날짜를 며칠 앞으로)
+// 개발용 날씨 바꾸기: 날씨별 하늘·구름·효과를 확인한다(o가 null이면 실제 날씨)
+const DEV_WEATHER = [
+  { label: '실제', o: null },
+  { label: '맑음', o: { code: 0, isDay: 1 } },
+  { label: '밤', o: { code: 0, isDay: 0 } },
+  { label: '흐림', o: { code: 3, isDay: 1 } },
+  { label: '흐림 밤', o: { code: 3, isDay: 0 } },
+  { label: '비', o: { code: 61, isDay: 1 } },
+  { label: '뇌우', o: { code: 95, isDay: 1 } },
+  { label: '눈', o: { code: 71, isDay: 1 } },
+  { label: '안개', o: { code: 45, isDay: 1 } },
+  { label: '정보 없음', o: { code: -1, isDay: 1 } },
+];
+const devWeatherBar = () => {
+  const now = GardenWeather.getOverride();
+  const on = i => { const o = DEV_WEATHER[i].o; return o ? !!now && now.code === o.code && now.isDay === o.isDay : !now; };
+  return `<div class="tk-dev" role="group" aria-label="개발용 날씨 바꾸기"><b>🛠 날씨</b>${DEV_WEATHER.map((w, i) => `<button type="button" data-tk="dev-weather" data-i="${i}" aria-pressed="${on(i)}">${w.label}</button>`).join('')}</div>`;
+};
 const devBar = () => `<div class="tk-dev" role="group" aria-label="개발용 날짜 이동"><b>🛠 개발용</b><span>오늘 ${esc(day())} (+${dev.offset}일)</span>${[1, 5, 7, 30].map(n => `<button type="button" data-tk="dev-day" data-add="${n}">+${n}일</button>`).join('')}<button type="button" data-tk="dev-day" data-set="0">처음으로</button></div>`;
 async function moveDay(b) {
   try {
@@ -242,7 +261,7 @@ render = function () {
     syncing = true;  // 새로 심은 작물은 저장이 끝난 뒤 서버 값(작물 번호·단계)을 받아 온다
     refreshFromServer().finally(() => { syncing = false; });
   }
-  if (dev.enabled) app.insertAdjacentHTML('afterbegin', devBar());
+  if (dev.enabled) app.insertAdjacentHTML('afterbegin', devBar() + (view === 'garden' ? devWeatherBar() : ''));
 };
 
 // ---------- 시작: 작물 정보와 개발용 날짜를 받아 온다

@@ -59,21 +59,50 @@
   --ls-go-edge: #1e5a21;
   --ls-notice: #7a1f14;
   --ls-bar-track: rgba(255, 253, 246, 0.55);
+  --ls-ink-dark: #1a0e05;
+  --ls-pill: #f6c662;
+  --ls-sun-glow: rgba(246, 198, 98, 0.45);
+  --ls-wood-grain: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 2px, transparent 2px 18px);
+  /* 로고 아래 칩 */
+  --ls-chip-bg: #fffdf6;
+  --ls-chip-ink: #2f6b3a;
+  --ls-chip-edge: #8dbb72;
+  --ls-chip-leaf: #6fb06b;
+  --ls-chip-shadow: rgba(120, 168, 96, 0.45);
+  /* 나비 */
+  --ls-bf-pink-a: #fbc9d5;
+  --ls-bf-pink-b: #f28ba8;
+  --ls-bf-pink-edge: #d9647f;
+  --ls-bf-yellow-a: #fce3a0;
+  --ls-bf-yellow-b: #f6b93b;
+  --ls-bf-yellow-edge: #d9922b;
 
   /* 로그인 장면 간격 */
   --ls-max-width: var(--layout-max);
   --ls-pad-x: var(--space-screen-x);
   --ls-pad-top: 44px;
-  --ls-pad-bottom: 36px;
+  --ls-pad-bottom: 28px;
   --ls-gap: 10px;
+  --ls-logo-w: 330px;
+  --ls-logo-gap: -14px;
+  --ls-chip-gap: 10px;
+  --ls-stage-gap: 24px;
+  --ls-foot-gap: 14px;
+  --ls-sign-h: 244px;
+  --ls-nail: 7px;
+  --ls-leg-w: 14px;
+  --ls-leg-h: 24px;
+  --ls-btn-icon-gap: 9px;
   --ls-sign-pad: 18px;
   --ls-sign-gap: 10px;
+  --ls-sign-gap-login: 18px;
   --ls-btn-height: var(--size-button);
 
   /* 로그인 장면 폰트 */
   --ls-display: 'Noto Sans KR', system-ui, sans-serif;
   --ls-hand: 'Gamja Flower', 'Noto Sans KR', cursive;
   --ls-body: 'Noto Sans KR', system-ui, sans-serif;
+  --ls-chip-font: 'Jua', 'Noto Sans KR', sans-serif;
 
   /* 첫 실행 안내(/intro) */
   --intro-circle-bg: #e6f4e1;
