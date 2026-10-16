@@ -64,16 +64,18 @@ let weatherRequest=0,locating=false;
 function weatherClass(f){const w=f&&GardenWeather.peek(f);return w?.status==='ready'?`weather-${w.theme}${w.current.is_day===0?' weather-night':''}`:'weather-unknown'}
 function weatherPanel(f,loading=false){
   const w=GardenWeather.peek(f);
-  let content,extra='';
-  if(loading||!w){content='<div class="weather-summary"><span class="weather-symbol">◌</span><b>날씨 확인 중…</b></div>'}
+  let summary,below='',extra='';
+  if(loading||!w){summary='<div class="weather-summary"><span class="weather-symbol">◌</span><b>날씨 확인 중…</b></div>'}
   else if(w.status==='ready'){
     const place=w.place.label==='현재 위치로 지정한 농장'?(f.region||'현재 위치'):w.place.label.replace(/\s*·\s*(지역 기준|양평읍 기준)$/,'');
-    content=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(w.current.temperature_2m)}°C</b></span></div>`;
-    extra=`<small class="weather-place">${esc(place)}</small><small class="weather-note">${esc(GardenWeather.message(w.theme,w.current.is_day))}</small>`;
+    const humidity=Number.isFinite(w.current.relative_humidity_2m)?`<small class="weather-humidity">습도 ${Math.round(w.current.relative_humidity_2m)}%</small>`:'';
+    summary=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(w.current.temperature_2m)}°C</b></span></div>`;
+    extra=`<small class="weather-place">${esc(place)}</small>${humidity}`;
   }else if(w.status==='choose'){
-    content='<b class="weather-message">농장 지역을 확인해 주세요</b><div class="weather-places">'+w.choices.map((p,i)=>`<button data-action="weather-place" data-index="${i}">${esc(p.label)}</button>`).join('')+'</div>';
-  }else{content=`<p class="weather-message">${esc(w.message)}</p>`}
-  return `<div class="weather-compact">${content}<details class="weather-more"><summary aria-label="날씨 자세히 보기·접기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class="weather-extra">${extra}<div class="weather-actions"><button data-action="weather-location" ${locating?'disabled':''}>⌖ ${locating?'위치 확인 중…':'현재 위치로 지정'}</button>${f.weatherLocation?'<button data-action="weather-region">입력한 지역으로 복원</button>':''}</div><div class="weather-credit"><a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div></div></details><button class="weather-reload" data-action="weather-refresh" aria-label="날씨 새로고침" ${loading?'disabled':''}>↻</button></div>`;
+    summary='<b class="weather-message">농장 지역을 확인해 주세요</b>';
+    below='<div class="weather-places">'+w.choices.map((p,i)=>`<button data-action="weather-place" data-index="${i}">${esc(p.label)}</button>`).join('')+'</div>';
+  }else{summary=`<p class="weather-message">${esc(w.message)}</p>`}
+  return `<div class="weather-compact"><details class="weather-more"><summary aria-label="날씨 자세히 보기·접기">${summary}</summary><div class="weather-extra">${extra}<div class="weather-actions"><button data-action="weather-location" ${locating?'disabled':''}>⌖ ${locating?'위치 확인 중…':'현재 위치로 지정'}</button>${f.weatherLocation?'<button data-action="weather-region">입력한 지역으로 복원</button>':''}</div><div class="weather-credit"><a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div></div></details>${below}<button class="weather-reload" data-action="weather-refresh" aria-label="날씨 새로고침" ${loading?'disabled':''}>↻</button></div>`;
 }
 async function refreshWeather(force=false){
   const f=current();if(view!=='garden'||!f)return;
