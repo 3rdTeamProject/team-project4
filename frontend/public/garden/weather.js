@@ -80,8 +80,17 @@ const GardenWeather=(()=>{
     }
     throw new Error('이 지역의 위치를 찾지 못했어요. 지역명을 수정하거나 농장에서 현재 위치를 지정해 주세요.');
   }
-  function peek(f){return cache.get(key(f))}
+  // 개발용: 날씨를 원하는 값으로 덮어써서 날씨별 화면을 확인한다(null이면 실제 날씨)
+  let override=null;
+  function setOverride(o){override=o}
+  function getOverride(){return override}
+  function fake(f){
+    const code=override.code,isDay=override.isDay,rain=describe(code,isDay).theme==='rain';
+    return {status:'ready',at:Date.now(),place:{label:f.region||'개발용 지역'},current:{temperature_2m:21,apparent_temperature:20,relative_humidity_2m:rain?88:55,wind_speed_10m:2.3,precipitation:rain?2.4:0,weather_code:code,is_day:isDay,time:new Date().toISOString().slice(0,16)},...describe(code,isDay)};
+  }
+  function peek(f){return override?fake(f):cache.get(key(f))}
   async function load(f,force=false){
+    if(override)return fake(f);
     const k=key(f),old=cache.get(k);
     if(pending.has(k))return pending.get(k);
     if(!force&&old&&Date.now()-old.at<(old.status==='error'?60000:TTL))return old;
@@ -98,5 +107,5 @@ const GardenWeather=(()=>{
       finally{pending.delete(k)}
     })();pending.set(k,task);return task;
   }
-  return {load,peek,key,describe,valid,message,reverseGeocode};
+  return {load,peek,key,describe,valid,message,reverseGeocode,setOverride,getOverride};
 })();
