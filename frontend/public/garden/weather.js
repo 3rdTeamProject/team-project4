@@ -89,7 +89,7 @@ const GardenWeather=(()=>{
       try{
         const found=await resolve(f);
         if(found.choices){const item={status:'choose',choices:found.choices,at:Date.now()};cache.set(k,item);return item}
-        const url=new URL('https://api.open-meteo.com/v1/forecast');url.search=new URLSearchParams({latitude:String(found.place.latitude),longitude:String(found.place.longitude),current:'temperature_2m,relative_humidity_2m,weather_code,is_day',timezone:'Asia/Seoul',forecast_days:'1'});
+        const url=new URL('https://api.open-meteo.com/v1/forecast');url.search=new URLSearchParams({latitude:String(found.place.latitude),longitude:String(found.place.longitude),current:'temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,precipitation,weather_code,is_day',wind_speed_unit:'ms',timezone:'Asia/Seoul',forecast_days:'1'});
         const data=await json(url),c=data.current;
         if(!c||!Number.isFinite(c.temperature_2m)||!Number.isInteger(c.weather_code)||typeof c.time!=='string'||!Number.isFinite(Date.parse(c.time+'+09:00')))throw new Error('날씨 응답이 올바르지 않아요. 다시 시도해 주세요.');
         if(Math.abs(Date.now()-Date.parse(c.time+'+09:00'))>90*60*1000)throw new Error('최신 날씨 정보가 아직 없어요. 잠시 후 다시 시도해 주세요.');

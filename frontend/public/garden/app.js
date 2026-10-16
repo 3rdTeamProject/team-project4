@@ -68,9 +68,15 @@ function weatherPanel(f,loading=false){
   if(loading||!w){summary='<div class="weather-summary"><span class="weather-symbol">◌</span><b>날씨 확인 중…</b></div>'}
   else if(w.status==='ready'){
     const place=w.place.label==='현재 위치로 지정한 농장'?(f.region||'현재 위치'):w.place.label.replace(/\s*·\s*(지역 기준|양평읍 기준)$/,'');
-    const humidity=Number.isFinite(w.current.relative_humidity_2m)?`<small class="weather-humidity">습도 ${Math.round(w.current.relative_humidity_2m)}%</small>`:'';
-    summary=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(w.current.temperature_2m)}°C</b></span></div>`;
-    extra=`<small class="weather-place">${esc(place)}</small>${humidity}`;
+    const c=w.current,num=v=>Number.isFinite(v);
+    const stats=[
+      num(c.apparent_temperature)&&['체감',`${Math.round(c.apparent_temperature)}°C`],
+      num(c.relative_humidity_2m)&&['습도',`${Math.round(c.relative_humidity_2m)}%`],
+      num(c.wind_speed_10m)&&['바람',`${c.wind_speed_10m.toFixed(1)}m/s`],
+      num(c.precipitation)&&['강수',`${c.precipitation>0?c.precipitation.toFixed(1):'0'}mm`]
+    ].filter(Boolean);
+    summary=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(c.temperature_2m)}°C</b></span></div>`;
+    extra=`<b class="weather-place">${esc(place)}</b>${stats.length?`<dl class="weather-stats">${stats.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`:''}`;
   }else if(w.status==='choose'){
     summary='<b class="weather-message">농장 지역을 확인해 주세요</b>';
     below='<div class="weather-places">'+w.choices.map((p,i)=>`<button data-action="weather-place" data-index="${i}">${esc(p.label)}</button>`).join('')+'</div>';
