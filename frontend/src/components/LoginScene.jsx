@@ -67,42 +67,46 @@ function CloudSvg() {
 function LeafIcon() {
   return (
     <svg className="ls-chip-leaf" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 20C4 9 10 4 21 3c0 11-5 17-15 17z" fill="#6FB06B" />
-      <path d="M4 20L15 9" stroke="#2F6B3A" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path d="M3 21C3 11 9 4 21 3c0 11-6 18-16 18z" fill="#6FB06B" />
+      <path d="M4 20C9 14 13 10 18 6" stroke="#2F6B3A" strokeWidth="2" strokeLinecap="round" fill="none" />
     </svg>
   )
 }
 
-function SproutIcon() {
+// 새싹 아이콘. 비회원 버튼은 초록, 초록 버튼 위(자동로그인)에서는 밝은 색을 쓴다.
+const SPROUT_GREEN = { stem: '#2E8B3D', big: '#43A047', small: '#6FB06B' }
+const SPROUT_LIGHT = { stem: '#E2ECC8', big: '#CFE3B0', small: '#FFFDF6' }
+
+function SproutIcon({ colors = SPROUT_GREEN }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 21v-9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M12 13C12 8 9 5.5 4 5.5 4 10.5 7 13 12 13z" fill="currentColor" />
-      <path d="M12 11c0-4 2.5-6.5 8-6.5 0 4.5-3 6.5-8 6.5z" fill="currentColor" opacity="0.75" />
+    <svg width="20" height="20" viewBox="0 0 40 40" className="ls-btn-icon" aria-hidden="true">
+      <path d="M20 38C20 30 19 25 20 17" fill="none" stroke={colors.stem} strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M20 23C11 23 5 18 4 10C13 10 19 15 20 23Z" fill={colors.big} />
+      <path d="M20 18C20 9 25 4 34 3C34 12 29 17 20 18Z" fill={colors.small} />
     </svg>
   )
 }
 
 function KakaoIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="#191919" aria-hidden="true">
-      <path d="M12 4C7.6 4 4 6.9 4 10.4c0 2.2 1.4 4.2 3.6 5.3L6.8 19l3.6-2.2c.5.1 1.1.2 1.6.2 4.4 0 8-2.9 8-6.6S16.4 4 12 4z" />
+    <svg width="21" height="19" viewBox="0 0 20 18" className="ls-btn-icon" aria-hidden="true">
+      <path d="M10 1C5 1 1 4.2 1 8.2c0 2.5 1.6 4.7 4 6l-1 3.3 4-2.4c.7.1 1.3.2 2 .2 5 0 9-3.2 9-7.1S15 1 10 1z" fill="#3B1E1E" />
     </svg>
   )
 }
 
 function Sparkle() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 1c1 6 5 10 11 11-6 1-10 5-11 11-1-6-5-10-11-11C7 11 11 7 12 1z" fill="#F6C662" />
+    <svg viewBox="0 0 10 10" aria-hidden="true">
+      <path d="M5 0L6.3 3.7L10 5L6.3 6.3L5 10L3.7 6.3L0 5L3.7 3.7Z" fill="#F6C662" />
     </svg>
   )
 }
 
 function Bird() {
   return (
-    <svg viewBox="0 0 28 12" aria-hidden="true">
-      <path d="M1 9C5 1 10 1 14 8c4-7 9-7 13 1" stroke="#55604F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <svg viewBox="0 0 32 12" aria-hidden="true">
+      <path d="M1 8Q8 -2 16 8Q24 -2 31 8" fill="none" stroke="#8A6B55" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -111,24 +115,30 @@ function Bird() {
 function Butterfly({ id, colorA, colorB, edge }) {
   const wing = (
     <>
-      <path d="M50 40C32 4 6 6 8 30c2 16 28 18 42 10z" fill={`url(#${id})`} stroke={edge} strokeWidth="2.4" strokeLinejoin="round" />
-      <path d="M50 44C34 48 16 52 22 68c8 12 24-6 28-22z" fill={`url(#${id})`} stroke={edge} strokeWidth="2.4" strokeLinejoin="round" />
+      <path d="M23 19C19 5 7 0 3 7C-1 14 9 22 23 19Z" fill={`url(#${id})`} stroke={edge} strokeWidth=".9" strokeLinejoin="round" />
+      <path d="M23 21C13 21 6 26 9 32C12 38 21 33 23 21Z" fill={`url(#${id})`} stroke={edge} strokeWidth=".9" strokeLinejoin="round" />
+      <circle cx="9" cy="9" r="2" fill="#fff" opacity=".8" />
+      <circle cx="6.3" cy="12.6" r="1.1" fill="#fff" opacity=".7" />
+      <circle cx="14.5" cy="29" r="1.6" fill="#fff" opacity=".75" />
     </>
   )
   return (
-    <svg viewBox="0 0 100 80" aria-hidden="true">
+    <svg viewBox="0 0 48 40" aria-hidden="true">
       <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={id} x1="1" y1="0" x2="0" y2="0.6">
           <stop offset="0" stopColor={colorA} />
           <stop offset="1" stopColor={colorB} />
         </linearGradient>
       </defs>
       <g className="bf-wing l">{wing}</g>
       <g className="bf-wing r">
-        <g transform="translate(100 0) scale(-1 1)">{wing}</g>
+        <g transform="translate(48 0) scale(-1 1)">{wing}</g>
       </g>
-      <ellipse cx="50" cy="44" rx="3.4" ry="17" fill={edge} />
-      <path d="M49 28C46 20 43 17 40 16M51 28C54 20 57 17 60 16" stroke={edge} strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <rect x="22.7" y="9" width="2.6" height="22" rx="1.3" fill="#6B4A36" />
+      <circle cx="24" cy="8.6" r="2.3" fill="#6B4A36" />
+      <path d="M23.3 7C22 3.5 20 2 18 2.2M24.7 7C26 3.5 28 2 30 2.2" fill="none" stroke="#6B4A36" strokeWidth="1.1" strokeLinecap="round" />
+      <circle cx="18" cy="2.2" r=".9" fill="#6B4A36" />
+      <circle cx="30" cy="2.2" r=".9" fill="#6B4A36" />
     </svg>
   )
 }
@@ -282,14 +292,14 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
             <Bird />
           </motion.div>
         ))}
-      </div>
-
-      <div className="ls-head">
         {['s1', 's2', 's3', 's4'].map((cls, i) => (
           <div key={cls} className={`ls-sparkle ${cls}`} style={{ animationDelay: `${5 + i * 0.4}s` }}>
             <Sparkle />
           </div>
         ))}
+      </div>
+
+      <div className="ls-head">
         <motion.img
           className="ls-logo"
           src={logoImg}
@@ -498,7 +508,10 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
           {me ? (
             <div className="ls-state in">
               <p className="ls-intro">
-                <span className="ls-intro-name">{me.nickname}님,</span>
+                <span className="ls-intro-line">
+                  <span className="ls-intro-name">{me.nickname}</span>
+                  <span className="ls-intro-nim">님,</span>
+                </span>
                 <span>오늘도 반가워요</span>
               </p>
               <p className="ls-todo">
@@ -509,7 +522,7 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
                 )}
               </p>
               <motion.button type="button" className="ls-btn go" onClick={goNow} {...btnPop(6.3)}>
-                <SproutIcon />
+                <SproutIcon colors={SPROUT_LIGHT} />
                 내 텃밭으로 가기
               </motion.button>
               <div className="ls-auto" aria-hidden="true">

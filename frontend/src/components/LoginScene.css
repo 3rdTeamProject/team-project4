@@ -11,6 +11,7 @@
   flex-direction: column;
   /* 내용은 아래쪽에 붙여서 쌓는다 */
   justify-content: flex-end;
+  gap: var(--ls-gap);
   overflow: hidden;
   isolation: isolate;
   color: var(--ls-fg);
@@ -45,8 +46,8 @@
 .ls-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
+  gap: 5px;
+  padding: 4px 14px 4px 11px;
   border: 2px solid var(--ls-chip-edge);
   border-radius: 999px;
   background: var(--ls-chip-bg);
@@ -64,9 +65,7 @@
 /* 로고 주변 반짝이: 5초 뒤부터 깜빡인다(시작 시각은 style의 animation-delay) */
 .ls-sparkle {
   position: absolute;
-  z-index: -1;
   opacity: 0;
-  pointer-events: none;
   animation: ls-twinkle 2.4s ease-in-out infinite;
 }
 .ls-sparkle svg {
@@ -75,33 +74,37 @@
   height: auto;
 }
 .ls-sparkle.s1 {
-  left: 10px;
-  top: -8px;
-  width: 18px;
+  left: 40px;
+  top: 186px;
+  width: 12px;
+  --ls-spark-o: 0.9;
 }
 .ls-sparkle.s2 {
-  right: 6px;
-  top: 2px;
-  width: 13px;
+  right: 34px;
+  top: 168px;
+  width: 10px;
+  --ls-spark-o: 0.8;
 }
 .ls-sparkle.s3 {
-  left: 38px;
-  top: 76px;
-  width: 12px;
+  left: 332px;
+  top: 232px;
+  width: 8px;
+  --ls-spark-o: 0.7;
 }
 .ls-sparkle.s4 {
-  right: 30px;
-  top: 82px;
-  width: 17px;
+  left: 70px;
+  top: 250px;
+  width: 8px;
+  --ls-spark-o: 0.7;
 }
 @keyframes ls-twinkle {
   0%,
   100% {
-    opacity: 0;
-    transform: scale(0.5);
+    opacity: 0.15;
+    transform: scale(0.6);
   }
   50% {
-    opacity: 1;
+    opacity: var(--ls-spark-o);
     transform: scale(1);
   }
 }
@@ -110,57 +113,59 @@
 .ls-sky {
   position: absolute;
   inset: 0 0 auto 0;
-  height: 260px;
-  z-index: -2;
+  height: 340px;
+  z-index: -1;
   pointer-events: none;
 }
 .ls-glow {
   position: absolute;
-  right: -50px;
-  top: -22px;
-  width: 220px;
-  height: 220px;
+  right: -6px;
+  top: 26px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   background: radial-gradient(circle, var(--ls-sun-glow) 0%, transparent 68%);
 }
 .ls-sun {
   position: absolute;
-  right: 24px;
-  top: 52px;
-  width: 72px;
+  right: 30px;
+  top: 58px;
+  width: 76px;
 }
 .ls-cloud {
   position: absolute;
 }
 .ls-cloud.c1 {
-  left: 18px;
-  top: 64px;
-  width: 84px;
+  left: 22px;
+  top: 96px;
+  width: 92px;
 }
 .ls-cloud.c2 {
-  left: 150px;
-  top: 38px;
-  width: 58px;
+  left: 160px;
+  top: 54px;
+  width: 62px;
   opacity: 0.85;
 }
 .ls-cloud.c3 {
-  left: 8px;
-  top: 132px;
+  left: 120px;
+  top: 150px;
   width: 46px;
-  opacity: 0.8;
+  opacity: 0.55;
 }
 .ls-bird {
   position: absolute;
 }
 .ls-bird.b1 {
-  left: 118px;
-  top: 90px;
-  width: 26px;
+  left: 54px;
+  top: 46px;
+  width: 42px;
+  opacity: 0.95;
 }
 .ls-bird.b2 {
-  left: 152px;
-  top: 108px;
-  width: 18px;
+  left: 104px;
+  top: 72px;
+  width: 28px;
+  opacity: 0.85;
 }
 .ls-sky svg {
   display: block;
@@ -228,13 +233,13 @@
 }
 .ls-bf.pink {
   left: 16.4%;
-  top: 0.85%;
+  top: 5.5%;
   width: 10.97%;
   --ls-bf-tilt: -14deg;
 }
 .ls-bf.yellow {
   left: 52.3%;
-  top: 17.3%;
+  top: 22%;
   width: 8.69%;
   --ls-bf-tilt: 16deg;
 }
@@ -253,7 +258,7 @@
   overflow: visible;
 }
 .bf-wing {
-  transform-origin: 50px 44px;
+  transform-origin: 24px 20px;
   animation: ls-bf-flap 0.5s ease-in-out infinite alternate;
 }
 .ls-bf.yellow .bf-wing {
@@ -318,6 +323,7 @@
   height: var(--ls-nail);
   border-radius: 50%;
   background: var(--ls-wood-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 .ls-nail.tl {
   top: var(--ls-nail);
@@ -360,10 +366,27 @@
   line-height: 30px;
   white-space: nowrap;
 }
-.ls-intro-name {
+.ls-intro-line {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
   max-width: 100%;
+  min-width: 0;
+}
+.ls-intro-name {
+  min-width: 0;
+  max-width: 210px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.ls-intro-nim {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.ls-btn-icon {
+  display: block;
+  flex: none;
 }
 .ls-todo {
   margin: 0;

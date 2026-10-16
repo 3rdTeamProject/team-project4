@@ -68,7 +68,7 @@
   --ls-chip-ink: #2f6b3a;
   --ls-chip-edge: #8dbb72;
   --ls-chip-leaf: #6fb06b;
-  --ls-chip-shadow: rgba(47, 107, 58, 0.28);
+  --ls-chip-shadow: rgba(120, 168, 96, 0.45);
   /* 나비 */
   --ls-bf-pink-a: #fbc9d5;
   --ls-bf-pink-b: #f28ba8;
@@ -87,7 +87,7 @@
   --ls-logo-gap: 16px;
   --ls-chip-gap: 10px;
   --ls-stage-gap: 24px;
-  --ls-foot-gap: 24px;
+  --ls-foot-gap: 14px;
   --ls-sign-h: 244px;
   --ls-nail: 7px;
   --ls-leg-w: 14px;
