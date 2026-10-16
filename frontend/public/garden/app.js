@@ -68,7 +68,7 @@ function weatherPanel(f,loading=false){
   if(loading||!w){content='<div class="weather-summary"><span class="weather-symbol">◌</span><b>날씨 확인 중…</b></div>'}
   else if(w.status==='ready'){
     const place=w.place.label==='현재 위치로 지정한 농장'?(f.region||'현재 위치'):w.place.label.replace(/\s*·\s*(지역 기준|양평읍 기준)$/,'');
-    content=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(w.current.temperature_2m)}°C</b></span></div><div class="weather-extra"><small class="weather-place">${esc(place)}</small><small class="weather-note">${esc(GardenWeather.message(w.theme,w.current.is_day))}</small></div>`;
+    content=`<div class="weather-summary"><span class="weather-symbol">${weatherIcon(w.theme,w.current.is_day)}</span><span class="weather-copy"><b>${esc(w.label)} · ${Math.round(w.current.temperature_2m)}°C</b></span></div><details class="weather-more"><summary aria-label="날씨 설명 펼치기·접기"><span class="more-open">펼치기</span><span class="more-close">접기</span></summary><div class="weather-extra"><small class="weather-place">${esc(place)}</small><small class="weather-note">${esc(GardenWeather.message(w.theme,w.current.is_day))}</small></div></details>`;
     const humidity=Number.isFinite(w.current.relative_humidity_2m)?` · 습도 ${Math.round(w.current.relative_humidity_2m)}%`:'';
     details=`<p class="weather-time">${esc(w.place.label)}${humidity}<br>${esc(w.current.time.replace('T',' '))} KST 기준 · 10분마다 조회</p>`;
   }else if(w.status==='choose'){
