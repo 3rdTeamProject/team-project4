@@ -40,7 +40,6 @@
   display: block;
   width: 100%;
   height: auto;
-  animation: ls-logo-in 0.9s cubic-bezier(0.2, 1.2, 0.4, 1) 4.9s both;
 }
 
 .ls-chips {
@@ -60,8 +59,6 @@
   color: var(--ls-chip-ink);
   font: 400 16px/22px var(--ls-chip-font);
   box-shadow: 0 3px 0 var(--ls-chip-shadow);
-  transform: rotate(var(--r));
-  animation: ls-chip-pop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) var(--cd) both;
 }
 
 .ls-chip-leaf {
@@ -74,7 +71,6 @@
 .ls-sparkle {
   position: absolute;
   opacity: 0.8;
-  animation: ls-twinkle 2.4s ease-in-out var(--d) infinite alternate both;
 }
 .ls-sparkle svg {
   display: block;
@@ -85,25 +81,21 @@
   left: -4%;
   top: 2%;
   width: 12px;
-  --d: 5s;
 }
 .ls-sparkle.s2 {
   right: -3%;
   top: -12%;
   width: 10px;
-  --d: 5.4s;
 }
 .ls-sparkle.s3 {
   right: -8%;
   bottom: 6%;
   width: 8px;
-  --d: 5.8s;
 }
 .ls-sparkle.s4 {
   left: 6%;
   bottom: -14%;
   width: 8px;
-  --d: 6.2s;
 }
 
 /* ---- 하늘: 배경 맨 뒤 층 ---- */
@@ -121,10 +113,12 @@
   width: 140px;
   height: 140px;
   border-radius: 50%;
+}
+.ls-glow-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   background: radial-gradient(circle, var(--ls-sun-glow) 0%, transparent 68%);
-  animation:
-    ls-sun-in 1s ease-out 0.2s both,
-    ls-glow-pulse 4.5s ease-in-out 1.4s infinite alternate;
 }
 .ls-sun {
   position: absolute;
@@ -154,24 +148,16 @@
 }
 .ls-bird {
   position: absolute;
-  animation: ls-bird-in 1.4s ease-out var(--bd) both;
-}
-.ls-bird svg {
-  animation: ls-bob 3.2s ease-in-out calc(var(--bd) + 1.4s) infinite alternate;
 }
 .ls-bird.b1 {
   left: 54px;
   top: 46px;
   width: 42px;
-  --o: 0.95;
-  --bd: 1.2s;
 }
 .ls-bird.b2 {
   left: 104px;
   top: 72px;
   width: 28px;
-  --o: 0.85;
-  --bd: 1.5s;
 }
 .ls-sky svg {
   display: block;
@@ -236,7 +222,6 @@
   position: absolute;
   z-index: 6;
   pointer-events: none;
-  animation: ls-fly-in 1.2s ease-out var(--fd) both;
 }
 .ls-bf.pink {
   left: 16.4%;
@@ -250,113 +235,17 @@
   width: 8.69%;
   --rot: 16deg;
 }
-.ls-bf-float {
-  animation: ls-floaty 3.6s ease-in-out calc(var(--fd) + 1.2s) infinite alternate;
-}
 .ls-bf-rot {
   transform: rotate(var(--rot));
+}
+.ls-bf-wings {
+  transform-origin: 50% 50%;
 }
 .ls-bf svg {
   display: block;
   width: 100%;
   height: auto;
   overflow: visible;
-  transform-origin: 50% 50%;
-  animation: ls-flap 0.45s ease-in-out calc(var(--fd) + 1.2s) infinite alternate;
-}
-
-/* ---- 로고·칩·하늘·나비 애니메이션 ---- */
-@keyframes ls-logo-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px) scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes ls-chip-pop {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.6) rotate(var(--r));
-  }
-  to {
-    opacity: 1;
-    transform: rotate(var(--r));
-  }
-}
-@keyframes ls-sun-in {
-  from {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes ls-glow-pulse {
-  from {
-    opacity: 0.65;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes ls-bird-in {
-  from {
-    opacity: 0;
-    transform: translateX(-60px);
-  }
-  to {
-    opacity: var(--o);
-    transform: none;
-  }
-}
-@keyframes ls-bob {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-5px);
-  }
-}
-@keyframes ls-twinkle {
-  from {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  to {
-    opacity: 0.85;
-    transform: scale(1.1);
-  }
-}
-@keyframes ls-fly-in {
-  from {
-    opacity: 0;
-    transform: translate(-28px, 22px) scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes ls-floaty {
-  from {
-    transform: translate(0, 0);
-  }
-  to {
-    transform: translate(7px, -11px);
-  }
-}
-@keyframes ls-flap {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0.6);
-  }
 }
 
 /* ---- 팻말 ---- */
@@ -559,24 +448,4 @@
   height: 100%;
   width: 0;
   background: var(--ls-paper);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ls-logo,
-  .ls-chip,
-  .ls-glow,
-  .ls-bird,
-  .ls-bird svg,
-  .ls-sparkle,
-  .ls-bf,
-  .ls-bf-float,
-  .ls-bf svg {
-    animation: none;
-  }
-  .ls-bird.b1 {
-    opacity: 0.95;
-  }
-  .ls-bird.b2 {
-    opacity: 0.85;
-  }
 }
