@@ -626,3 +626,41 @@
 .profile-stat-level svg {
   color: var(--primary);
 }
+
+/* 알림 시간 시트: 자주 쓰는 시간 칩 */
+.time-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.time-chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.time-chip.on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.time-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.time-input {
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+}
