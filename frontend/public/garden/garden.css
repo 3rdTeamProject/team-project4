@@ -108,3 +108,13 @@ body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
 .weather-extra .weather-message{margin:0 0 8px;font-size:13px;line-height:1.6;color:#304d35}.weather-extra .weather-places{margin:0 0 8px}
 .weather-symbol{font-size:18px;line-height:22px}.weather-summary>b{font-size:14px;line-height:1.5;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .weather-region{display:block;margin:1px 0 0 22px;font-size:12px;line-height:1.4;color:#57634c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 휴대폰: 날씨별 하늘 장식은 날씨 카드 오른쪽 위 구역에 두고, 비·눈·안개·별은 카드 뒤쪽 파란 영역까지 그린다 */
+@media(max-width:680px){
+#app .sky .stars,#app .sky .mist,#app .sky .rainfall,#app .sky .snowfall{inset:-96px 0 0 0}
+#app .mist i{top:60px}#app .mist i:nth-child(2){top:84px}#app .mist i:nth-child(3){top:108px}
+#app.weather-cloud .cloud,#app.weather-rain .cloud,#app.weather-snow .cloud{left:auto;right:16px;top:-70px;width:104px;height:50px;opacity:1}
+#app.weather-cloud .cloud.c2,#app.weather-rain .cloud.c2,#app.weather-snow .cloud.c2{left:auto;right:100px;top:-36px;width:88px;height:43px;opacity:.8}
+#app.weather-cloud .cloud.c3,#app.weather-rain .cloud.c3,#app.weather-snow .cloud.c3{left:auto;right:4px;top:-22px;width:64px;height:31px;opacity:.65}
+.weather-night.weather-sun .moon,.weather-night.weather-cloud .moon{right:40px;top:-60px;width:44px;height:44px}
+.weather-night.weather-cloud .moon{right:128px;top:-74px}
+}
