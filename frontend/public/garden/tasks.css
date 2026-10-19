@@ -23,3 +23,7 @@
 .check-card[role="checkbox"]{cursor:pointer}
 .check-card[role="checkbox"]:focus-visible{outline:2px solid var(--color-green-btn);outline-offset:2px}
 .tk-sub-title{font-family:var(--font-title);font-size:var(--fs-section-title);font-weight:400;margin-top:0}
+.tk-fold{display:flex;align-items:center;justify-content:space-between;gap:calc(var(--space-gap) / 2);width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.tk-fold:focus-visible{outline:2px solid var(--color-green-btn);outline-offset:2px}
+.tk-fold-arrow{flex:none;transition:transform .15s}
+.tk-fold[aria-expanded="false"] .tk-fold-arrow{transform:rotate(-90deg)}
