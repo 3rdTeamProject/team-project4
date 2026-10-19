@@ -22,7 +22,7 @@ function toast(message){const t=document.querySelector('#toast');t.textContent=m
 // 메뉴(☰)로 나가기 전 화면을 기억해 두었다가, 메뉴를 닫고 돌아오면 그 화면으로 복원한다
 function rememberView(){try{if(!['farms','garden','tasks','detail'].includes(view))return;sessionStorage.setItem('garden-resume',JSON.stringify({view,selected,plotIndex,at:Date.now()}))}catch{}}
 function restoreView(){try{if(window.GARDEN_VIEW&&window.GARDEN_VIEW!=='farms')return;const raw=sessionStorage.getItem('garden-resume');if(!raw)return;sessionStorage.removeItem('garden-resume');const r=JSON.parse(raw);if(Date.now()-r.at>1800000)return;if(!['farms','garden','tasks','detail'].includes(r.view))return;const f=state.farms.find(x=>x.id===r.selected);if(r.view!=='farms'&&!f)return;if(r.view==='detail'&&!f.plots[r.plotIndex])return;view=r.view;if(f)selected=f.id;plotIndex=Number.isInteger(r.plotIndex)?r.plotIndex:0}catch{}}
-function navigate(next){view=next;render();window.scrollTo({top:0,behavior:'instant'})}
+function navigate(next){view=next;render();window.scrollTo({top:0,behavior:'instant'});window.parent.postMessage({type:'garden:scroll-top'},window.location.origin)}
 function head(title,back='farms',menu=false){return `<header class="page-head"><div class="back-title">${back?`<button class="icon-btn" data-action="nav" data-to="${back}" aria-label="뒤로 가기">‹</button>`:''}<h1>${title}</h1></div>${menu?'<button class="icon-btn" data-action="menu" aria-label="메뉴 열기">☰</button>':''}</header>`}
 function mini(f){return `<div class="mini-farm" aria-hidden="true">${f.plots.map(p=>`<span class="${p?'planted':''}"></span>`).join('')}</div>`}
 function plant(p){return CropArt.svg(p.kind,p.stage)}
