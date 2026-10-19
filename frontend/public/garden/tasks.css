@@ -27,3 +27,14 @@
 .tk-fold:focus-visible{outline:2px solid var(--color-green-btn);outline-offset:2px}
 .tk-fold-arrow{flex:none;transition:transform .15s}
 .tk-fold[aria-expanded="false"] .tk-fold-arrow{transform:rotate(-90deg)}
+.page:has(> .detail-subhead) .back-title{gap:3px}
+.page:has(> .detail-subhead) .back-title .icon-btn{width:44px;height:44px;margin-left:-12px;padding:0;font-size:0}
+.page:has(> .detail-subhead) .back-title .icon-btn::before{content:"";width:9px;height:9px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:translate(2px,-2px) rotate(45deg)}
+.tk-task{padding:18px 16px;gap:14px;align-items:center}
+.tk-task .task-content b{font-size:17px;line-height:1.4}
+.tk-task .task-content small{font-size:14px;line-height:1.5;margin-top:6px}
+.tk-task .tk-tip-open{font-size:13px;line-height:1.5;padding:10px 12px;margin-top:10px}
+.tk-empty-task{display:flex;align-items:center;gap:16px;padding:20px;margin:0 0 var(--space-gap);border:1px solid var(--color-border);border-radius:var(--radius-card);background:var(--color-card);color:var(--color-text-sub)}
+.tk-empty-icon{display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:50%;background:var(--color-done-bg);font-size:25px}
+.tk-empty-task strong{display:block;color:var(--color-green-dark);font-family:"Nanum Pen",var(--font-body);font-size:30px;font-weight:400;line-height:1.1}
+.tk-empty-task p{margin:5px 0 0;font-size:14px;line-height:1.5}

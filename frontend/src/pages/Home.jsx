@@ -96,6 +96,8 @@ export default function Home({ gardenView = 'farms' }) {
       } else if (message?.type === 'garden:api' && Object.hasOwn(gardenOps, message.op)) {
         const reply = result => frame.current?.contentWindow?.postMessage({ type: 'garden:api-result', id: message.id, ...result }, window.location.origin)
         gardenOps[message.op](message.payload).then(data => reply({ ok: true, data }), e => reply({ ok: false, error: e.message, status: e.status }))
+      } else if (message?.type === 'garden:scroll-top') {
+        window.scrollTo({top: 0, behavior: 'instant'})
       } else if (message?.type === 'garden:navigate' && message.to === '/menu') {
         // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
         destination.current = gardenView === 'farms' ? '/menu' : 'back'
