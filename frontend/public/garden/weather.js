@@ -66,7 +66,7 @@ const GardenWeather=(()=>{
     if(valid(f.weatherLocation))return {place:f.weatherLocation};
     const region=f.region.trim().replace(/\s+/g,' ');
     if(regions[region])return {place:regions[region]};
-    if(!region)throw new Error('농장 수정에서 지역을 입력하거나 농장에서 현재 위치를 지정해 주세요.');
+    if(!region)throw new Error('농장 수정에서 지역을 선택하거나 아래 버튼으로 현재 위치를 지정해 주세요.');
     const parts=region.split(' '),province=parts.length>1?(provinces[parts[0]]||parts[0]):null;
     const town=parts.at(-1),names=[aliases[town]||town];
     if(/[시군구]$/.test(town)&&town.length>2)names.push(town.slice(0,-1));
@@ -78,7 +78,7 @@ const GardenWeather=(()=>{
       if(choices.length===1)return {place:choices[0]};
       if(choices.length>1)return {choices:choices.slice(0,5)};
     }
-    throw new Error('이 지역의 위치를 찾지 못했어요. 지역명을 수정하거나 농장에서 현재 위치를 지정해 주세요.');
+    throw new Error('이 지역의 위치를 찾지 못했어요. 농장 수정에서 지역을 목록에서 선택해 주세요.');
   }
   // 개발용: 날씨를 원하는 값으로 덮어써서 날씨별 화면을 확인한다(null이면 실제 날씨)
   let override=null;
