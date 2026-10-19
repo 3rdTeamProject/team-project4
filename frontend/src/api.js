@@ -74,6 +74,7 @@ export const api = {
   saveGarden: (revision, state) => request('/garden/state', {method: 'PUT', body: {revision, state}}),
   gardenTasks: () => request('/garden/tasks'),
   gardenCrops: () => request('/garden/crops'),
+  gardenPlaces: (q) => request(`/garden/places?q=${encodeURIComponent(q)}`),
   gardenDevDay: () => request('/garden/dev/day'),
   setGardenDevDay: (offset) => request('/garden/dev/day', { method: 'POST', body: { offset } }),
   completeGardenTasks: (body) => request('/garden/tasks/complete', { method: 'POST', body }),

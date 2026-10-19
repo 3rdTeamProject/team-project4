@@ -7,10 +7,12 @@
 import hashlib
 import json
 import math
+import os
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import (
     JSON,
@@ -79,6 +81,10 @@ class Plant(BaseModel):
         if any(not photo.startswith('data:image/jpeg;base64,') or len(photo) > 2000000 for photo in photos):
             raise ValueError('유효한 JPG 사진만 저장할 수 있어요.')
         return photos
+
+
+KAKAO_ADDRESS_URL = 'https://dapi.kakao.com/v2/local/search/address.json'
+KAKAO_KEYWORD_URL = 'https://dapi.kakao.com/v2/local/search/keyword.json'
 
 
 class Location(BaseModel):
@@ -536,6 +542,46 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 'plant': plant.get(row['id']) if row else None, 'transplant': moving.get(row['id']) if row else None,
             })
         return {'crops': items}
+
+    @router.get('/places')
+    def search_places(q: str = Query(min_length=2, max_length=40), user=Depends(get_current_user)):
+        """농장 지역 입력 자동완성: 카카오 주소 검색에서 시·군·구·동 단위(REGION) 결과만 돌려준다. 키는 서버에만 둔다."""
+        key = os.getenv('KAKAO_REST_API_KEY')
+        if not key:
+            raise HTTPException(503, '지역 검색이 설정되어 있지 않아요.')
+        words = q.split()
+        if not words:
+            return {'places': []}
+
+        def kakao(client, url, size):
+            res = client.get(url, params={'query': ' '.join(words), 'size': size})
+            if res.status_code != 200:
+                raise HTTPException(502, '지역을 검색하지 못했어요. 잠시 후 다시 시도해 주세요.')
+            return res.json().get('documents', [])
+
+        try:
+            with httpx.Client(headers={'Authorization': f'KakaoAK {key}'}, timeout=5) as client:
+                regions = kakao(client, KAKAO_ADDRESS_URL, 15)
+                spots = kakao(client, KAKAO_KEYWORD_URL, 15)
+        except httpx.HTTPError:
+            raise HTTPException(502, '지역 검색 서버에 연결하지 못했어요.')
+        places: dict[str, dict | None] = {}
+        # 1) 시·군·구·동 이름 그대로 찾은 결과(좌표 있음)
+        for d in regions:
+            label = d.get('address_name') or ''
+            if d.get('address_type') == 'REGION' and label:
+                places.setdefault(label, {'latitude': float(d['y']), 'longitude': float(d['x'])})
+        # 2) 장소 검색 결과의 주소에서 지역 이름만 뽑는다: 검색어가 들어 있는 칸까지(최소 2칸: 시·도 + 시·군·구)
+        for d in spots:
+            parts = (d.get('address_name') or '').split()
+            at = next((i for i, p in enumerate(parts) if words[-1] in p), None)
+            if at is None or any(w not in ' '.join(parts) for w in words):
+                continue
+            places.setdefault(' '.join(parts[:max(2, at + 1)]), None)
+        # 큰 단위(시·도, 시·군·구)가 먼저 오도록 칸 수로 정렬한다(같으면 찾은 순서). 좌표를 아직 모르는 후보는 null로 보낸다
+        # (고를 때 같은 API로 이름을 다시 검색해 좌표를 받는다)
+        ordered = sorted(places.items(), key=lambda item: len(item[0].split()))
+        return {'places': [{'label': label, **(loc or {'latitude': None, 'longitude': None})} for label, loc in ordered][:8]}
 
     @router.get('/state')
     def read_state(user=Depends(get_current_user)):

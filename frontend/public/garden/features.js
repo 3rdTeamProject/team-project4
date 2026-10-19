@@ -14,10 +14,47 @@ navigate=function(next){
 const baseFormPage=formPage;
 formPage=function(edit){
   return baseFormPage(edit).replace(/(<input id="farm-region"[^>]*>)/,
-    '<div class="region-row">$1<button type="button" class="secondary location-button" data-feature="farm-location">⌖ 현재 위치</button></div><small class="region-credit">현재 위치 지역명: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></small>');
+    '<div class="region-row">$1<button type="button" class="secondary location-button" data-feature="farm-location">⌖ 현재 위치</button></div><ul id="region-suggest" class="region-suggest" role="listbox" aria-label="비슷한 지역" hidden></ul><small class="region-credit">현재 위치 지역명: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></small>');
 };
+// 지역 입력 자동완성: 입력이 멈추면(0.35초) 서버(카카오 주소 검색)에서 비슷한 지역을 받아 목록으로 보여 준다
+let regionResults=[],regionTimer=0,regionSeq=0;
+const regionList=()=>document.querySelector('#region-suggest');
+function showRegionResults(items){
+  const list=regionList();
+  if(!list)return;
+  regionResults=items;
+  list.innerHTML=items.map((p,i)=>`<li role="option"><button type="button" class="region-option" data-feature="region-pick" data-index="${i}">${esc(p.label)}</button></li>`).join('');
+  list.hidden=!items.length;
+}
 app.addEventListener('input',event=>{
-  if(event.target.id==='farm-region')farmFormLocation=null;
+  if(event.target.id!=='farm-region')return;
+  farmFormLocation=null;
+  clearTimeout(regionTimer);
+  const text=event.target.value.trim(),seq=++regionSeq;
+  if(text.length<2){showRegionResults([]);return}
+  regionTimer=setTimeout(async()=>{
+    try{
+      const r=await hostApi('places',{q:text});
+      if(seq===regionSeq)showRegionResults(r.places);
+    }catch{if(seq===regionSeq)showRegionResults([])}  // 검색이 안 돼도 직접 입력해서 저장할 수 있다
+  },350);
+});
+app.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-feature="region-pick"]');
+  if(!button)return;
+  const input=document.querySelector('#farm-region'),place=regionResults[Number(button.dataset.index)];
+  if(!input||!place)return;
+  regionSeq++;
+  input.value=place.label;
+  showRegionResults([]);
+  farmFormLocation=null;
+  let found=Number.isFinite(place.latitude)&&Number.isFinite(place.longitude)?place:null;
+  if(!found){  // 장소 검색에서 뽑은 후보는 좌표가 없어서, 이름으로 한 번 더 찾아 좌표를 받는다
+    try{found=(await hostApi('places',{q:place.label})).places.find(p=>p.label===place.label&&Number.isFinite(p.latitude))||null}catch{}
+  }
+  if(!input.isConnected||input.value!==place.label)return;
+  if(found){farmFormLocation={latitude:found.latitude,longitude:found.longitude,label:place.label}}
+  else toast('이 지역의 위치를 찾지 못했어요. 지역명만 저장되고, 날씨는 다른 지역을 고르거나 현재 위치 버튼으로 지정해 주세요.');
 });
 app.addEventListener('click',event=>{
   const button=event.target.closest('[data-feature="farm-location"]');

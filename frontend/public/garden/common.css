@@ -54,6 +54,11 @@ input, textarea { min-width: 0; max-width: 100%; font-size: var(--fs-body); bord
 .region-row input { width: 0; min-width: 0; flex: 1; }
 .region-row .location-button { width: auto; min-height: var(--size-touch); flex: none; padding: calc(var(--space-gap) / 2); border-radius: var(--radius-small); font-size: var(--fs-sub); }
 .region-row .location-button:disabled { opacity: .6; cursor: wait; }
+.region-suggest { margin: calc(var(--space-gap) / 4) 0 0; padding: 0; list-style: none; overflow: hidden; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-small); }
+.region-suggest[hidden] { display: none; }
+.region-suggest li + li { border-top: 1px solid var(--color-border); }
+.region-option { display: block; width: 100%; min-height: var(--size-touch); padding: calc(var(--space-gap) / 2) var(--space-card); border: 0; background: none; color: var(--color-text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
+.region-option:hover, .region-option:focus-visible { background: var(--color-bg); outline: none; }
 .region-credit { display: block; margin-top: calc(var(--space-gap) / 2); color: var(--color-text-sub); font-size: var(--fs-sub); }
 .region-credit a { color: inherit; }
 .selection-art { height: calc(var(--size-touch) * 2); overflow: hidden; }
