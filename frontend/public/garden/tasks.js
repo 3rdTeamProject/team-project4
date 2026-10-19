@@ -103,6 +103,11 @@ const taskCard = t => {
   return `<div class="check-card tk-task" role="checkbox" tabindex="0" aria-checked="${on}" aria-label="${esc(t.title)}" data-tk="toggle-task" data-task="${t.id}"><span class="check-box ${on ? 'checked' : ''}">${on ? '✓' : ''}</span><div class="task-content"><div class="tk-title-row"><b>${esc(t.title)}</b><span class="tk-point-chip">+${t.points}P</span></div>${t.howTo ? `<small>${esc(t.howTo)}</small>` : ''}${t.tip ? `<div class="tk-tip-open">💡 ${esc(t.tip)}</div>` : ''}</div></div>`;
 };
 const infoCard = t => `<div class="tk-info-card"><b>${esc(t.title)}</b>${t.howTo ? `<small>${esc(t.howTo)}</small>` : ''}${t.tip ? `<div class="tk-tip-open">💡 ${esc(t.tip)}</div>` : ''}</div>`;
+// '미리 해 두면 좋아요' 목록: 제목을 누르면 접고 펼친다(화면을 다시 그려도 상태가 남도록 변수에 둔다)
+let infoOpen = true;
+const infoSection = list => list.length
+  ? `<h3 class="field-label tk-sub-title"><button type="button" class="tk-fold" data-tk="toggle-info" aria-expanded="${infoOpen}"><span>미리 해 두면 좋아요</span><span class="tk-fold-arrow" aria-hidden="true">▾</span></button></h3>${infoOpen ? list.map(infoCard).join('') : ''}`
+  : '';
 const trashButton = '<button class="icon-btn" data-feature="delete-crop" aria-label="작물 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v7m4-7v7"/></svg></button>';
 const memoBox = p => `<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="오늘 텃밭 상태를 적어보세요 (선택)">${esc(p.draftMemo || '')}</textarea></div>`;
 const journalFooter = label => footer(`<button class="secondary diagnosis-button" data-feature="diagnosis">AI진단</button><button class="primary" data-tk="post-journal" ${completing ? 'disabled' : ''}>${completing ? '올리는 중…' : label}</button>`);
@@ -126,7 +131,7 @@ function plotPage(f, i, p) {
   const all = plotTasks(f, i, true), info = all.filter(t => t.infoOnly), mine = all.filter(t => !t.infoOnly);
   const picked = mine.filter(t => checked.has(t.id)).length, days = GardenGrowth.elapsed(p.plantedAt, day());
   const stageText = p.harvestedAt ? '수확 중' : `${isPrep(p) ? 0 : p.stage}/5단계`;
-  return `<main class="page">${head(meta(p).name, 'garden')}<div class="detail-subhead"><small>${esc(f.name)} · 심은 지 ${days + 1}일</small><span class="pill">${stageText}</span>${trashButton}</div>${harvestBanner(f, i, p)}${info.length ? `<h3 class="field-label tk-sub-title">미리 해 두면 좋아요</h3>${info.map(infoCard).join('')}` : ''}<div class="field-label tk-sub-title">오늘 할 일 <span class="count">${taskData.status === 'ready' ? `완료 ${picked} / ${mine.length}` : ''}</span></div>${statusNote()}${mine.length ? mine.map(taskCard).join('') : taskData.status === 'ready' ? '<p class="help">지금 할 일은 모두 마쳤어요. 🌿</p>' : ''}${photoSection(p.draftPhotos)}${memoBox(p)}<p class="help">체크한 할 일은 일지를 올려야 완료돼요.</p></main>${journalFooter('일지 올리기')}`;
+  return `<main class="page">${head(meta(p).name, 'garden')}<div class="detail-subhead"><small>${esc(f.name)} · 심은 지 ${days + 1}일</small><span class="pill">${stageText}</span>${trashButton}</div>${harvestBanner(f, i, p)}${infoSection(info)}<div class="field-label tk-sub-title">오늘 할 일 <span class="count">${taskData.status === 'ready' ? `완료 ${picked} / ${mine.length}` : ''}</span></div>${statusNote()}${mine.length ? mine.map(taskCard).join('') : taskData.status === 'ready' ? '<p class="help">지금 할 일은 모두 마쳤어요. 🌿</p>' : ''}${photoSection(p.draftPhotos)}${memoBox(p)}<p class="help">체크한 할 일은 일지를 올려야 완료돼요.</p></main>${journalFooter('일지 올리기')}`;
 }
 const baseDetailPage = detailPage;
 detailPage = function () {
@@ -144,7 +149,7 @@ preparationPage = function () {
   const name = CROPS.find(c => c.id === chosenCrop).name, prep = cropInfo[chosenCrop].prep, sow = firstTask();
   // 첫 작업(씨앗은 포트에 씨앗 심기, 모종은 모종 옮겨심기)을 체크하고 '심었어요'를 누르면 완료된다(카드 어디를 눌러도 체크) — 오늘 할 일에는 나오지 않는다
   const sowCard = sow ? `<h3>이번에 할 일</h3><div class="check-card tk-sow" role="checkbox" tabindex="0" aria-checked="${sowChecked}" aria-label="${esc(sow.title)}" data-tk="toggle-sow"><span class="check-box ${sowChecked ? 'checked' : ''}">${sowChecked ? '✓' : ''}</span><div class="task-content"><b>${esc(sow.title)}</b>${sow.howTo ? `<small>${esc(sow.howTo)}</small>` : ''}${sow.tip ? `<div class="tk-tip-open">💡 ${esc(sow.tip)}</div>` : ''}</div></div>` : '';
-  return `<main class="page">${head('심기 전 준비', 'select')}<div class="seed-sign"><b>${esc(name)}</b><small>${plantingMethod === 'seed' ? '씨앗' : '모종'}으로 시작 · ${pendingPlot + 1}번째 칸</small></div>${prep.length ? `<h3 class="field-label tk-sub-title">미리 해 두면 좋아요</h3>${prep.map(infoCard).join('')}` : ''}${sowCard}${photoSection(plantingDraft.photos)}<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="준비하면서 한 일을 적어보세요 (선택)">${esc(plantingDraft.memo)}</textarea></div><div class="info">ⓘ 준비가 되면 아래 버튼을 눌러요. 누르면 오늘부터 재배가 시작돼요.</div></main>${footer('<button class="primary" data-feature="plant">심었어요</button>')}`;
+  return `<main class="page">${head('심기 전 준비', 'select')}<div class="seed-sign"><b>${esc(name)}</b><small>${plantingMethod === 'seed' ? '씨앗' : '모종'}으로 시작 · ${pendingPlot + 1}번째 칸</small></div>${infoSection(prep)}${sowCard}${photoSection(plantingDraft.photos)}<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="준비하면서 한 일을 적어보세요 (선택)">${esc(plantingDraft.memo)}</textarea></div><div class="info">ⓘ 준비가 되면 아래 버튼을 눌러요. 누르면 오늘부터 재배가 시작돼요.</div></main>${footer('<button class="primary" data-feature="plant">심었어요</button>')}`;
 };
 
 // 오늘 할 일 모아보기: 농장별 목록(서버 할 일 + 서버 할 일이 없는 작물의 기존 할 일). 캘린더는 아직 없다
@@ -199,6 +204,7 @@ app.addEventListener('click', e => {
     case 'mark-harvest': { const k = `${current().id}|${plotIndex}`; harvestMark[k] = !harvestMark[k]; render(); break; }
     case 'post-journal': postJournal(); break;
     case 'toggle-sow': sowChecked = !sowChecked; render(); break;
+    case 'toggle-info': infoOpen = !infoOpen; render(); break;
     case 'retry': loadTasks(true); break;
     case 'dev-day': moveDay(b); break;
     case 'dev-weather': { const o = DEV_WEATHER[Number(b.dataset.i)].o; GardenWeather.setOverride(o); render(); break; }
