@@ -162,7 +162,7 @@ tasksPage = function () {
     return p.plantedAt <= day() && (!p.harvestedAt || day() <= p.harvestedAt)
       ? careItems(p).filter(([key]) => !completed(p, key)).map(([, label, sub]) => ({ i, label, sub: `${meta(p).name} · ${sub}` })) : [];
   }) }));
-  return `<main class="page">${head('오늘 할 일', current() ? 'garden' : 'farms')}${hasTaskCrop ? statusNote() : ''}${groups.map(({ f, rows }) => `<h3>${esc(f.name)} <span class="task-count">${rows.length}</span></h3>${rows.length ? rows.map(r => `<button class="check-card" data-feature="open-task" data-id="${esc(f.id)}" data-index="${r.i}"><span class="check-box"></span><span><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></span><span class="chevron">›</span></button>`).join('') : '<div class="no-tasks">오늘 할 일이 없어요</div>'}`).join('')}<p class="help">할 일을 누르면 작물 관리 화면으로 이동해요.</p></main>`;
+  return `<main class="page">${head('오늘 할 일', tasksBack === 'garden' && current() ? 'garden' : 'farms')}${hasTaskCrop ? statusNote() : ''}${groups.map(({ f, rows }) => `<h3>${esc(f.name)} <span class="task-count">${rows.length}</span></h3>${rows.length ? rows.map(r => `<button class="check-card" data-feature="open-task" data-id="${esc(f.id)}" data-index="${r.i}"><span class="check-box"></span><span><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></span><span class="chevron">›</span></button>`).join('') : '<div class="no-tasks">오늘 할 일이 없어요</div>'}`).join('')}<p class="help">할 일을 누르면 작물 관리 화면으로 이동해요.</p></main>`;
 };
 
 // ---------- 일지 올리기: 체크한 할 일(과 수확)을 완료하고 일지·포인트를 서버에서 한 번에 처리
