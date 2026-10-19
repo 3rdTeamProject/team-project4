@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
+import NotifyTimeSheet from '../components/NotifyTimeSheet.jsx'
 import { useGoBack } from '../hooks/useGoBack.js'
 import { useKakaoLink } from '../hooks/useKakaoLink.js'
 import { useMe } from '../hooks/useMe.js'
@@ -11,10 +12,17 @@ import './settings.css'
 const LINK_FAILED = '연동하지 못했어요. 다시 시도해 주세요'
 
 const NOTIFY_ROWS = [
-  { key: 'notify_todo', title: '오늘 할 일 알림', sub: '매일 오전 9시' },
+  { key: 'notify_todo', title: '오늘 할 일 알림' },
   { key: 'notify_weather', title: '서리·비 예보 알림', sub: '내 농장 지역 기준' },
   { key: 'notify_point', title: '포인트 소식' },
 ]
+
+// '09:00' → '매일 오전 9시', '14:30' → '매일 오후 2시 30분'
+function todoTimeLabel(time) {
+  const [h, m] = time.split(':').map(Number)
+  const hour12 = h % 12 || 12
+  return `매일 ${h < 12 ? '오전' : '오후'} ${hour12}시${m ? ` ${m}분` : ''}`
+}
 
 function Chevron() {
   return (
@@ -40,6 +48,7 @@ export default function Settings() {
   const { linking, startLink } = useKakaoLink('/settings')
   const goBack = useGoBack('/menu')
   const [hasAddress, setHasAddress] = useState(false)
+  const [timeOpen, setTimeOpen] = useState(false)
   const isMember = me?.login_type === 'kakao'
 
   useEffect(() => {
@@ -54,6 +63,16 @@ export default function Settings() {
     setMe((m) => ({ ...m, [key]: next })) // 즉시 반영
     api.updateNotifications({ [key]: next }).catch(() => {
       setMe((m) => ({ ...m, [key]: !next })) // 저장 실패: 원래 값으로
+      setToast('저장하지 못했어요')
+    })
+  }
+
+  function saveTodoTime(time) {
+    const prev = me.notify_todo_time
+    setTimeOpen(false)
+    setMe((m) => ({ ...m, notify_todo_time: time })) // 즉시 반영
+    api.updateNotifications({ notify_todo_time: time }).catch(() => {
+      setMe((m) => ({ ...m, notify_todo_time: prev })) // 저장 실패: 원래 값으로
       setToast('저장하지 못했어요')
     })
   }
@@ -86,6 +105,11 @@ export default function Settings() {
                   <div className="set-text">
                     <span id={`${row.key}-label`} className="set-title">{row.title}</span>
                     {row.sub && <span className="set-sub">{row.sub}</span>}
+                    {row.key === 'notify_todo' && me.notify_todo && (
+                      <button type="button" className="set-time" onClick={() => setTimeOpen(true)}>
+                        {todoTimeLabel(me.notify_todo_time)}
+                      </button>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -167,6 +191,10 @@ export default function Settings() {
             <button type="button" className="logout-btn" onClick={logout}>로그아웃</button>
           )}
         </>
+      )}
+
+      {timeOpen && me && (
+        <NotifyTimeSheet value={me.notify_todo_time} onSave={saveTodoTime} onClose={() => setTimeOpen(false)} />
       )}
 
       {toast && <div className="toast" role="status">{toast}</div>}

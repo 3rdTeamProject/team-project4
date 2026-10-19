@@ -88,7 +88,7 @@ export default function PointExchange() {
             <ShippingBlock
               useSaved={useSaved} saved={saved} onEdit={() => setEditing(true)}
               form={form} onField={set} note={note} onNote={setNote}
-              saveAddress={saveAddress} onSaveAddress={setSaveAddress} onFind={() => setToast('준비 중이에요')}
+              saveAddress={saveAddress} onSaveAddress={setSaveAddress}
             />
           )}
 

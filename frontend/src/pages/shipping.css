@@ -102,3 +102,20 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* 우편번호 검색 시트 */
+.ship-postcode {
+  height: 80vh;
+  padding-bottom: 12px;
+}
+
+.ship-postcode-box {
+  flex: 1;
+  min-height: 0;
+}
+
+.ship-postcode-error {
+  margin: 0;
+  color: var(--minus);
+  font-size: 14px;
+}

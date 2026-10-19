@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
+import { api } from '../api.js'
 import './LoginScene.css'
+import logoImg from '../assets/login/logo.png'
 import fenceImg from '../assets/login/fence.png'
 import bushImg from '../assets/login/bush.png'
 import tomatoImg from '../assets/login/tomato.png'
@@ -62,6 +64,106 @@ function CloudSvg() {
   )
 }
 
+function LeafIcon() {
+  return (
+    <svg className="ls-chip-leaf" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 21C3 11 9 4 21 3c0 11-6 18-16 18z" fill="#6FB06B" />
+      <path d="M4 20C9 14 13 10 18 6" stroke="#2F6B3A" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </svg>
+  )
+}
+
+// 새싹 아이콘. 비회원 버튼은 초록, 초록 버튼 위(자동로그인)에서는 밝은 색을 쓴다.
+const SPROUT_GREEN = { stem: '#2E8B3D', big: '#43A047', small: '#6FB06B' }
+const SPROUT_LIGHT = { stem: '#E2ECC8', big: '#CFE3B0', small: '#FFFDF6' }
+
+function SproutIcon({ colors = SPROUT_GREEN }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 40 40" className="ls-btn-icon" aria-hidden="true">
+      <path d="M20 38C20 30 19 25 20 17" fill="none" stroke={colors.stem} strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M20 23C11 23 5 18 4 10C13 10 19 15 20 23Z" fill={colors.big} />
+      <path d="M20 18C20 9 25 4 34 3C34 12 29 17 20 18Z" fill={colors.small} />
+    </svg>
+  )
+}
+
+function KakaoIcon() {
+  return (
+    <svg width="21" height="19" viewBox="0 0 20 18" className="ls-btn-icon" aria-hidden="true">
+      <path d="M10 1C5 1 1 4.2 1 8.2c0 2.5 1.6 4.7 4 6l-1 3.3 4-2.4c.7.1 1.3.2 2 .2 5 0 9-3.2 9-7.1S15 1 10 1z" fill="#3B1E1E" />
+    </svg>
+  )
+}
+
+function Sparkle() {
+  return (
+    <svg viewBox="0 0 10 10" aria-hidden="true">
+      <path d="M5 0L6.3 3.7L10 5L6.3 6.3L5 10L3.7 6.3L0 5L3.7 3.7Z" fill="#F6C662" />
+    </svg>
+  )
+}
+
+function Bird() {
+  return (
+    <svg viewBox="0 0 32 12" aria-hidden="true">
+      <path d="M1 8Q8 -2 16 8Q24 -2 31 8" fill="none" stroke="#8A6B55" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// 나비 그림. 날갯짓·둥실거림은 CSS 애니메이션이다(.ls-bf).
+function Butterfly({ id, colorA, colorB, edge }) {
+  const wing = (
+    <>
+      <path d="M23 19C19 5 7 0 3 7C-1 14 9 22 23 19Z" fill={`url(#${id})`} stroke={edge} strokeWidth=".9" strokeLinejoin="round" />
+      <path d="M23 21C13 21 6 26 9 32C12 38 21 33 23 21Z" fill={`url(#${id})`} stroke={edge} strokeWidth=".9" strokeLinejoin="round" />
+      <circle cx="9" cy="9" r="2" fill="#fff" opacity=".8" />
+      <circle cx="6.3" cy="12.6" r="1.1" fill="#fff" opacity=".7" />
+      <circle cx="14.5" cy="29" r="1.6" fill="#fff" opacity=".75" />
+    </>
+  )
+  return (
+    <svg viewBox="0 0 48 40" aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="1" y1="0" x2="0" y2="0.6">
+          <stop offset="0" stopColor={colorA} />
+          <stop offset="1" stopColor={colorB} />
+        </linearGradient>
+      </defs>
+      <g>{wing}</g>
+      <g transform="translate(48 0) scale(-1 1)">{wing}</g>
+      <rect x="22.7" y="9" width="2.6" height="22" rx="1.3" fill="#6B4A36" />
+      <circle cx="24" cy="8.6" r="2.3" fill="#6B4A36" />
+      <path d="M23.3 7C22 3.5 20 2 18 2.2M24.7 7C26 3.5 28 2 30 2.2" fill="none" stroke="#6B4A36" strokeWidth="1.1" strokeLinecap="round" />
+      <circle cx="18" cy="2.2" r=".9" fill="#6B4A36" />
+      <circle cx="30" cy="2.2" r=".9" fill="#6B4A36" />
+    </svg>
+  )
+}
+
+const BIRDS = [
+  { cls: 'b1', o: 0.95, delay: 1.2 },
+  { cls: 'b2', o: 0.85, delay: 1.5 },
+]
+
+const SPARKLES = [
+  { cls: 's1', delay: 5 },
+  { cls: 's2', delay: 5.4 },
+  { cls: 's3', delay: 5.8 },
+  { cls: 's4', delay: 6.2 },
+]
+
+const CHIPS = [
+  { label: '심고', rot: -3, delay: 5.5 },
+  { label: '가꾸고', rot: 1.5, delay: 5.65 },
+  { label: '기록해요', rot: -2, delay: 5.8 },
+]
+
+const BUTTERFLIES = [
+  { cls: 'pink', id: 'bf-pink', a: 'var(--ls-bf-pink-a)', b: 'var(--ls-bf-pink-b)', edge: 'var(--ls-bf-pink-edge)', delay: 5.9 },
+  { cls: 'yellow', id: 'bf-yellow', a: 'var(--ls-bf-yellow-a)', b: 'var(--ls-bf-yellow-b)', edge: 'var(--ls-bf-yellow-edge)', delay: 6.1 },
+]
+
 /**
  * 로그인 시작 화면의 그림과 팻말(표현만 담당).
  * 로그인 동작은 부모(Start)가 props로 넘긴 함수를 그대로 호출한다.
@@ -77,6 +179,22 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
   useEffect(() => {
     onEnterRef.current = onEnter
   })
+
+  // 오늘 할 일 개수(화면 표시용). 못 가져오면 그 줄만 비워 둔다.
+  const [todoCount, setTodoCount] = useState(null)
+  useEffect(() => {
+    if (!me) return
+    let cancelled = false
+    api
+      .gardenTasks()
+      .then((r) => {
+        if (!cancelled) setTodoCount(r.tasks.filter((x) => !x.infoOnly).length)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [me])
 
   // 로그인된 상태: 장면이 끝난 뒤 3초 카운트 → 자동으로 /home
   useEffect(() => {
@@ -115,6 +233,23 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
     <div className="ls-scene">
       <div className="ls-sky" aria-hidden="true">
         <motion.div
+          className="ls-glow"
+          {...m({
+            initial: { opacity: 0, scale: 0.4 },
+            animate: { opacity: 1, scale: 1 },
+            transition: { duration: 1, delay: 0.2, ease: EASE_OUT },
+          })}
+        >
+          <motion.div
+            className="ls-glow-fill"
+            {...m({
+              initial: { opacity: 0.65 },
+              animate: { opacity: 1 },
+              transition: { duration: 4.5, delay: 1.4, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
+            })}
+          />
+        </motion.div>
+        <motion.div
           className="ls-sun"
           {...m({
             initial: { opacity: 0, scale: 0.4 },
@@ -150,20 +285,83 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
         >
           <CloudSvg />
         </motion.div>
+        <motion.div
+          className="ls-cloud c3"
+          {...m({
+            initial: { x: -10 },
+            animate: { x: [-10, 14] },
+            transition: { duration: 7, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
+          })}
+        >
+          <CloudSvg />
+        </motion.div>
+        {BIRDS.map((b) => (
+          <motion.div
+            key={b.cls}
+            className={`ls-bird ${b.cls}`}
+            {...m({
+              initial: { opacity: 0, x: -60 },
+              animate: { opacity: b.o, x: 0 },
+              transition: { duration: 1.4, delay: b.delay, ease: EASE_OUT },
+            })}
+          >
+            <motion.div
+              {...m({
+                initial: { y: 0 },
+                animate: { y: -5 },
+                transition: { duration: 3.2, delay: b.delay + 1.4, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
+              })}
+            >
+              <Bird />
+            </motion.div>
+          </motion.div>
+        ))}
       </div>
 
-      <motion.div
-        className="ls-head"
-        {...m({
-          initial: { opacity: 0, y: 10 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.8, delay: 5, ease: EASE_OUT },
-        })}
-      >
-        <p className="ls-tagline">심고 · 가꾸고 · 기록하는 우리 텃밭</p>
-        <h1 className="ls-title">텃밭에 온 걸 환영해요</h1>
-        <p className="ls-lead">물을 주면 작은 싹이 텃밭이 돼요.</p>
-      </motion.div>
+      <div className="ls-head">
+        <div className="ls-logo-wrap">
+          <motion.img
+            className="ls-logo"
+            src={logoImg}
+            alt="우리텃밭"
+            {...m({
+              initial: { opacity: 0, y: 14, scale: 0.9 },
+              animate: { opacity: 1, y: 0, scale: 1 },
+              transition: { duration: 0.9, delay: 4.9, ease: [0.2, 1.2, 0.4, 1] },
+            })}
+          />
+          {SPARKLES.map((sp) => (
+            <motion.div
+              key={sp.cls}
+              className={`ls-sparkle ${sp.cls}`}
+              {...m({
+                initial: { opacity: 0, scale: 0.4 },
+                animate: { opacity: 0.85, scale: 1.1 },
+                transition: { duration: 2.4, delay: sp.delay, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
+              })}
+            >
+              <Sparkle />
+            </motion.div>
+          ))}
+        </div>
+        <div className="ls-chips">
+          {CHIPS.map((c) => (
+            <motion.span
+              key={c.label}
+              className="ls-chip"
+              style={{ rotate: c.rot }}
+              {...m({
+                initial: { opacity: 0, y: 8, scale: 0.6 },
+                animate: { opacity: 1, y: 0, scale: 1 },
+                transition: { duration: 0.6, delay: c.delay, ease: [0.2, 1.4, 0.4, 1] },
+              })}
+            >
+              <LeafIcon />
+              {c.label}
+            </motion.span>
+          ))}
+        </div>
+      </div>
 
       <div
         className="ls-stage"
@@ -308,6 +506,41 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
             </motion.div>
           </>
         )}
+
+        {/* 나비는 정원 그림 위 층. 정원 크기 기준 % 위치라 화면이 달라도 같은 자리에 있다 */}
+        {BUTTERFLIES.map((f) => (
+          <motion.div
+            key={f.cls}
+            className={`ls-bf ${f.cls}`}
+            aria-hidden="true"
+            {...m({
+              initial: { opacity: 0, x: -28, y: 22, scale: 0.5 },
+              animate: { opacity: 1, x: 0, y: 0, scale: 1 },
+              transition: { duration: 1.2, delay: f.delay, ease: EASE_OUT },
+            })}
+          >
+            <motion.div
+              {...m({
+                initial: { x: 0, y: 0 },
+                animate: { x: 7, y: -11 },
+                transition: { duration: 3.6, delay: f.delay + 1.2, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
+              })}
+            >
+              <div className="ls-bf-rot">
+                <motion.div
+                  className="ls-bf-wings"
+                  {...m({
+                    initial: { scaleX: 1 },
+                    animate: { scaleX: 0.6 },
+                    transition: { duration: 0.45, delay: f.delay + 1.2, ease: EASE_IN_OUT, repeat: Infinity, repeatType: 'reverse' },
+                  })}
+                >
+                  <Butterfly id={f.id} colorA={f.a} colorB={f.b} edge={f.edge} />
+                </motion.div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ))}
       </div>
 
       <motion.div
@@ -319,13 +552,28 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
         })}
       >
         <div className="ls-sign">
+          <i className="ls-nail tl" aria-hidden="true" />
+          <i className="ls-nail tr" aria-hidden="true" />
+          <i className="ls-nail bl" aria-hidden="true" />
+          <i className="ls-nail br" aria-hidden="true" />
           {me ? (
             <div className="ls-state in">
               <p className="ls-intro">
-                <span className="ls-intro-name">{me.nickname}님,</span>
+                <span className="ls-intro-line">
+                  <span className="ls-intro-name">{me.nickname}</span>
+                  <span className="ls-intro-nim">님,</span>
+                </span>
                 <span>오늘도 반가워요</span>
               </p>
+              <p className="ls-todo">
+                {todoCount !== null && (
+                  <>
+                    오늘 할 일 <span className="ls-pill">{todoCount}개</span>
+                  </>
+                )}
+              </p>
               <motion.button type="button" className="ls-btn go" onClick={goNow} {...btnPop(6.3)}>
+                <SproutIcon colors={SPROUT_LIGHT} />
                 내 텃밭으로 가기
               </motion.button>
               <div className="ls-auto" aria-hidden="true">
@@ -349,6 +597,7 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
                 disabled={loading}
                 {...btnPop(6.3)}
               >
+                <KakaoIcon />
                 카카오톡으로 시작하기
               </motion.button>
               <motion.button
@@ -358,6 +607,7 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
                 disabled={loading}
                 {...btnPop(6.45)}
               >
+                <SproutIcon />
                 비회원으로 시작하기
               </motion.button>
               <p className="ls-msg" role="status">
@@ -373,6 +623,8 @@ export default function LoginScene({ me, loading, error, onKakao, onGuest, onEnt
           </p>
         )}
       </motion.div>
+
+      <p className="ls-terms">이용약관 · 개인정보처리방침</p>
     </div>
   )
 }

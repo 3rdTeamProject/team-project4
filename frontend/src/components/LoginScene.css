@@ -9,7 +9,8 @@
   padding-block: var(--ls-pad-top) var(--ls-pad-bottom);
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  /* 내용은 아래쪽에 붙여서 쌓는다 */
+  justify-content: flex-end;
   gap: var(--ls-gap);
   overflow: hidden;
   isolation: isolate;
@@ -20,37 +21,106 @@
   background: linear-gradient(180deg, var(--ls-sky-top) 0%, var(--ls-sky-mid) 40%, var(--ls-sky-mid) 60%);
 }
 
+/* ---- 로고와 칩 ---- */
 .ls-head {
-  margin-top: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ls-logo-gap);
 }
 
-.ls-title {
-  margin: 0;
-  text-align: center;
-  font: 700 26px/1.3 var(--ls-display);
-  text-wrap: balance;
+.ls-logo-wrap {
+  position: relative;
+  /* logo.png는 왼쪽 투명 여백이 오른쪽보다 좁아 글자가 왼쪽으로 쏠려 보인다. 그만큼(3.96%) 오른쪽으로 옮긴다 */
+  left: 3.96%;
+  width: var(--ls-logo-w);
+  max-width: 100%;
 }
 
-.ls-lead {
-  margin: 2px 0 0;
-  text-align: center;
-  color: var(--ls-muted);
+.ls-logo {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
-.ls-tagline {
-  margin: 0 0 2px;
-  text-align: center;
-  font: 400 19px/1.1 var(--ls-hand);
-  color: var(--ls-accent-edge);
+.ls-chips {
+  display: flex;
+  justify-content: center;
+  gap: var(--ls-chip-gap);
 }
 
-/* ---- sky and meadow ---- */
+.ls-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 14px 4px 11px;
+  border: 2px solid var(--ls-chip-edge);
+  border-radius: 999px;
+  background: var(--ls-chip-bg);
+  color: var(--ls-chip-ink);
+  font: 400 16px/22px var(--ls-chip-font);
+  box-shadow: 0 3px 0 var(--ls-chip-shadow);
+}
+
+.ls-chip-leaf {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+
+/* 로고 주변 반짝이: 로고 크기 기준 % 위치, 5초 뒤부터 깜빡인다 */
+.ls-sparkle {
+  position: absolute;
+  opacity: 0.8;
+}
+.ls-sparkle svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.ls-sparkle.s1 {
+  left: -4%;
+  top: 2%;
+  width: 12px;
+}
+.ls-sparkle.s2 {
+  right: -3%;
+  top: -12%;
+  width: 10px;
+}
+.ls-sparkle.s3 {
+  right: -8%;
+  bottom: 6%;
+  width: 8px;
+}
+.ls-sparkle.s4 {
+  left: 6%;
+  bottom: -14%;
+  width: 8px;
+}
+
+/* ---- 하늘: 배경 맨 뒤 층 ---- */
 .ls-sky {
   position: absolute;
   inset: 0 0 auto 0;
-  height: 260px;
+  height: 340px;
   z-index: -1;
   pointer-events: none;
+}
+.ls-glow {
+  position: absolute;
+  right: -6px;
+  top: 26px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+}
+.ls-glow-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--ls-sun-glow) 0%, transparent 68%);
 }
 .ls-sun {
   position: absolute;
@@ -71,6 +141,25 @@
   top: 54px;
   width: 62px;
   opacity: 0.85;
+}
+.ls-cloud.c3 {
+  left: 120px;
+  top: 150px;
+  width: 46px;
+  opacity: 0.55;
+}
+.ls-bird {
+  position: absolute;
+}
+.ls-bird.b1 {
+  left: 54px;
+  top: 46px;
+  width: 42px;
+}
+.ls-bird.b2 {
+  left: 104px;
+  top: 72px;
+  width: 28px;
 }
 .ls-sky svg {
   display: block;
@@ -101,7 +190,7 @@
   width: 125%;
   margin-inline: -12.5%;
   aspect-ratio: 1254 / 610;
-  margin-block: 0 24px;
+  margin-block: 0 var(--ls-stage-gap);
 }
 .ls-L {
   position: absolute;
@@ -130,20 +219,51 @@
   transform-origin: 50% 50%;
 }
 
-/* ---- sign with the buttons ---- */
+/* ---- 나비: 정원 그림 위 층, 위치·크기는 정원 크기 기준 % ---- */
+.ls-bf {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+}
+.ls-bf.pink {
+  left: 16.4%;
+  top: 5.5%;
+  width: 10.97%;
+  --rot: -14deg;
+}
+.ls-bf.yellow {
+  left: 52.3%;
+  top: 22%;
+  width: 8.69%;
+  --rot: 16deg;
+}
+.ls-bf-rot {
+  transform: rotate(var(--rot));
+}
+.ls-bf-wings {
+  transform-origin: 50% 50%;
+}
+.ls-bf svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* ---- 팻말 ---- */
 .ls-signwrap {
   position: relative;
   /* 애니메이션이 끝나도 다리(z-index:-1)가 언덕 뒤로 숨지 않도록 항상 독립 쌓임 맥락 */
   isolation: isolate;
-  padding-top: 6px;
 }
 .ls-sign {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--ls-sign-gap);
+  justify-content: center;
+  height: var(--ls-sign-h);
   padding: var(--ls-sign-pad);
-  background: var(--ls-wood);
+  background: var(--ls-wood-grain), var(--ls-wood);
   border: 3px solid var(--ls-wood-edge);
   border-radius: 18px;
   box-shadow: 0 6px 0 var(--ls-wood-edge-shadow);
@@ -153,8 +273,8 @@
   content: '';
   position: absolute;
   top: 100%;
-  width: 14px;
-  height: 30px;
+  width: var(--ls-leg-w);
+  height: var(--ls-leg-h);
   background: var(--ls-wood-edge);
   border-radius: 0 0 4px 4px;
   z-index: -1;
@@ -165,15 +285,43 @@
 .ls-sign::after {
   right: 15%;
 }
+.ls-nail {
+  position: absolute;
+  width: var(--ls-nail);
+  height: var(--ls-nail);
+  border-radius: 50%;
+  background: var(--ls-wood-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.ls-nail.tl {
+  top: var(--ls-nail);
+  left: var(--ls-nail);
+}
+.ls-nail.tr {
+  top: var(--ls-nail);
+  right: var(--ls-nail);
+}
+.ls-nail.bl {
+  bottom: var(--ls-nail);
+  left: var(--ls-nail);
+}
+.ls-nail.br {
+  bottom: var(--ls-nail);
+  right: var(--ls-nail);
+}
 .ls-state {
   display: flex;
   flex-direction: column;
   gap: var(--ls-sign-gap);
 }
+.ls-state.out {
+  gap: var(--ls-sign-gap-login);
+}
 .ls-intro {
   margin: 0;
   text-align: center;
-  font: 400 22px/1.1 var(--ls-hand);
+  font: 400 22px/24px var(--ls-hand);
+  -webkit-text-stroke: 0.5px currentColor;
   color: var(--ls-wood-ink);
 }
 .ls-state.in .ls-intro {
@@ -182,24 +330,62 @@
   align-items: center;
   min-width: 0;
   max-width: 100%;
-  color: #1a0e05;
-  font-size: 24px;
-  font-weight: 400;
+  font-size: 26px;
+  line-height: 30px;
   white-space: nowrap;
 }
-.ls-intro-name {
+.ls-intro-line {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
   max-width: 100%;
+  min-width: 0;
+}
+.ls-intro-name {
+  min-width: 0;
+  max-width: 210px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.ls-intro-nim {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.ls-btn-icon {
+  display: block;
+  flex: none;
+}
+.ls-todo {
+  margin: 0;
+  min-height: 24px;
+  text-align: center;
+  color: var(--ls-ink-dark);
+  font: 700 16px/24px var(--ls-body);
+}
+.ls-pill {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--ls-pill);
+}
 .ls-msg {
   margin: 0;
-  min-height: 22px;
-  font-size: 14px;
+  min-height: 20px;
+  font-size: 13px;
+  line-height: 20px;
   color: var(--ls-wood-ink);
   text-align: center;
 }
-/* 로그인 취소/실패 안내: 팻말 아래 작은 글씨 (팻말 다리 30px 아래에 둔다) */
+.ls-state.in .ls-msg {
+  color: var(--ls-ink-dark);
+  font-weight: 700;
+}
+.ls-msg.error {
+  color: #7a1f14;
+  font-weight: 700;
+}
+/* 로그인 취소/실패 안내: 팻말 아래 작은 글씨 (팻말 다리 아래에 둔다) */
 .ls-notice {
   margin: 34px 0 0;
   text-align: center;
@@ -209,13 +395,13 @@
   color: var(--ls-notice);
   text-wrap: balance;
 }
-.ls-msg.error {
-  color: #7a1f14;
-  font-weight: 700;
-}
-.ls-state.in .ls-msg {
-  color: #1a0e05;
-  font-weight: 700;
+
+.ls-terms {
+  margin: var(--ls-foot-gap) 0 0;
+  text-align: center;
+  color: var(--ls-muted);
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .ls-scene button:focus-visible {
@@ -223,6 +409,10 @@
   outline-offset: 2px;
 }
 .ls-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ls-btn-icon-gap);
   height: var(--ls-btn-height);
   border: 0;
   border-radius: 16px;

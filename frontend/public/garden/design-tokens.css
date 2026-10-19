@@ -1,0 +1,70 @@
+/* 텃밭 앱 공통 값. 색·글꼴·크기는 여기 변수만 쓴다. (기존 변수 파일이 있으면 이름을 맞춰 합칠 것) */
+:root {
+  /* 색 */
+  --color-bg: #F4F8EE;            /* 화면 배경 (연한 연두, 시안과 같음) - 바꾸게 되면 이 값 하나만 수정 */
+  --color-card: #FFFFFF;
+  --color-border: #DDE6D2;
+  --color-text: #1F2A1C;
+  --color-text-sub: #5E6B58;
+  --color-green-main: #6FB06B;    /* 강조 */
+  --color-green-leaf: #A7D083;    /* 보조 강조, 성장 표시 */
+  --color-green-btn: #2F7D32;     /* 주 버튼 배경 */
+  --color-green-dark: #1F5E24;    /* 초록 글씨 */
+  --color-on-btn: #FFFFFF;        /* 주 버튼 글씨 */
+  --color-soil: #B9896F;          /* 흙, 팻말 등 그림 요소 */
+  --color-point-chip: #F6C662;    /* 포인트 칩 */
+  --color-point-text: #7A4B00;    /* 포인트 숫자 */
+  --color-red-dot: #D93636;       /* 할 일 있음 표시 */
+  --color-danger: #C62828;        /* 차감(-) 글씨 */
+  --color-warn-bg: #FFF1D6;       /* 경고 상자, '준비 중' 칩 */
+  --color-warn-border: #F0C36D;
+  --color-warn-text: #4A2F00;
+  --color-info-bg: #E3F0FA;       /* 안내 상자, '배송 중' 칩 */
+  --color-info-text: #1D4E73;
+  --color-done-bg: #E4F3D6;       /* '완료' 칩 */
+  --color-done-text: #1F5E24;
+
+  /* 글꼴 */
+  --font-title: 'Jua', sans-serif;               /* 제목 */
+  --font-sign: 'Gamja Flower', sans-serif;       /* 팻말·작물 이름표 */
+  --font-num: 'Do Hyeon', sans-serif;            /* 레벨·포인트 숫자 */
+  --font-body: 'Noto Sans KR', sans-serif;       /* 본문 */
+
+  /* 글자 크기 */
+  --fs-screen-title: 26px;
+  --fs-section-title: 20px;
+  --fs-card-title: 16px;
+  --fs-body: 14px;
+  --fs-sub: 12px;
+
+  /* 모서리 */
+  --radius-card: 16px;
+  --radius-button: 16px;
+  --radius-small: 12px;
+  --radius-chip: 999px;
+
+  /* 간격 */
+  --space-screen-x: 20px;   /* 화면 좌우 여백 (16~20px 범위) */
+  --space-card: 16px;       /* 카드 안쪽 여백 */
+  --space-gap: 14px;        /* 카드 사이 간격 */
+
+  /* 크기 */
+  --size-button: 52px;      /* 큰 버튼 높이 */
+  --size-touch: 44px;       /* 작은 버튼·아이콘 버튼 최소 터치 크기 */
+
+  /* 화면 폭 */
+  --layout-max: 430px;
+}
+
+/* 화면 기본 틀: 모든 화면이 같은 폭 규칙을 쓴다 */
+.screen {
+  width: 100%;
+  max-width: var(--layout-max);
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding-left: var(--space-screen-x);
+  padding-right: var(--space-screen-x);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
