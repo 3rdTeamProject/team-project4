@@ -94,7 +94,7 @@ def start_planting(conn, t, planting_id: int, crop_id: int, method: str, planted
     rows, done_now = [], []
     if method == 'seedling':
         moving = next((x for x in crop_tasks_of(conn, t, crop_id) if x['id'] == transplant_task_id(conn, t, crop_id)), None)
-        if moving:
+        if moving and moving['seed_only']:  # 씨앗 전용 '옮겨심기'만 심었어요로 갈음한다(그 밖의 3단계 할 일은 평소처럼 남는다)
             rows.append({**_log_row(planting_id, moving, planted_at, planted_at), 'completed_at': now_kst()})
             done_now.append(moving)
     for x in mine:

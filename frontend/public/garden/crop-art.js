@@ -31,7 +31,7 @@ window.CropArt = (() => {
       return `<svg class="plant-art vector-crop original-crop crop-${kind}" viewBox="${cropBounds[key]}" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><image href="assets/crops/${key}.png" width="512" height="512"/></svg>`;
     }
     const young = `<path d="M80 140V108" stroke="var(--color-green-dark)" stroke-width="4" stroke-linecap="round"/>${leaf(80,116,-24,.55)}${leaf(80,112,92,.55)}`;
-    const body=stage===1?young:kind==='lettuce'?lettuce:foliage+(stage>=3?mature[kind]:'');
+    const body=stage===1?young:kind==='lettuce'?lettuce:foliage+(stage>=3?mature[kind]||'':'');
     const scale=stage===2?.72:stage===3?.88:1;
     return `<svg class="plant-art vector-crop crop-${kind}" viewBox="0 0 160 160" fill="none" aria-hidden="true"><g transform="translate(${80*(1-scale)} ${142*(1-scale)}) scale(${scale})">${body}</g></svg>`;
   }

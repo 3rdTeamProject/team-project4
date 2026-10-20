@@ -7,13 +7,14 @@ let dev={enabled:false,offset:0};
 const day=()=>{const d=new Date();d.setDate(d.getDate()+dev.offset);return d.toLocaleDateString('sv-SE')};
 const crop=(kind,stage,needsWater=false)=>({kind,stage,needsWater,wateredAt:null,plantedAt:day()});
 function initialState(){return {farms:[],records:[],points:0,settings:{motion:true}}}
-function isState(s){return s&&Array.isArray(s.farms)&&s.farms.every(f=>typeof f.id==='string'&&typeof f.name==='string'&&typeof f.region==='string'&&Array.isArray(f.plots)&&f.plots.length===6&&f.plots.every(p=>!p||(CROPS.some(c=>c.id===p.kind)&&Number.isInteger(p.stage)&&p.stage>=0&&p.stage<=5)))&&Array.isArray(s.records)&&Number.isFinite(s.points)&&s.settings&&typeof s.settings.motion==='boolean'}
+function isState(s){return s&&Array.isArray(s.farms)&&s.farms.every(f=>typeof f.id==='string'&&typeof f.name==='string'&&typeof f.region==='string'&&Array.isArray(f.plots)&&f.plots.length===6&&f.plots.every(p=>!p||((CROPS.some(c=>c.id===p.kind)||/^crop-\d+$/.test(p.kind))&&Number.isInteger(p.stage)&&p.stage>=0&&p.stage<=5)))&&Array.isArray(s.records)&&Number.isFinite(s.points)&&s.settings&&typeof s.settings.motion==='boolean'}
 let state;try{const stored=JSON.parse(localStorage.getItem(STORAGE_KEY));state=isState(stored)?stored:initialState()}catch{state=initialState()}
 let view='farms',selected=state.farms[0]?.id,plotIndex=0,pendingPlot=0,menuReturn='farms';
 const app=document.querySelector('#app');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const current=()=>state.farms.find(f=>f.id===selected);
-const meta=p=>CROPS.find(c=>c.id===p.kind);
+// 작물 목록(CROPS)은 처음 7종뿐이고 나머지는 서버에서 받아 온 뒤에 채워진다. 받기 전에는 임시 값을 돌려준다
+const meta=p=>CROPS.find(c=>c.id===p.kind)||{id:p.kind,name:'작물',emoji:'🌱',days:90};
 const planted=f=>f.plots.filter(Boolean).length;
 const taskDot=(f,p,i)=>typeof isTaskPlant==='function'&&isTaskPlant(p)?hasTask(f.id,i):p.needsWater;
 const due=f=>f.plots.some((p,i)=>p&&taskDot(f,p,i));

@@ -41,6 +41,11 @@ def run(sql, **params):
         conn.execute(text(sql), params)
 
 
+def run_returning(sql, **params):
+    with engine.begin() as conn:
+        return conn.execute(text(sql), params).scalar()
+
+
 def farm(plots=None):
     return {'id': 'garden-1', 'name': '우리 농장', 'region': '경기', 'plots': plots if plots is not None else [None] * 6}
 
@@ -211,6 +216,31 @@ class TaskTest(unittest.TestCase):
         self.goto(25)  # 첫 웃거름이 시작되는 날 = 5단계
         self.assertEqual(shown(), 5)
         self.assertEqual(self.stage(), 3)  # 할 일을 체크하지 않았으니 저장된 단계는 그대로다
+
+    def test_direct_sow_crop_has_no_pot_and_grows_by_date_from_sowing(self):
+        carrot = run_returning("INSERT INTO crops (name, allow_seed, allow_seedling) VALUES ('당근(봄)', :t, :f) RETURNING id", t=True, f=False)
+
+        def cleanup():
+            run('DELETE FROM plantings WHERE crop_id = :c', c=carrot)
+            run('DELETE FROM crop_stages WHERE crop_id = :c', c=carrot)
+            run('DELETE FROM crops WHERE id = :c', c=carrot)
+        self.addCleanup(cleanup)
+        ids = {}
+        for key, title, start, plant_task in (('sow', '씨앗 뿌리기', 0, True), ('thin', '솎아내기 (1차)', 30, False),
+                                              ('feed', '웃거름 주기 (2차)', 40, False), ('pull', '당근 뽑기', 120, False)):
+            ids[key] = run_returning("INSERT INTO crop_tasks (crop_id, title, anchor, start_day, plant_task) VALUES (:c, :t, 'sow', :s, :p) RETURNING id",
+                                     c=carrot, t=title, s=start, p=plant_task)
+        for no, trigger, start in ((1, None, None), (2, None, 5), (3, ids['thin'], None), (4, ids['feed'], None), (5, ids['pull'], None)):
+            run('INSERT INTO crop_stages (crop_id, stage_no, name, start_day, trigger_task_id) VALUES (:c, :n, :m, :s, :t)',
+                c=carrot, n=no, m=str(no), s=start, t=trigger)
+        doc = lambda method: {'kind': f'crop-{carrot}', 'stage': 1, 'needsWater': False, 'plantedAt': DAY0.date().isoformat(), 'method': method}
+        self.save(farm([doc('seedling')] + [None] * 5), expect=422)  # 직파 작물은 모종으로 심을 수 없다
+        self.save(farm([doc('seed')] + [None] * 5))
+        shown = lambda: self.load()['state']['farms'][0]['plots'][0]['stage']
+        self.assertEqual(shown(), 1)  # 옮겨심기가 없으니 포트(0단계)로 보이지 않는다
+        for day, expected in ((4, 1), (5, 2), (29, 2), (30, 3), (39, 3), (40, 4), (119, 4), (120, 5)):
+            self.goto(day)
+            self.assertEqual(shown(), expected, f'{day}일째')
 
     def test_screen_cannot_set_the_stage_of_a_task_crop(self):
         self.plant('seedling')

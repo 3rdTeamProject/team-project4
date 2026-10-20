@@ -53,7 +53,8 @@ let cropInfo = {};
 const isTaskKind = kind => !!cropInfo[kind]?.hasTasks;
 function isTaskPlant(p) { return isTaskKind(p.kind); }
 // 씨앗으로 심고 아직 밭에 옮겨심기 전(0단계, 포트)
-const isPrep = p => isTaskPlant(p) && p.method === 'seed' && p.stage < 3;
+// (직파 작물은 옮겨심기가 없어서 포트 단계가 없다)
+const isPrep = p => isTaskPlant(p) && p.method === 'seed' && p.stage < 3 && !!cropInfo[p.kind]?.hasTransplant;
 categories.cucumber_spring = 'fruit';
 categories.cucumber_summer = 'fruit';
 
@@ -145,7 +146,7 @@ detailPage = function () {
 
 // 작물 선택 뒤의 '심기 전 준비'(작물이 생기기 전): 서버가 알려 준 안내 작업만 보여 준다
 // '심었어요'가 곧 끝내는 첫 작업: 씨앗이면 포트에 씨앗 심기, 모종이면 모종 옮겨심기
-const firstTask = () => (plantingMethod === 'seed' ? cropInfo[chosenCrop]?.plant : cropInfo[chosenCrop]?.transplant) || null;
+const firstTask = () => (plantingMethod === 'seed' ? cropInfo[chosenCrop]?.plant : cropInfo[chosenCrop]?.hasTransplant ? cropInfo[chosenCrop]?.transplant : null) || null;
 const basePreparationPage = preparationPage;
 preparationPage = function () {
   if (!isTaskKind(chosenCrop)) return basePreparationPage();
@@ -275,7 +276,14 @@ render = function () {
 
 // ---------- 시작: 작물 정보와 개발용 날짜를 받아 온다
 Promise.all([
-  hostApi('crops').then(r => { r.crops.forEach(c => { cropInfo[c.kind] = c; }); }).catch(() => {}),
+  hostApi('crops').then(r => {
+    r.crops.forEach(c => {
+      cropInfo[c.kind] = c;
+      // 처음 7종 밖의 작물은 서버 목록으로 채운다(그림은 잎만 있는 기본 그림). 분류는 서버가 내려준다
+      if (!CROPS.some(x => x.id === c.kind)) CROPS.push({ id: c.kind, name: c.name, emoji: '🌱', days: c.days });
+      categories[c.kind] = c.category || categories[c.kind] || 'other';
+    });
+  }).catch(() => {}),
   hostApi('devday').then(r => { if (r.enabled) dev = { enabled: true, offset: r.offset }; }).catch(() => {}),
 ]).then(() => {
   render();
