@@ -53,6 +53,13 @@
 .jr-archive-expand .jr-expand-arrow{flex:none}
 .jr-write-page time,.jr-write-page .count,.jr-write-page .jr-choice small,.jr-write-page .jr-uploads small,.jr-write-page .jr-footer small{font-size:12px}
 .jr-write-page .jr-choice b{font-size:14px}
+
+.feature-tabs button:disabled{opacity:.5;cursor:not-allowed}
+
+.category-tabs{flex-wrap:wrap}
+
+/* 바깥 페이지가 하단 고정 막대로 보여 주는 푸터는 이 안에서 숨긴다(글자·입력이 섞인 푸터는 data-own으로 남긴다) */
+html.hosted .footer:not([data-own]){display:none}
 .jr-write-page #jr-memo{min-height:160px;field-sizing:content;resize:vertical}
 
 /* Journal navigation and record readability */

@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from datetime import date, timedelta
 from typing import Literal
 
@@ -62,8 +63,38 @@ LEGACY_NAMES = {'오이(봄)': '오이'}
 NAME_TO_KIND['오이'] = 'cucumber_spring'
 
 
+# 작물 선택 화면의 분류. 계절이 붙은 이름은 괄호를 떼고 찾는다(예: 무(봄) → 무). 표에 없는 작물은 'other'
+CROP_CATEGORIES = {
+    'leaf': ('상추', '시금치', '근대', '쑥갓', '아욱', '갓', '신선초', '부추', '미나리'),  # 잎채소
+    'fruit': ('방울토마토', '오이', '고추', '가지', '애호박', '딸기'),  # 과일채소(열매를 먹는 채소)
+    'root': ('당근', '무', '비트', '마늘', '생강'),  # 뿌리채소
+    'stem': ('셀러리', '브로콜리', '아스파라거스'),  # 줄기·꽃채소
+    'wild': ('곰취', '두릅', '고사리', '냉이', '고들빼기'),  # 산나물
+}
+CATEGORY_OF_NAME = {name: category for category, names in CROP_CATEGORIES.items() for name in names}
+
+
+def category_of_crop(name: str) -> str:
+    return CATEGORY_OF_NAME.get(re.sub(r'\(.*\)$', '', name), 'other')
+
+
+def kind_of_crop(crop_id: int, name: str) -> str:
+    """crops 행 하나를 화면이 쓰는 종류 이름표로 바꾼다. 처음 7종은 예전 이름표, 나머지는 'crop-<id>'."""
+    return NAME_TO_KIND.get(name) or f'crop-{crop_id}'
+
+
+def check_method(crop: dict, method: str) -> None:
+    """그 작물이 허용하지 않는 방식(씨앗/모종)이면 거부한다."""
+    allowed = {'seed': crop['allow_seed'], 'seedling': crop['allow_seedling']}
+    if method not in allowed:
+        raise HTTPException(422, '심는 방식은 씨앗 또는 모종이어야 해요.')
+    if not allowed[method]:
+        only = '모종' if method == 'seed' else '씨앗'
+        raise HTTPException(422, f"{crop['name']}은(는) {only}으로만 심을 수 있어요.")
+
+
 class Plant(BaseModel):
-    kind: Literal['lettuce', 'cucumber_spring', 'cucumber_summer', 'pepper', 'eggplant', 'zucchini', 'tomato']
+    kind: str  # 처음 7종은 KIND_CROPS의 이름표, 그 밖의 작물은 'crop-<crops.id>'
     # 단계는 재배 기간으로 화면이 계산한다. 할 일이 있는 작물은 서버가 정한 값을 쓴다(씨앗을 옮겨심기 전에는 0단계).
     stage: int = Field(ge=0, le=5)
     needsWater: bool = False
@@ -75,6 +106,13 @@ class Plant(BaseModel):
     taskChecks: dict[str, list[Literal['water', 'care', 'observe']]] = Field(default_factory=dict)
     draftMemo: str = Field(default='', max_length=500)
     draftPhotos: list[str] = Field(default_factory=list, max_length=4)
+
+    @field_validator('kind')
+    @classmethod
+    def validate_kind(cls, kind):
+        if kind not in KIND_CROPS and not re.fullmatch(r'crop-\d{1,9}', kind):
+            raise ValueError('알 수 없는 작물이에요.')
+        return kind
 
     @field_validator('draftPhotos')
     @classmethod
@@ -185,6 +223,9 @@ def register_garden(app, metadata, engine, get_current_user, users):
         Column('name', String(50), nullable=False, unique=True),
         Column('total_days', Integer, nullable=True),  # 쓰지 않음(성장 단계 계산에 안 씀)
         Column('pest_diagnosable', Boolean, nullable=False, default=False, server_default=text('false')),
+        # 심는 방식 제한: 직파 작물은 allow_seedling=false, 모종만 가능한 작물은 allow_seed=false
+        Column('allow_seed', Boolean, nullable=False, default=True, server_default=text('true')),
+        Column('allow_seedling', Boolean, nullable=False, default=True, server_default=text('true')),
     )
     crop_tasks = Table(
         'crop_tasks', metadata,
@@ -341,26 +382,39 @@ def register_garden(app, metadata, engine, get_current_user, users):
                        or_(crop_stages.c.stage_no == 3, crop_tasks.c.start_day.is_not(None)))  # 시작일이 정해지지 않은 할 일은 날짜로 쓰지 않는다
                 .group_by(task_logs.c.planting_id, crop_stages.c.stage_no)):
                 stage_dates.setdefault(r[0], {})[r[1]] = (r[2], r[3])
+        # 옮겨심기(모종 옮겨심기 같은 씨앗 전용 할 일)가 3단계를 올리는 작물만 씨앗 단계에서 포트(0단계)로 보인다. 직파 작물은 해당 없음
+        transplant_crops = {r[0] for r in conn.execute(
+            select(crop_stages.c.crop_id).join(crop_tasks, crop_tasks.c.id == crop_stages.c.trigger_task_id)
+            .where(crop_stages.c.stage_no == TRANSPLANT_STAGE_NO, crop_tasks.c.seed_only.is_(True)))}
+        stage2_days = {r[0]: r[1] for r in conn.execute(
+            select(crop_stages.c.crop_id, crop_stages.c.start_day).where(crop_stages.c.stage_no == 2, crop_stages.c.start_day.is_not(None)))}
         first_harvest = {k: v[0] for k, v in harvest_days.items()}
         last_harvest = {k: v[1] for k, v in harvest_days.items()}
-        return {'care': care_rows, 'first_harvest': first_harvest, 'last_harvest': last_harvest, 'tasked': crops_with_tasks(conn, t), 'stage_dates': stage_dates, 'today': today_kst(), 'farms': farm_rows,
+        return {'care': care_rows, 'transplant_crops': transplant_crops, 'stage2_days': stage2_days, 'first_harvest': first_harvest, 'last_harvest': last_harvest, 'tasked': crops_with_tasks(conn, t), 'stage_dates': stage_dates, 'today': today_kst(), 'farms': farm_rows,
                 'plots': plot_rows, 'active': active, 'journals': journal_rows, 'motion': bool(motion)}
 
-    def stage_by_date(row: dict, dates: dict, today: date) -> int:
-        """옮겨심은 뒤 날짜로 정한 성장 단계(4·5). 할 일을 체크하지 않아도 날이 되면 올라간다.
+    def stage_by_date(row: dict, dates: dict, today: date, direct: bool, stage2_day: int | None) -> int:
+        """날짜로 정한 성장 단계. 할 일을 체크하지 않아도 날이 되면 올라간다.
 
-        5·4단계는 그 단계를 올리는 할 일의 시작일이다. 4단계 시작일이 정해져 있지 않으면 옮겨심은 날과 5단계 시작일의 가운데로 한다.
+        5·4단계는 그 단계를 올리는 할 일의 시작일이다. 4단계 시작일이 정해져 있지 않으면 시작 기준일과 5단계 시작일의 가운데로 한다.
+        옮겨심기가 있는 작물은 옮겨심은 날이 기준이고, 직파 작물(옮겨심기 없음)은 심은 날이 기준이라 2·3단계도 날짜로 정한다.
         """
         start5 = dates.get(5, (None, None))[0]
         start4 = dates.get(4, (None, None))[0]
+        start3 = dates.get(3, (None, None))[0]
         done = dates.get(3, (None, None))[1]
-        transplanted = done.date() if done else row['planted_at']
+        base = row['planted_at'] if direct or not done else done.date()
         if start5 and not start4:
-            start4 = transplanted + timedelta(days=(start5 - transplanted).days // 2)
+            start4 = base + timedelta(days=(start5 - base).days // 2)
         if start5 and today >= start5:
             return 5
         if start4 and today >= start4:
             return 4
+        if direct:
+            if start3 and today >= start3:
+                return 3
+            if stage2_day is not None and today >= row['planted_at'] + timedelta(days=stage2_day):
+                return 2
         return 0
 
     def build_state(rows: dict) -> dict:
@@ -372,9 +426,9 @@ def register_garden(app, metadata, engine, get_current_user, users):
 
         def plant_of(plot_id):
             row = plant_by_plot.get(plot_id)
-            kind = NAME_TO_KIND.get(row['crop_name']) if row else None
-            if not kind:
+            if not row:
                 return None
+            kind = kind_of_crop(row['crop_id'], row['crop_name'])
             plant = {
                 'plantingId': row['id'], 'kind': kind, 'stage': row['stage'], 'needsWater': bool(row['needs_water']),
                 'plantedAt': row['planted_at'].isoformat(),
@@ -386,10 +440,13 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 plant['harvestedAt'] = rows['first_harvest'][row['id']]
                 plant['lastHarvestedAt'] = rows['last_harvest'][row['id']]  # 마지막 수확일: 같은 날 또 수확하지 못하게 화면이 쓴다
             # 씨앗으로 심고 아직 옮겨심기 전인 칸은 싹이 없는 0단계(포트)로 보여준다(DB에는 1단계로 저장)
-            if row['crop_id'] in rows['tasked'] and plant.get('method') == 'seed' and row['stage'] < 3:
+            # 직파 작물(옮겨심기 없음)은 포트 단계가 없고, 심은 날부터 날짜로 단계가 오른다
+            direct = row['crop_id'] not in rows['transplant_crops']
+            if row['crop_id'] in rows['tasked'] and plant.get('method') == 'seed' and row['stage'] < 3 and not direct:
                 plant['stage'] = 0
-            elif row['crop_id'] in rows['tasked'] and row['stage'] >= 3:
-                plant['stage'] = max(plant['stage'], stage_by_date(row, rows['stage_dates'].get(row['id'], {}), rows['today']))
+            elif row['crop_id'] in rows['tasked'] and (row['stage'] >= 3 or direct):
+                plant['stage'] = max(plant['stage'], stage_by_date(
+                    row, rows['stage_dates'].get(row['id'], {}), rows['today'], direct, rows['stage2_days'].get(row['crop_id'])))
             return plant
 
         farm_docs = []
@@ -414,6 +471,8 @@ def register_garden(app, metadata, engine, get_current_user, users):
     def apply_state(conn, user_id: int, new: dict, rows: dict) -> None:
         """받은 내용과 저장된 내용(rows)을 비교해서 바뀐 행만 쓴다."""
         crop_ids = ensure_crops(conn)
+        catalog = {r['id']: dict(r) for r in conn.execute(
+            select(crops.c.id, crops.c.name, crops.c.allow_seed, crops.c.allow_seedling)).mappings()}
         tasked_crops = crops_with_tasks(conn, t)
         existing = {r['client_id']: r for r in rows['farms']}
         keep = {f['id'] for f in new['farms']}
@@ -456,7 +515,12 @@ def register_garden(app, metadata, engine, get_current_user, users):
                     if current:
                         end_ids.append(current['id'])
                     continue
-                crop_id = crop_ids[KIND_CROPS[plant['kind']]]
+                if plant['kind'] in KIND_CROPS:
+                    crop_id = crop_ids[KIND_CROPS[plant['kind']]]
+                else:  # 'crop-<id>'
+                    crop_id = int(plant['kind'][5:])
+                    if crop_id not in catalog:
+                        raise HTTPException(422, '알 수 없는 작물이에요.')
                 tasked = crop_id in tasked_crops
                 values = {
                     'status': 'harvested' if plant.get('harvestedAt') else 'growing',
@@ -472,6 +536,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
                     continue
                 if current:  # 같은 칸에 다른 작물을 새로 심음
                     end_ids.append(current['id'])
+                check_method(catalog[crop_id], plant.get('method') or 'seed')  # 그 작물이 허용하지 않는 방식이면 거부
                 fresh_plantings.append({
                     'method': plant.get('method') or 'seed', 'tasked': tasked,
                     'row': {'user_id': user_id, 'plot_id': plot_id, 'crop_id': crop_id, **values},
@@ -491,7 +556,9 @@ def register_garden(app, metadata, engine, get_current_user, users):
                     conn.execute(update(plantings).where(plantings.c.id == planting_id).values(stage=stage))
 
         # 일지: 기록은 뒤에 덧붙기만 하므로 앞부분이 같으면 새 기록만 넣고, 다르면 전부 다시 쓴다
-        active_now = {r['plot_id']: r['id'] for r in conn.execute(select(plantings.c.id, plantings.c.plot_id).where(plantings.c.user_id == user_id, plantings.c.status != 'ended')).mappings()}
+        active_rows = list(conn.execute(select(plantings.c.id, plantings.c.plot_id, plantings.c.crop_id).where(plantings.c.user_id == user_id, plantings.c.status != 'ended')).mappings())
+        active_now = {r['plot_id']: r['id'] for r in active_rows}
+        crop_of_planting = {r['id']: r['crop_id'] for r in active_rows}
         for farm_doc in new['farms']:
             positions = {r['position']: r['id'] for r in conn.execute(select(plots).where(plots.c.farm_id == farm_pk_by_client[farm_doc['id']])).mappings()}
             for position, plant_doc in enumerate(farm_doc['plots'], 1):
@@ -501,6 +568,8 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 details = {key: plant_doc[key] for key in ('method', 'harvestedAt', 'taskChecks', 'draftMemo', 'draftPhotos') if plant_doc.get(key)}
                 if details == (rows['care'].get(planting_id) or {}):  # 바뀐 게 없으면 다시 쓰지 않는다
                     continue
+                if details.get('method') and details['method'] != (rows['care'].get(planting_id) or {}).get('method'):
+                    check_method(catalog[crop_of_planting[planting_id]], details['method'])  # 심는 방식을 바꾸는 저장도 같은 규칙을 따른다
                 conn.execute(delete(care).where(care.c.planting_id == planting_id))
                 if details:
                     conn.execute(insert(care).values(planting_id=planting_id, details=details))
@@ -547,7 +616,9 @@ def register_garden(app, metadata, engine, get_current_user, users):
         """작물 선택 화면용: 작물 종류(kind), 이름, 예상 재배 일수(비어 있을 수 있음), 할 일 데이터 유무, 심기 전 안내 작업."""
         crop_tasks = t['crop_tasks']
         with engine.connect() as conn:
-            rows = {r['name']: dict(r) for r in conn.execute(select(crops.c.id, crops.c.name, crops.c.total_days)).mappings()}
+            all_rows = [dict(r) for r in conn.execute(
+                select(crops.c.id, crops.c.name, crops.c.total_days, crops.c.allow_seed, crops.c.allow_seedling).order_by(crops.c.id)).mappings()]
+            rows = {r['name']: r for r in all_rows}
             tasked = crops_with_tasks(conn, t)
             prep: dict[int, list] = {}
             plant: dict[int, dict] = {}
@@ -561,19 +632,33 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 else:
                     prep.setdefault(r['crop_id'], []).append(item)
             moving: dict[int, dict] = {}  # 모종으로 시작할 때 '심었어요'가 곧 이 작업
+            has_transplant: set[int] = set()  # 3단계를 올리는 할 일이 씨앗 전용 '옮겨심기'인 작물(직파 작물은 없음)
             for r in conn.execute(  # 작물마다 따로 묻지 않고 한 번에 읽는다
-                    select(crop_stages.c.crop_id, crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.points)
+                    select(crop_stages.c.crop_id, crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.points, crop_tasks.c.seed_only)
                     .join(crop_tasks, crop_tasks.c.id == crop_stages.c.trigger_task_id)
                     .where(crop_stages.c.stage_no == TRANSPLANT_STAGE_NO)).mappings():
                 moving[r['crop_id']] = {'title': r['title'], 'howTo': r['how_to'], 'tip': r['tip'], 'points': r['points']}
-        items = []
-        for kind, name in KIND_CROPS.items():
-            row = rows.get(name) or rows.get(LEGACY_NAMES.get(name, ''))
-            items.append({
-                'kind': kind, 'name': name, 'days': row['total_days'] if row else KIND_DAYS[name],
+                if r['seed_only']:
+                    has_transplant.add(r['crop_id'])
+
+        def item_of(kind: str, name: str, row: dict | None, default_days: int) -> dict:
+            return {
+                'kind': kind, 'name': name, 'days': row['total_days'] if row and row['total_days'] else default_days,
                 'hasTasks': bool(row and row['id'] in tasked), 'prep': prep.get(row['id'], []) if row else [],
                 'plant': plant.get(row['id']) if row else None, 'transplant': moving.get(row['id']) if row else None,
-            })
+                'hasTransplant': bool(row and row['id'] in has_transplant), 'category': category_of_crop(name),
+                'allowSeed': bool(row['allow_seed']) if row else True, 'allowSeedling': bool(row['allow_seedling']) if row else True,
+            }
+
+        items, used = [], set()
+        for kind, name in KIND_CROPS.items():  # 처음 7종은 예전 이름표와 순서를 그대로 쓴다
+            row = rows.get(name) or rows.get(LEGACY_NAMES.get(name, ''))
+            if row:
+                used.add(row['id'])
+            items.append({**item_of(kind, name, row, KIND_DAYS[name]), 'days': row['total_days'] if row else KIND_DAYS[name]})
+        for row in all_rows:  # 그 밖의 작물은 할 일 데이터가 있는 것만 보여 준다(DB에 넣은 순서대로)
+            if row['id'] not in used and row['id'] in tasked:
+                items.append(item_of(kind_of_crop(row['id'], row['name']), row['name'], row, 90))
         return {'crops': items}
 
     @router.get('/places')

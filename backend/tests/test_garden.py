@@ -73,6 +73,58 @@ class GardenIntegrationTest(unittest.TestCase):
         self.assertEqual(len(self.load(headers)['state']['records']), 1)
         self.assertEqual(self.load(self.guest()[1])['state']['records'], [])
 
+    def set_allow(self, name, seed=True, seedling=True):
+        with engine.begin() as conn:
+            conn.execute(text('UPDATE crops SET allow_seed = :a, allow_seedling = :b WHERE name = :n'), {'a': seed, 'b': seedling, 'n': name})
+
+    def test_planting_method_must_be_allowed_by_the_crop(self):
+        _, headers = self.guest()
+        self.save(headers, self.load(headers)['revision'], {'farms': [farm(plots=[plant('lettuce', method='seed')] + [None] * 5)], 'records': []})
+        self.addCleanup(self.set_allow, '상추')
+        self.addCleanup(self.set_allow, '고추')
+        self.set_allow('상추', seedling=False)  # 직파 작물
+        self.set_allow('고추', seed=False)  # 모종만 가능한 작물
+        revision = self.load(headers)['revision']
+        one = lambda *plots: {'farms': [farm(plots=list(plots) + [None] * (6 - len(plots)))], 'records': []}
+        # 새로 심을 때
+        self.save(headers, revision, one(plant('pepper', method='seed')), expect=422)
+        self.save(headers, revision, one(plant('pepper')), expect=422)  # 방식을 안 보내면 씨앗으로 본다
+        revision = self.save(headers, revision, one(plant('pepper', method='seedling')))['revision']
+        # 이미 심은 작물의 방식을 허용되지 않는 쪽으로 바꾸는 저장도 거부한다
+        self.save(headers, revision, one(plant('pepper', method='seed')), expect=422)
+        crops = {c['kind']: c for c in self.client.get('/garden/crops', headers=headers).json()['crops']}
+        self.assertEqual((crops['lettuce']['allowSeed'], crops['lettuce']['allowSeedling']), (True, False))
+        self.assertEqual((crops['pepper']['allowSeed'], crops['pepper']['allowSeedling']), (False, True))
+        self.assertEqual((crops['tomato']['allowSeed'], crops['tomato']['allowSeedling']), (True, True))
+
+    def test_crops_outside_the_first_seven_are_listed_and_plantable(self):
+        _, headers = self.guest()
+        self.save(headers, self.load(headers)['revision'], {'farms': [farm()], 'records': []})  # 처음 7종 행을 만든다
+        with engine.begin() as conn:
+            carrot = conn.execute(text("INSERT INTO crops (name, allow_seed, allow_seedling) VALUES ('당근(봄)', :t, :f) RETURNING id"),
+                                  {'t': True, 'f': False}).scalar()
+            conn.execute(text("INSERT INTO crop_tasks (crop_id, title, anchor, start_day) VALUES (:c, '솎아내기', 'sow', 30)"), {'c': carrot})
+            conn.execute(text("INSERT INTO crops (name) VALUES ('감자')"))  # 할 일이 없는 옛 작물은 보이지 않는다
+
+        def cleanup():
+            with engine.begin() as conn:
+                conn.execute(text('DELETE FROM plantings WHERE crop_id IN (SELECT id FROM crops WHERE name IN (:a, :b))'), {'a': '당근(봄)', 'b': '감자'})
+                conn.execute(text('DELETE FROM crops WHERE name IN (:a, :b)'), {'a': '당근(봄)', 'b': '감자'})
+        self.addCleanup(cleanup)
+        listed = self.client.get('/garden/crops', headers=headers).json()['crops']
+        self.assertEqual([c['name'] for c in listed if c['kind'] == f'crop-{carrot}'], ['당근(봄)'])
+        self.assertNotIn('감자', [c['name'] for c in listed])
+        item = next(c for c in listed if c['kind'] == f'crop-{carrot}')
+        self.assertEqual((item['allowSeed'], item['allowSeedling'], item['hasTasks'], item['hasTransplant']), (True, False, True, False))
+        kind = f'crop-{carrot}'
+        revision = self.load(headers)['revision']
+        one = lambda **extra: {'farms': [farm(plots=[plant(kind, stage=1, **extra)] + [None] * 5)], 'records': []}
+        self.save(headers, revision, one(method='seedling'), expect=422)  # 모종은 허용되지 않는다
+        self.save(headers, revision, {'farms': [farm(plots=[plant('crop-999999', method='seed')] + [None] * 5)], 'records': []}, expect=422)
+        self.save(headers, revision, {'farms': [farm(plots=[plant('carrot', method='seed')] + [None] * 5)], 'records': []}, expect=422)
+        self.save(headers, revision, one(method='seed'))
+        self.assertEqual(self.load(headers)['state']['farms'][0]['plots'][0]['kind'], kind)
+
     def test_requires_login(self):
         self.assertEqual(self.client.get('/garden/state').status_code, 401)
 
