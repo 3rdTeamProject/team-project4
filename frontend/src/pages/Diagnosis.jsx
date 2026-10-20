@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { storage } from '../api.js'
 import DiagnosisResult from '../components/DiagnosisResult.jsx'
 import DiagnosisDetails from '../components/DiagnosisDetails.jsx'
@@ -35,7 +35,10 @@ function CameraMark() {
 }
 
 export default function Diagnosis() {
-  const [step, setStep] = useState('plant')
+  // 메뉴에서 'AI 상세 진단'으로 바로 들어오면 사진 준비 단계를 건너뛴다
+  const [searchParams] = useSearchParams()
+  const direct = searchParams.get('mode') === 'detail'
+  const [step, setStep] = useState(direct ? 'detail' : 'plant')
   const [plantPhoto, setPlantPhoto] = useState(null)
   const [detailPhoto, setDetailPhoto] = useState(null)
   const [leafDemo, setLeafDemo] = useState(null)
@@ -72,7 +75,7 @@ export default function Diagnosis() {
 
   function goBack() {
     if (step === 'result') setStep('detail')
-    else if (step === 'detail') setStep('leaf')
+    else if (step === 'detail') direct ? close() : setStep('leaf')
     else if (step === 'leaf') setStep('plant')
     else close()
   }
@@ -235,7 +238,7 @@ export default function Diagnosis() {
 
       {step === 'detail' && (
         <DiagnosisDetails
-          onBack={() => setStep('leaf')}
+          onBack={() => (direct ? close() : setStep('leaf'))}
           onRestartObservation={restartLeafObservation}
         />
       )}

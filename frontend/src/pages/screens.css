@@ -131,6 +131,42 @@
   text-decoration: none;
 }
 
+button.menu-item {
+  width: 100%;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) * .7);
+}
+
+.menu-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) * .5);
+  margin-left: var(--space-screen-x);
+}
+
+.menu-sub-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-gap);
+  min-height: var(--size-touch);
+  padding: 0 var(--space-card);
+  box-sizing: border-box;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-small);
+  color: var(--text);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .menu-item-icon {
   display: flex;
   color: var(--primary);
@@ -144,6 +180,11 @@
 .menu-item-arrow {
   display: flex;
   color: var(--muted);
+  transition: transform .15s;
+}
+
+.menu-item-arrow.is-open {
+  transform: rotate(90deg);
 }
 
 /* 마이페이지 */

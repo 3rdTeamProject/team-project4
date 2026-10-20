@@ -67,7 +67,7 @@ const baseGrowthStage = GardenGrowth.stage;
 GardenGrowth.stage = function (p, total, today) { return isTaskPlant(p) ? p.stage : baseGrowthStage.call(this, p, total, today); };
 
 // ---------- 오늘 할 일(서버)
-let taskData = { status: 'idle', tasks: [], at: 0, loading: false, message: '' };
+let taskData = { status: 'idle', tasks: [], harvestDue: [], at: 0, loading: false, message: '' };
 const checked = new Set();
 let completing = false;
 const harvestMark = {};
@@ -81,16 +81,19 @@ function ensureTasks() {
 async function loadTasks(force = false) {
   if (taskData.loading) return;
   taskData.loading = true;
-  const before = JSON.stringify([taskData.status, taskData.tasks]);
+  const before = JSON.stringify([taskData.status, taskData.tasks, taskData.harvestDue]);
   try {
     const r = await hostApi('tasks');
-    taskData = { status: 'ready', tasks: r.tasks, at: Date.now(), loading: false, message: '' };
+    // '고추 따기'처럼 5단계를 올리는 수확 할 일은 목록에 보여 주지 않고, 수확할 때가 됐다는 표시로만 쓴다(수확은 '수확하기' 버튼으로 한다)
+    const isHarvestTask = t => t.triggersStage === 5 && !t.infoOnly && t.title.endsWith('따기');
+    const harvestDue = r.tasks.filter(isHarvestTask).map(t => `${t.farm}|${t.position - 1}`);
+    taskData = { status: 'ready', tasks: r.tasks.filter(t => !isHarvestTask(t)), harvestDue, at: Date.now(), loading: false, message: '' };
     const ids = new Set(r.tasks.map(t => t.id));
     [...checked].forEach(id => { if (!ids.has(id)) checked.delete(id); });
   } catch (e) {
     taskData = { ...taskData, status: 'error', at: Date.now(), loading: false, message: e.message };
   }
-  if ((force || before !== JSON.stringify([taskData.status, taskData.tasks])) && ['farms', 'garden', 'tasks', 'detail'].includes(view)) render();
+  if ((force || before !== JSON.stringify([taskData.status, taskData.tasks, taskData.harvestDue])) && ['farms', 'garden', 'tasks', 'detail'].includes(view)) render();
 }
 const fmtLong = d => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
 const statusNote = () => taskData.status === 'error'
@@ -112,7 +115,7 @@ const trashButton = '<button class="icon-btn" data-feature="delete-crop" aria-la
 const memoBox = p => `<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="오늘 텃밭 상태를 적어보세요 (선택)">${esc(p.draftMemo || '')}</textarea></div>`;
 const journalFooter = label => footer(`<button class="secondary diagnosis-button" data-feature="diagnosis">AI진단</button><button class="primary" data-tk="post-journal" ${completing ? 'disabled' : ''}>${completing ? '올리는 중…' : label}</button>`);
 function harvestBanner(f, i, p) {
-  const done = !!p.harvestedAt, ready = p.stage >= 5;
+  const done = !!p.harvestedAt, ready = p.stage >= 5 || taskData.harvestDue.includes(`${f.id}|${i}`);
   if (!done && !ready) return '';
   const marked = !!harvestMark[`${f.id}|${i}`];
   const note = marked ? (done ? '일지를 올리면 수확이 기록돼요' : '일지를 올리면 수확 보너스 +120P') : '';

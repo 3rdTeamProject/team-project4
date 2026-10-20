@@ -9,7 +9,6 @@ const CROP_NAMES = {
   lettuce: '상추',
   cucumber: '오이',
   pepper: '고추',
-  potato: '감자',
   eggplant: '가지',
   zucchini: '애호박',
 }

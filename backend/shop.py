@@ -10,6 +10,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -192,6 +193,7 @@ def register_shop(app, metadata, engine, get_current_user, users):
         Column('amount', Integer, nullable=False),  # 음수면 사용
         Column('reason', String(100), nullable=False),
         Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+        Index('point_logs_user_created_ix', 'user_id', 'created_at'),  # 포인트 내역은 사용자별 최신순으로 읽는다
     )
 
     def address_json(row):

@@ -93,7 +93,7 @@ function refreshGrowth(){
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGrowth();});
 setInterval(refreshGrowth,60000);
-const categories={lettuce:'vegetable',cucumber:'fruit',pepper:'fruit',eggplant:'fruit',zucchini:'fruit',tomato:'fruit',potato:'vegetable'};
+const categories={lettuce:'vegetable',cucumber:'fruit',pepper:'fruit',eggplant:'fruit',zucchini:'fruit',tomato:'fruit'};
 const careItems=(p,date=day())=>p.harvestedAt&&date>p.harvestedAt?[]:[['water','물주기 확인','흙이 말랐는지 손가락으로 확인해요'],['care',p.kind==='tomato'?'곁순 따기':'겉잎 상태 보기',p.kind==='tomato'?'아래쪽 곁순을 손으로 떼어주세요':'시든 잎이 있으면 떼어주세요'],['observe','잎 관찰하기','잎의 색과 반점을 살펴보고 상태를 기록해요']];
 const completed=(p,key,date=day())=>p.taskChecks?.[date]?.includes(key)||key==='water'&&p.wateredAt===date;
 const leafStatuses=[['healthy','건강해요'],['yellow','잎이 노래요'],['spots','반점이 있어요'],['wilted','시들었어요'],['other','기타 변화가 있어요']];

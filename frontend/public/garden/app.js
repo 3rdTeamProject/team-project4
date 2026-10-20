@@ -2,7 +2,7 @@
 // 설치나 빌드 없이 실행하는 우리텃밭 예시입니다.
 // 저장: localStorage. 날씨: Open-Meteo current API (weather.js).
 const STORAGE_KEY=window.GARDEN_STORAGE_KEY;
-const CROPS=[{id:'tomato',name:'방울토마토',emoji:'🍅',days:90},{id:'lettuce',name:'상추',emoji:'🥬',days:45},{id:'cucumber_spring',name:'오이(봄)',emoji:'🥒',days:60},{id:'cucumber_summer',name:'오이(여름)',emoji:'🥒',days:70},{id:'pepper',name:'고추',emoji:'🌶️',days:90},{id:'potato',name:'감자',emoji:'🥔',days:100},{id:'eggplant',name:'가지',emoji:'🍆',days:85},{id:'zucchini',name:'애호박',emoji:'🥒',days:60}];
+const CROPS=[{id:'tomato',name:'방울토마토',emoji:'🍅',days:90},{id:'lettuce',name:'상추',emoji:'🥬',days:45},{id:'cucumber_spring',name:'오이(봄)',emoji:'🥒',days:60},{id:'cucumber_summer',name:'오이(여름)',emoji:'🥒',days:70},{id:'pepper',name:'고추',emoji:'🌶️',days:90},{id:'eggplant',name:'가지',emoji:'🍆',days:85},{id:'zucchini',name:'애호박',emoji:'🥒',days:60}];
 let dev={enabled:false,offset:0};
 const day=()=>{const d=new Date();d.setDate(d.getDate()+dev.offset);return d.toLocaleDateString('sv-SE')};
 const crop=(kind,stage,needsWater=false)=>({kind,stage,needsWater,wateredAt:null,plantedAt:day()});

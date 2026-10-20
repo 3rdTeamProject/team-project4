@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import and_, delete, insert, select, update
 
 KST = timezone(timedelta(hours=9))
-TRANSPLANT_STAGE_NO = 3  # 이 단계를 올리는 할 일이 '모종 옮겨심기'
+MAX_STAGE_NO = 5  # 마지막 성장 단계(열매)
+TRANSPLANT_STAGE_NO = 3# 이 단계를 올리는 할 일이 '모종 옮겨심기'
 FIRST_HARVEST_BONUS = 120
 ACTIVE_STATUSES = ('growing', 'harvested')
 
@@ -315,6 +316,8 @@ def register_tasks(app, engine, get_current_user, t, full_state):
             first, bonus = False, 0
             if body.harvest:
                 conn.execute(insert(t['harvests']).values(planting_id=planting['id'], harvested_at=moment))
+                # 수확 할 일('고추 따기' 등)은 목록에 보이지 않으므로, 수확하면 마지막 성장 단계(열매)로 올린다
+                conn.execute(update(pl).where(pl.c.id == planting['id'], pl.c.stage < MAX_STAGE_NO).values(stage=MAX_STAGE_NO))
                 first = conn.execute(update(pl).where(pl.c.id == planting['id'], pl.c.status == 'growing').values(status='harvested')).rowcount == 1
                 if first:
                     bonus = FIRST_HARVEST_BONUS

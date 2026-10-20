@@ -43,10 +43,10 @@ body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
 .crop-instance:before{content:"";position:absolute;bottom:-3px;left:20%;right:20%;height:7px;border-radius:50%;background:#412e252e;filter:blur(2px)}
 .crop-instance .plant-art{position:relative;display:block;width:100%;height:100%;overflow:visible;transform-origin:50% 98%;animation:garden-sway 6s ease-in-out infinite alternate}
 .crop-instance:nth-child(2) .plant-art{animation-delay:-3s;scale:.96;transform-origin:50% 100%}
-.crop-row:is(.stage-3,.stage-4,.stage-5) :is(.crop-lettuce,.crop-zucchini),.crop-row.stage-4 .crop-potato{scale:1.08}
-.crop-row:is(.stage-3,.stage-4,.stage-5) .crop-instance:nth-child(2) :is(.crop-lettuce,.crop-zucchini),.crop-row.stage-4 .crop-instance:nth-child(2) .crop-potato{scale:1.04}
-.crop-row:is(.stage-4,.stage-5) :is(.crop-potato,.crop-eggplant,.crop-zucchini,.crop-tomato){scale:1.14}
-.crop-row:is(.stage-4,.stage-5) .crop-instance:nth-child(2) :is(.crop-potato,.crop-eggplant,.crop-zucchini,.crop-tomato){scale:1.10}
+.crop-row:is(.stage-3,.stage-4,.stage-5) :is(.crop-lettuce,.crop-zucchini){scale:1.08}
+.crop-row:is(.stage-3,.stage-4,.stage-5) .crop-instance:nth-child(2) :is(.crop-lettuce,.crop-zucchini){scale:1.04}
+.crop-row:is(.stage-4,.stage-5) :is(.crop-eggplant,.crop-zucchini,.crop-tomato){scale:1.14}
+.crop-row:is(.stage-4,.stage-5) .crop-instance:nth-child(2) :is(.crop-eggplant,.crop-zucchini,.crop-tomato){scale:1.10}
 .crop-row.stage-3 .plant-art{scale:.9}
 .crop-row.stage-3 .crop-instance:nth-child(2) .plant-art{scale:.86}
 .crop-row.stage-3 .crop-pepper{scale:.8}
