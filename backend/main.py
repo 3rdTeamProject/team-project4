@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -230,6 +231,22 @@ GUEST_DATA_TABLES = [
 LINK_TICKET_EXPIRE_MINUTES = 5
 
 
+_TABLE_NAMES_TTL = 300  # 초
+_table_names_cache: tuple[float, set[str]] | None = None
+
+
+def _table_names(conn) -> set[str]:
+    """DB의 테이블 이름. 요청마다 카탈로그를 읽지 않도록 잠깐 기억해 둔다(테이블이 아직 없을 때는 기억하지 않는다)."""
+    global _table_names_cache
+    now = time.monotonic()
+    if _table_names_cache and now - _table_names_cache[0] < _TABLE_NAMES_TTL:
+        return _table_names_cache[1]
+    names = set(inspect(conn).get_table_names())
+    if "users" in names:
+        _table_names_cache = (now, names)
+    return names
+
+
 def _existing_data_tables(conn) -> list[tuple[str, str]]:
     existing = set(inspect(conn).get_table_names())
     return [(t, c) for t, c in GUEST_DATA_TABLES if t in existing]
@@ -456,7 +473,7 @@ def read_my_summary(user=Depends(get_current_user)):
     """마이페이지용 통계와 최근 포인트 내역. 아직 만들어지지 않은 테이블은 0/빈 목록으로 돌려준다."""
     uid = {"uid": user["id"]}
     with engine.connect() as conn:
-        names = set(inspect(conn).get_table_names())  # 테이블 존재 확인은 한 번만 조회한다
+        names = _table_names(conn)
         def count(table: str, sql: str) -> int:
             if not (table in names):
                 return 0
@@ -519,7 +536,7 @@ def read_point_logs(
 ):
     """포인트 내역 전체 보기. offset부터 limit건씩 최신순으로 내려주고, 더 있는지(has_more)도 알려준다."""
     with engine.connect() as conn:
-        if "point_logs" not in set(inspect(conn).get_table_names()):
+        if "point_logs" not in _table_names(conn):
             return {"items": [], "has_more": False}
         rows = conn.execute(
             text(

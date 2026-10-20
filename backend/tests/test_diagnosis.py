@@ -28,6 +28,7 @@ class DiagnosisQuotaTest(unittest.TestCase):
     def setUp(self):
         self.context = TestClient(app)
         self.client = self.context.__enter__()
+        app.state.diagnosis_service.calls = 0  # 서비스는 앱 단위라 앞선 테스트의 호출 횟수가 남지 않게 한다
 
     def tearDown(self):
         self.context.__exit__(None, None, None)
