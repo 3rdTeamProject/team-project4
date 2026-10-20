@@ -35,6 +35,7 @@ from pydantic import BaseModel
 from level import level_from_exp
 from garden import register_garden
 from shop import register_shop
+from diagnosis import register_diagnoses
 
 load_dotenv()
 
@@ -220,6 +221,7 @@ GUEST_DATA_TABLES = [
     ("point_logs", "user_id"),
     ("reward_exchanges", "user_id"),
     ("orders", "user_id"),  # reward_exchanges가 orders를 참조하므로 reward_exchanges 다음에 둔다
+    ("daily_diagnosis_requests", "user_id"),
     ("journals", "user_id"),
     ("plantings", "user_id"),
     ("farms", "user_id"),
@@ -557,5 +559,14 @@ def update_notifications(body: NotificationRequest, user=Depends(get_current_use
 
 
 # Registered before lifespan creates the tables.
-register_garden(app, metadata, engine, get_current_user, users)
+garden_tables = register_garden(app, metadata, engine, get_current_user, users)
 register_shop(app, metadata, engine, get_current_user, users)
+register_diagnoses(
+    app,
+    metadata,
+    engine,
+    get_current_user,
+    users,
+    garden_tables["plantings"],
+    garden_tables["crops"],
+)

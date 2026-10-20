@@ -16,7 +16,7 @@ import Cart from './pages/Cart.jsx'
 import CartExchange from './pages/CartExchange.jsx'
 import ShippingAddress from './pages/ShippingAddress.jsx'
 import Intro from './pages/Intro.jsx'
-import GardenPending from './pages/GardenPending.jsx'
+import Diagnosis from './pages/Diagnosis.jsx'
 
 export default function App() {
   return (
@@ -27,7 +27,7 @@ export default function App() {
         <Route path="/intro" element={<Intro />} />
         <Route path="/home" element={<Home key="farms" />} />
         <Route path="/journals" element={<Home key="journals" gardenView="journal" />} />
-        <Route path="/diagnosis" element={<GardenPending title="AI 진단" description="사진 진단은 AI 서비스 연결 후 사용할 수 있어요." />} />
+        <Route path="/diagnosis" element={<Diagnosis />} />
         <Route path="/pointshop" element={<PointShop />} />
         <Route path="/pointshop/orders" element={<OrderHistory />} />
         <Route path="/pointshop/orders/:orderId" element={<OrderDetail />} />
