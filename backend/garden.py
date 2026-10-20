@@ -48,12 +48,11 @@ KIND_CROPS = {
     'cucumber_spring': '오이(봄)',
     'cucumber_summer': '오이(여름)',
     'pepper': '고추',
-    'potato': '감자',
     'eggplant': '가지',
     'zucchini': '애호박',
 }
 KIND_DAYS = {
-    '방울토마토': 90, '상추': 45, '오이(봄)': 60, '오이(여름)': 70, '고추': 90, '감자': 100, '가지': 85, '애호박': 60,
+    '방울토마토': 90, '상추': 45, '오이(봄)': 60, '오이(여름)': 70, '고추': 90, '가지': 85, '애호박': 60,
 }
 NAME_TO_KIND = {name: kind for kind, name in KIND_CROPS.items()}
 # 예전 '오이' 행은 오이(봄)으로 이름을 바꿔 쓴다. 바꾸기 전에도 같은 작물로 보고, 새 행을 따로 만들지 않는다.
@@ -62,7 +61,7 @@ NAME_TO_KIND['오이'] = 'cucumber_spring'
 
 
 class Plant(BaseModel):
-    kind: Literal['lettuce', 'cucumber_spring', 'cucumber_summer', 'pepper', 'eggplant', 'zucchini', 'tomato', 'potato']
+    kind: Literal['lettuce', 'cucumber_spring', 'cucumber_summer', 'pepper', 'eggplant', 'zucchini', 'tomato']
     # 단계는 재배 기간으로 화면이 계산한다. 할 일이 있는 작물은 서버가 정한 값을 쓴다(씨앗을 옮겨심기 전에는 0단계).
     stage: int = Field(ge=0, le=5)
     needsWater: bool = False

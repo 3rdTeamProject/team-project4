@@ -10,14 +10,9 @@ window.CropArt = (() => {
   const eggplant = `<path d="M107 70c-7 4-4 14-11 22-17 17-9 39 8 42 24 4 32-17 25-34-4-10-9-27-22-30Z" fill="var(--color-text)"/><path d="m103 77 0-13 7-9 3 12 11 11-11-3-6 10Z" fill="var(--color-green-dark)"/><path d="M102 94c-10 14-7 23-1 29" fill="none" stroke="var(--color-card)" stroke-width="5" opacity=".4" stroke-linecap="round"/>`;
   const zucchini = `<g transform="rotate(-20 100 110)"><path d="M83 80c-3 15-5 43 1 53 5 7 22 9 29 1 7-9 4-40-2-53Z" fill="var(--color-green-main)"/><path d="M91 84v43m12-43 3 45" stroke="var(--color-green-dark)" stroke-width="3" opacity=".5" stroke-linecap="round"/><path d="m89 80-1-11 15 1 2 10Z" fill="var(--color-green-dark)"/><path d="m98 134-6 8 10-3 6 4-2-9Z" fill="var(--color-point-chip)"/></g>`;
   const lettuce = `<g stroke="var(--color-green-dark)" stroke-width="1.5"><path d="M81 142C42 139 19 114 32 95c-9-13 2-28 14-24-1-20 21-24 31-9 10-17 30-8 29 6 19-8 31 9 24 23 18 19 1 46-49 51Z" fill="var(--color-green-main)"/><path d="M79 139c-29-13-38-32-28-43-4-13 11-22 22-13 0-17 24-20 29-1 19 1 23 26 6 37Z" fill="var(--color-green-leaf)"/><path d="M79 139V93m0 32-18-20m18 15 20-23" fill="none" stroke-linecap="round"/></g>`;
-  const potato = `<path d="M80 135V62" stroke="var(--color-green-dark)" stroke-width="4"/>${leaf(80,103,-12,.8)}${leaf(80,86,98,.85)}${leaf(80,66,-12,.7)}<g transform="translate(104 55)"><path d="m0-7 3 4 5-1-2 5 3 4-5 1-2 5-3-4-5 0 1-5-3-4 5-1Z" fill="var(--color-card)"/><circle r="3" fill="var(--color-point-chip)"/></g>`;
-  const mature = {tomato,cucumber,pepper,eggplant,zucchini,lettuce,potato};
+  const mature = {tomato,cucumber,pepper,eggplant,zucchini,lettuce};
   // Ignore transparent margins so these PNGs use the same visual scale as other crops.
   const originalBounds = {
-    'potato-1': '175 334 165 112',
-    'potato-2': '205 315 848 704',
-    'potato-3': '65 225 1124 807',
-    'potato-4': '68 58 1143 1134',
     'tomato-1': '175 334 165 112',
     'tomato-2': '248 322 761 681',
     'tomato-3': '82 118 1116 1034',
@@ -28,7 +23,7 @@ window.CropArt = (() => {
       return '<svg class="plant-art vector-crop" viewBox="0 0 64 64" aria-hidden="true"><g transform="rotate(-20 32 53)"><path d="M23 18h18v23l-6 5-3 12-3-12-6-5Z" fill="var(--color-point-chip)" stroke="var(--color-point-text)" stroke-width="2" stroke-linejoin="round"/><path d="M27 12h10v6H27z" fill="var(--color-point-chip)" stroke="var(--color-point-text)" stroke-width="2"/><rect x="26" y="25" width="12" height="13" rx="2" fill="var(--color-green-main)"/><path d="M32 27c-3 4-4 7 0 9 4-2 3-5 0-9Z" fill="var(--color-card)"/></g><ellipse cx="32" cy="55" rx="27" ry="6" fill="var(--color-soil)"/></svg>';
     }
     const key=`${kind}-${stage-1}`;
-    if(kind==='tomato'||kind==='potato') {
+    if(kind==='tomato') {
       const size=stage===2?512:1254;
       return `<svg class="plant-art vector-crop original-crop crop-${kind}" viewBox="${originalBounds[key]}" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><image href="assets/crops/${key}.png" width="${size}" height="${size}"/></svg>`;
     }
@@ -36,10 +31,9 @@ window.CropArt = (() => {
       return `<svg class="plant-art vector-crop original-crop crop-${kind}" viewBox="${cropBounds[key]}" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><image href="assets/crops/${key}.png" width="512" height="512"/></svg>`;
     }
     const young = `<path d="M80 140V108" stroke="var(--color-green-dark)" stroke-width="4" stroke-linecap="round"/>${leaf(80,116,-24,.55)}${leaf(80,112,92,.55)}`;
-    const body=stage===1?young:kind==='lettuce'?lettuce:kind==='potato'?potato:foliage+(stage>=3?mature[kind]:'');
+    const body=stage===1?young:kind==='lettuce'?lettuce:foliage+(stage>=3?mature[kind]:'');
     const scale=stage===2?.72:stage===3?.88:1;
-    const tubers=preview&&kind==='potato'?'<path d="M52 110c-23-8-34 24-11 31 22 7 38-24 11-31Zm52 5c-22-4-29 26-7 29 24 4 32-25 7-29Z" fill="var(--color-soil)"/><g fill="var(--color-point-text)"><circle cx="47" cy="122" r="2"/><circle cx="57" cy="132" r="2"/><circle cx="105" cy="127" r="2"/></g>':'';
-    return `<svg class="plant-art vector-crop crop-${kind}" viewBox="0 0 160 160" fill="none" aria-hidden="true"><g transform="translate(${80*(1-scale)} ${142*(1-scale)}) scale(${scale})">${body}${tubers}</g></svg>`;
+    return `<svg class="plant-art vector-crop crop-${kind}" viewBox="0 0 160 160" fill="none" aria-hidden="true"><g transform="translate(${80*(1-scale)} ${142*(1-scale)}) scale(${scale})">${body}</g></svg>`;
   }
   return {svg};
 })();
