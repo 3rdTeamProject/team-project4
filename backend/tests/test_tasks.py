@@ -198,6 +198,20 @@ class TaskTest(unittest.TestCase):
         self.goto(0)
         self.assertEqual(self.stage(), 5)  # 단계는 내려가지 않는다
 
+    def test_stage_follows_the_date_without_checking_tasks(self):
+        self.plant('seedling')
+        shown = lambda: self.load()['state']['farms'][0]['plots'][0]['stage']
+        self.assertEqual(shown(), 3)
+        self.goto(6)
+        self.assertEqual(shown(), 3)
+        self.goto(7)  # 지지대 세우기가 시작되는 날 = 4단계
+        self.assertEqual(shown(), 4)
+        self.goto(24)
+        self.assertEqual(shown(), 4)
+        self.goto(25)  # 첫 웃거름이 시작되는 날 = 5단계
+        self.assertEqual(shown(), 5)
+        self.assertEqual(self.stage(), 3)  # 할 일을 체크하지 않았으니 저장된 단계는 그대로다
+
     def test_screen_cannot_set_the_stage_of_a_task_crop(self):
         self.plant('seedling')
         self.save(farm([cucumber('seedling', stage=5)] + [None] * 5))
@@ -210,6 +224,7 @@ class TaskTest(unittest.TestCase):
         plot = first['state']['farms'][0]['plots'][0]
         self.assertEqual(plot['harvestedAt'], DAY0.date().isoformat())  # 첫 수확일이 칸 정보로 내려간다
         self.assertEqual(plot['lastHarvestedAt'], DAY0.date().isoformat())
+        self.assertEqual(self.stage(), 5)  # 수확하면 열매 단계(5)로 올라간다
         self.complete(content='같은 날 또 수확', harvest=True, expect=409)  # 수확은 하루에 한 번만 기록한다
         self.goto(1)
         second = self.complete(content='또 수확', harvest=True)
@@ -262,7 +277,7 @@ class TaskTest(unittest.TestCase):
 
     def test_crops_list_tells_which_crops_have_tasks_and_prep_notes(self):
         crops = {c['kind']: c for c in self.client.get('/garden/crops', headers=self.h).json()['crops']}
-        self.assertEqual(len(crops), 8)
+        self.assertEqual(len(crops), 7)
         self.assertTrue(crops['cucumber_spring']['hasTasks'])
         self.assertEqual([x['title'] for x in crops['cucumber_spring']['prep']], ['석회·퇴비 섞기'])
         self.assertEqual(crops['cucumber_spring']['transplant']['title'], '모종 옮겨심기')  # 모종으로 시작할 때 '심었어요'가 곧 이 작업

@@ -8,7 +8,7 @@ import hashlib
 import json
 import math
 import os
-from datetime import date
+from datetime import date, timedelta
 from typing import Literal
 
 import httpx
@@ -29,15 +29,17 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    and_,
     delete,
     func,
     insert,
+    or_,
     select,
     text,
     update,
 )
 
-from tasks import crops_with_tasks, method_of, register_tasks, start_planting, transplant_task_id
+from tasks import TRANSPLANT_STAGE_NO, crops_with_tasks, method_of, register_tasks, start_planting, today_kst
 
 # 홈 화면의 작물 종류(kind) ↔ crops 테이블의 이름. 오이는 봄/여름 두 작물로 나뉜다.
 # 작물별 단계·할 일은 crops / crop_stages / crop_tasks 행(Supabase에 SQL로 입력)이 정한다.
@@ -327,10 +329,39 @@ def register_garden(app, metadata, engine, get_current_user, users):
         harvest_days = {r[0]: (str(r[1])[:10], str(r[2])[:10]) for r in conn.execute(
             select(harvests.c.planting_id, func.min(harvests.c.harvested_at), func.max(harvests.c.harvested_at))
             .where(harvests.c.planting_id.in_([a['id'] for a in active])).group_by(harvests.c.planting_id))} if active else {}
+        # 단계는 날짜로도 정해진다: 3·4·5단계를 올리는 할 일이 시작되는 날(옮겨심은 날 기준 며칠째)이 그 단계의 시작일이다
+        stage_dates: dict[int, dict[int, tuple]] = {}
+        if active:
+            for r in conn.execute(
+                select(task_logs.c.planting_id, crop_stages.c.stage_no, func.min(task_logs.c.start_date), func.min(task_logs.c.completed_at))
+                .join(plantings, plantings.c.id == task_logs.c.planting_id)
+                .join(crop_stages, and_(crop_stages.c.crop_id == plantings.c.crop_id, crop_stages.c.trigger_task_id == task_logs.c.crop_task_id))
+                .join(crop_tasks, crop_tasks.c.id == task_logs.c.crop_task_id)
+                .where(task_logs.c.planting_id.in_([a['id'] for a in active]), crop_stages.c.stage_no.in_((3, 4, 5)),
+                       or_(crop_stages.c.stage_no == 3, crop_tasks.c.start_day.is_not(None)))  # 시작일이 정해지지 않은 할 일은 날짜로 쓰지 않는다
+                .group_by(task_logs.c.planting_id, crop_stages.c.stage_no)):
+                stage_dates.setdefault(r[0], {})[r[1]] = (r[2], r[3])
         first_harvest = {k: v[0] for k, v in harvest_days.items()}
         last_harvest = {k: v[1] for k, v in harvest_days.items()}
-        return {'care': care_rows, 'first_harvest': first_harvest, 'last_harvest': last_harvest, 'tasked': crops_with_tasks(conn, t), 'farms': farm_rows,
+        return {'care': care_rows, 'first_harvest': first_harvest, 'last_harvest': last_harvest, 'tasked': crops_with_tasks(conn, t), 'stage_dates': stage_dates, 'today': today_kst(), 'farms': farm_rows,
                 'plots': plot_rows, 'active': active, 'journals': journal_rows, 'motion': bool(motion)}
+
+    def stage_by_date(row: dict, dates: dict, today: date) -> int:
+        """옮겨심은 뒤 날짜로 정한 성장 단계(4·5). 할 일을 체크하지 않아도 날이 되면 올라간다.
+
+        5·4단계는 그 단계를 올리는 할 일의 시작일이다. 4단계 시작일이 정해져 있지 않으면 옮겨심은 날과 5단계 시작일의 가운데로 한다.
+        """
+        start5 = dates.get(5, (None, None))[0]
+        start4 = dates.get(4, (None, None))[0]
+        done = dates.get(3, (None, None))[1]
+        transplanted = done.date() if done else row['planted_at']
+        if start5 and not start4:
+            start4 = transplanted + timedelta(days=(start5 - transplanted).days // 2)
+        if start5 and today >= start5:
+            return 5
+        if start4 and today >= start4:
+            return 4
+        return 0
 
     def build_state(rows: dict) -> dict:
         """읽어 온 내용을 홈 화면이 쓰는 문서 모양으로 조립한다."""
@@ -357,6 +388,8 @@ def register_garden(app, metadata, engine, get_current_user, users):
             # 씨앗으로 심고 아직 옮겨심기 전인 칸은 싹이 없는 0단계(포트)로 보여준다(DB에는 1단계로 저장)
             if row['crop_id'] in rows['tasked'] and plant.get('method') == 'seed' and row['stage'] < 3:
                 plant['stage'] = 0
+            elif row['crop_id'] in rows['tasked'] and row['stage'] >= 3:
+                plant['stage'] = max(plant['stage'], stage_by_date(row, rows['stage_dates'].get(row['id'], {}), rows['today']))
             return plant
 
         farm_docs = []
@@ -466,6 +499,8 @@ def register_garden(app, metadata, engine, get_current_user, users):
                     continue
                 planting_id = active_now[positions[position]]
                 details = {key: plant_doc[key] for key in ('method', 'harvestedAt', 'taskChecks', 'draftMemo', 'draftPhotos') if plant_doc.get(key)}
+                if details == (rows['care'].get(planting_id) or {}):  # 바뀐 게 없으면 다시 쓰지 않는다
+                    continue
                 conn.execute(delete(care).where(care.c.planting_id == planting_id))
                 if details:
                     conn.execute(insert(care).values(planting_id=planting_id, details=details))
@@ -526,12 +561,11 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 else:
                     prep.setdefault(r['crop_id'], []).append(item)
             moving: dict[int, dict] = {}  # 모종으로 시작할 때 '심었어요'가 곧 이 작업
-            for crop_id in {r['id'] for r in rows.values()}:
-                move_id = transplant_task_id(conn, t, crop_id)
-                task = conn.execute(select(crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.points)
-                                    .where(crop_tasks.c.id == move_id)).mappings().first() if move_id else None
-                if task:
-                    moving[crop_id] = {'title': task['title'], 'howTo': task['how_to'], 'tip': task['tip'], 'points': task['points']}
+            for r in conn.execute(  # 작물마다 따로 묻지 않고 한 번에 읽는다
+                    select(crop_stages.c.crop_id, crop_tasks.c.title, crop_tasks.c.how_to, crop_tasks.c.tip, crop_tasks.c.points)
+                    .join(crop_tasks, crop_tasks.c.id == crop_stages.c.trigger_task_id)
+                    .where(crop_stages.c.stage_no == TRANSPLANT_STAGE_NO)).mappings():
+                moving[r['crop_id']] = {'title': r['title'], 'howTo': r['how_to'], 'tip': r['tip'], 'points': r['points']}
         items = []
         for kind, name in KIND_CROPS.items():
             row = rows.get(name) or rows.get(LEGACY_NAMES.get(name, ''))
