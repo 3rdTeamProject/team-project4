@@ -9,7 +9,7 @@ body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
 .phone-shell:has(.garden-field){min-height:0}
 .garden-top{padding:22px 24px 0;background:#b6e0f3}
 .garden-nav{display:flex;align-items:center;gap:8px}
-.farm-picker{position:relative;max-width:calc(100% - 96px);min-width:0;z-index:20}
+.farm-picker{position:relative;max-width:calc(100% - 96px);min-width:0;z-index:30}
 .farm-select{display:flex;align-items:center;gap:13px;min-height:38px;padding:8px 14px;border:0;border-radius:22px;background:#fffffff2;font-size:14px;font-weight:700;letter-spacing:-.25px;line-height:1.5;cursor:pointer;list-style:none}
 .farm-select::-webkit-details-marker{display:none}.farm-select>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.farm-select svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}.farm-picker[open] .farm-select svg{rotate:180deg}
 .farm-options{position:absolute;top:calc(100% + 7px);left:0;width:220px;max-width:calc(100vw - 52px);padding:6px;border:1px solid #e1e8da;border-radius:15px;background:#fffef8;box-shadow:0 8px 26px #34482c26;overflow:hidden}
