@@ -3,6 +3,7 @@
   /* 색 */
   --color-bg: #F4F8EE;            /* 화면 배경 (연한 연두, 시안과 같음) - 바꾸게 되면 이 값 하나만 수정 */
   --color-card: #FFFFFF;
+  --color-cloud-back: #DCE9F5;      /* 농장 화면 구름 전환에서 뒤쪽 구름 (앞쪽 구름은 --color-card) */
   --color-border: #DDE6D2;
   --color-text: #1F2A1C;
   --color-text-sub: #5E6B58;

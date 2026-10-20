@@ -17,6 +17,12 @@ window.addEventListener('message', event => {
     features.onload = () => {
       const tasks = document.createElement('script');
       tasks.src = 'tasks.js';
+      // 농장 카드를 눌러 6칸 화면으로 들어갈 때의 구름 전환은 화면·할 일 코드가 모두 올라온 뒤에 덧붙인다
+      tasks.onload = () => {
+        const transition = document.createElement('script');
+        transition.src = 'transition.js';
+        document.body.append(transition);
+      };
       document.body.append(tasks);
     };
     document.body.append(features);
@@ -57,4 +63,6 @@ function hostFooter() {
   });
 }
 
+// 바깥 페이지가 아직 듣고 있지 않을 때를 대비해, 초기 데이터를 받을 때까지 준비 신호를 다시 보낸다
 parent.postMessage({type:'garden:ready'}, location.origin);
+const readyTimer = setInterval(() => { if (initialized) clearInterval(readyTimer); else parent.postMessage({type:'garden:ready'}, location.origin); }, 300);
