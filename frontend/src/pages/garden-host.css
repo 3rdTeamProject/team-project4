@@ -5,3 +5,26 @@
 .garden-save-error button{margin-top:8px;padding:8px;font-size:13px}
 .garden-save-status{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;background:#fffdf4;color:#486349;padding:3px 8px;border-radius:8px;pointer-events:none}
 .garden-save-status:empty{display:none}
+
+/* 농장 화면(iframe) 아래 버튼: iframe은 내용만큼 길어져 안에서는 고정할 수 없어서, 바깥에서 화면 아래에 붙여 둔다 */
+.garden-footer-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  gap: var(--space-gap);
+  padding: var(--space-card) var(--space-screen-x);
+  padding-bottom: max(var(--space-card), env(safe-area-inset-bottom));
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+}
+
+.garden-footer-bar .btn {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.garden-footer-bar .btn.primary {
+  flex: 2;
+}

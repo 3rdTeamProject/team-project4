@@ -19,6 +19,8 @@ export default function Home({ gardenView = 'farms' }) {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [height, setHeight] = useState(700)
+  // 농장 화면(iframe) 아래 버튼. iframe 안에서는 스크롤을 따라오지 못해서 여기서 하단 고정 막대로 보여 준다
+  const [footerButtons, setFooterButtons] = useState([])
 
   useEffect(() => {
     if (!storage.token) return
@@ -96,6 +98,10 @@ export default function Home({ gardenView = 'farms' }) {
       } else if (message?.type === 'garden:api' && Object.hasOwn(gardenOps, message.op)) {
         const reply = result => frame.current?.contentWindow?.postMessage({ type: 'garden:api-result', id: message.id, ...result }, window.location.origin)
         gardenOps[message.op](message.payload).then(data => reply({ ok: true, data }), e => reply({ ok: false, error: e.message, status: e.status }))
+      } else if (message?.type === 'garden:footer' && Array.isArray(message.buttons)) {
+        setFooterButtons(message.buttons.slice(0, 3).map(b => ({
+          index: Number(b.index), label: String(b.label), kind: b.kind === 'primary' ? 'primary' : 'secondary', disabled: Boolean(b.disabled),
+        })))
       } else if (message?.type === 'garden:scroll-top') {
         window.scrollTo({top: 0, behavior: 'instant'})
       } else if (message?.type === 'garden:navigate' && message.to === '/menu') {
@@ -122,6 +128,19 @@ export default function Home({ gardenView = 'farms' }) {
     </div>}
     {!loaded && !error && <p className="muted">내 농장을 불러오는 중…</p>}
     {loaded && <iframe ref={frame} title="우리텃밭 농장 관리" allow="geolocation 'self'" src={`${import.meta.env.BASE_URL}garden/index.html`} style={{height}} />}
+    {loaded && footerButtons.length > 0 && (
+      <div className="garden-footer-bar">
+        {footerButtons.map(b => (
+          <button
+            key={b.index}
+            type="button"
+            className={`btn ${b.kind}`}
+            disabled={b.disabled}
+            onClick={() => frame.current?.contentWindow?.postMessage({ type: 'garden:footer-click', index: b.index }, window.location.origin)}
+          >{b.label}</button>
+        ))}
+      </div>
+    )}
     <span className="garden-save-status" role="status" aria-live="polite">{saving ? '저장 중…' : ''}</span>
   </section>
 }
