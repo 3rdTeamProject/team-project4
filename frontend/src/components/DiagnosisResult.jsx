@@ -71,7 +71,11 @@ export default function DiagnosisResult({
             {!isDemo && Number.isFinite(result.remainingCount) && result.remainingCount >= 0 && (
               <p>남은 외부 AI 진단 횟수: {result.remainingCount}회</p>
             )}
-            {!isDemo && result.nextAvailableAt && <p>다음 이용 가능 시점: {result.nextAvailableAt}</p>}
+            {!isDemo && result.nextAvailableAt && (
+              <p>
+                다음 무료 횟수 초기화: {new Date(result.nextAvailableAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)
+              </p>
+            )}
             <button type="button" className="btn primary" onClick={onRestartObservation}>잎 관찰 다시 하기</button>
             <Link className="btn secondary diagnosis-journal-link" to="/journals">재배일지 작성하기</Link>
             <ExpertGuidance />
