@@ -28,3 +28,37 @@
 .garden-footer-bar .btn.primary {
   flex: 2;
 }
+
+/* 구름이 열릴 때 농장 화면이 살짝 줌아웃된다(1.08 → 1). 덮여 있는 동안에는 미리 1.08로 둔다 */
+.garden-zoom {
+  transform-origin: center top;
+}
+
+.garden-zoom[data-cloud="closed"] {
+  transform: scale(1.08);
+}
+
+.garden-zoom[data-cloud="opening"] {
+  animation: garden-zoom-out var(--cloud-open) cubic-bezier(.2, .6, .2, 1) both;
+}
+
+@keyframes garden-zoom-out {
+  from { transform: scale(1.08); }
+  to { transform: scale(1); }
+}
+
+/* 확대된 화면이 옆으로 삐져나와 가로 스크롤이 생기지 않게 한다(스크롤 컨테이너를 만들지 않는 clip) */
+.garden-host:has(.garden-zoom[data-cloud="closed"]),
+.garden-host:has(.garden-zoom[data-cloud="opening"]) {
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garden-zoom[data-cloud="closed"] {
+    transform: none;
+  }
+
+  .garden-zoom[data-cloud="opening"] {
+    animation: none;
+  }
+}

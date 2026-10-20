@@ -57,7 +57,7 @@ function PhotoMark() {
   )
 }
 
-function getGrowingCrops(farms) {
+function getGrowingCrops(farms, cropNames) {
   if (!Array.isArray(farms)) return []
   return farms.flatMap(farm => (farm.plots ?? []).flatMap((plant, index) => (
     plant
@@ -67,7 +67,7 @@ function getGrowingCrops(farms) {
           farmName: farm.name,
           farmRegion: farm.region,
           plotNumber: index + 1,
-          cropName: CROP_NAMES[plant.kind] ?? '알 수 없는 작물',
+          cropName: cropNames.get(plant.kind) ?? CROP_NAMES[plant.kind] ?? '작물 이름을 확인할 수 없어요',
         }]
       : []
   )))
@@ -114,6 +114,8 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   const [diagnosisInput, setDiagnosisInput] = useState({ cropId: '', symptoms: [], description: '' })
   const [photos, setPhotos] = useState({})
   const [farms, setFarms] = useState([])
+  const [cropNames, setCropNames] = useState(new Map())
+  const [cropNamesError, setCropNamesError] = useState('')
   const [gardenLoading, setGardenLoading] = useState(true)
   const [gardenError, setGardenError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
@@ -134,7 +136,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   const closePhotoSectionRef = useRef(null)
   const idempotencyKey = useRef(pendingAttemptState)
   const submitLock = useRef(false)
-  const crops = useMemo(() => getGrowingCrops(farms), [farms])
+  const crops = useMemo(() => getGrowingCrops(farms, cropNames), [farms, cropNames])
   const selectedCrop = crops.find(crop => crop.id === diagnosisInput.cropId)
 
   useEffect(() => {
@@ -149,12 +151,26 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   useEffect(() => {
     let cancelled = false
 
-    api.gardenState()
-      .then(data => {
-        if (!cancelled) setFarms(data.state?.farms ?? [])
-      })
-      .catch(error => {
-        if (!cancelled) setGardenError(`농장 작물을 불러오지 못했어요. ${error.message}`)
+    setGardenLoading(true)
+    setGardenError('')
+    setCropNamesError('')
+    Promise.allSettled([api.gardenState(), api.gardenCrops()])
+      .then(([garden, catalog]) => {
+        if (cancelled) return
+        if (garden.status === 'fulfilled') {
+          setFarms(garden.value.state?.farms ?? [])
+        } else {
+          setFarms([])
+          setGardenError(`농장 작물을 불러오지 못했어요. ${garden.reason.message}`)
+        }
+        if (catalog.status === 'fulfilled' && Array.isArray(catalog.value?.crops)) {
+          setCropNames(new Map(catalog.value.crops
+            .filter(crop => typeof crop?.kind === 'string' && typeof crop.name === 'string' && crop.name.trim())
+            .map(crop => [crop.kind, crop.name])))
+        } else {
+          setCropNames(new Map())
+          setCropNamesError('작물 이름 목록을 불러오지 못했어요. 이름이 확인되지 않는 작물은 농장과 칸 번호로 구분해 주세요.')
+        }
       })
       .finally(() => {
         if (!cancelled) setGardenLoading(false)
@@ -654,9 +670,10 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
           <h2>어떤 작물인가요?</h2>
         </div>
         {gardenLoading && <p className="diagnosis-detail-muted" role="status">내 농장 작물을 불러오는 중이에요.</p>}
-        {gardenError && (
+        {!gardenLoading && (gardenError || cropNamesError) && (
           <div className="diagnosis-detail-empty" role="alert">
-            <p>{gardenError}</p>
+            {gardenError && <p>{gardenError}</p>}
+            {cropNamesError && <p>{cropNamesError}</p>}
             <button type="button" className="diagnosis-inline-retry" onClick={() => {
               setGardenError('')
               setGardenLoading(true)
@@ -673,7 +690,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
             <p>농장에 재배 중인 작물을 등록한 뒤 다시 확인해 주세요.</p>
           </div>
         )}
-        {crops.length > 0 && (
+        {!gardenLoading && !gardenError && crops.length > 0 && (
           <div className="diagnosis-crop-options" role="group" aria-label="진단할 작물 선택">
             {crops.map(crop => (
               <button
