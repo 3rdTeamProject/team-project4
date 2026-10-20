@@ -1,0 +1,142 @@
+/* 구름 전환: 화면 전체를 덮는 막대. 앱 폭(--app-max-width)까지만 덮고, 구름 크기는 그 폭을 기준(cqw)으로 한다 */
+.cloud-transition {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  width: 100%;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  overflow: hidden;
+  container-type: inline-size;
+  pointer-events: auto; /* 덮여 있는 동안에는 뒤 화면을 누르지 못하게 한다 */
+}
+
+.cloud-transition[data-phase="opening"] {
+  pointer-events: none; /* 열리는 동안과 끝난 뒤에는 터치를 막지 않는다 */
+}
+
+.cloud {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-repeat: no-repeat;
+  will-change: transform;
+}
+
+.cloud-left { left: 0; --cloud-off: -150%; }
+.cloud-right { right: 0; --cloud-off: 150%; }
+.cloud-back { width: 66%; }
+/* 앞쪽 구름은 양쪽 몸통이 가운데에서 겹치도록 몸통 길이(너비 - 안쪽 여유)를 50%보다 길게 둔다 */
+.cloud-front { width: 60%; }
+
+.cloud-back.cloud-left {
+  background-image:
+    radial-gradient(circle 12cqw at calc(100% - 12cqw) 5%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 16cqw at calc(100% - 16cqw) 19%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 11cqw at calc(100% - 11cqw) 33%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 17cqw at calc(100% - 17cqw) 47%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 13cqw at calc(100% - 13cqw) 62%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 16cqw at calc(100% - 16cqw) 77%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 12cqw at calc(100% - 12cqw) 92%, var(--color-cloud-back) 97%, transparent 100%),
+    linear-gradient(var(--color-cloud-back), var(--color-cloud-back));
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, calc(100% - 9cqw) 100%;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, left top;
+}
+
+.cloud-back.cloud-right {
+  background-image:
+    radial-gradient(circle 12cqw at 12cqw 5%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 16cqw at 16cqw 19%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 11cqw at 11cqw 33%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 17cqw at 17cqw 47%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 13cqw at 13cqw 62%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 16cqw at 16cqw 77%, var(--color-cloud-back) 97%, transparent 100%),
+    radial-gradient(circle 12cqw at 12cqw 92%, var(--color-cloud-back) 97%, transparent 100%),
+    linear-gradient(var(--color-cloud-back), var(--color-cloud-back));
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, calc(100% - 9cqw) 100%;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, right top;
+}
+
+.cloud-front.cloud-left {
+  background-image:
+    radial-gradient(circle 14cqw at calc(100% - 14cqw) 10%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 11cqw at calc(100% - 11cqw) 25%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 17cqw at calc(100% - 17cqw) 40%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 12cqw at calc(100% - 12cqw) 55%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 16cqw at calc(100% - 16cqw) 70%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 12cqw at calc(100% - 12cqw) 84%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 15cqw at calc(100% - 15cqw) 97%, var(--color-card) 97%, transparent 100%),
+    linear-gradient(var(--color-card), var(--color-card));
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, calc(100% - 8cqw) 100%;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, left top;
+}
+
+.cloud-front.cloud-right {
+  background-image:
+    radial-gradient(circle 14cqw at 14cqw 10%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 11cqw at 11cqw 25%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 17cqw at 17cqw 40%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 12cqw at 12cqw 55%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 16cqw at 16cqw 70%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 12cqw at 12cqw 84%, var(--color-card) 97%, transparent 100%),
+    radial-gradient(circle 15cqw at 15cqw 97%, var(--color-card) 97%, transparent 100%),
+    linear-gradient(var(--color-card), var(--color-card));
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, calc(100% - 8cqw) 100%;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, right top;
+}
+
+@keyframes cloud-close {
+  from { transform: translateX(var(--cloud-off)); }
+  to { transform: translateX(0); }
+}
+
+@keyframes cloud-open {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--cloud-off)); }
+}
+
+.cloud-transition[data-phase="closing"] .cloud {
+  animation: cloud-close var(--cloud-close) cubic-bezier(.5, 0, .8, .6) both;
+}
+
+.cloud-transition[data-phase="closed"] .cloud {
+  transform: translateX(0);
+}
+
+.cloud-transition[data-phase="opening"] .cloud {
+  animation: cloud-open var(--cloud-open) cubic-bezier(.2, .6, .2, 1) both;
+}
+
+/* 앞쪽 구름은 뒤쪽 구름을 살짝 늦게 따라온다 */
+.cloud-transition[data-phase="closing"] .cloud-front,
+.cloud-transition[data-phase="opening"] .cloud-front {
+  animation-delay: var(--cloud-front-delay);
+}
+
+/* 동작 줄이기: 구름이 움직이지 않고 짧게 나타났다 사라진다 */
+@keyframes cloud-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cloud-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-transition[data-phase] .cloud {
+    transform: none;
+  }
+
+  .cloud-transition[data-phase="closing"] .cloud {
+    animation: cloud-fade-in var(--cloud-close) linear both;
+  }
+
+  .cloud-transition[data-phase="opening"] .cloud {
+    animation: cloud-fade-out var(--cloud-open) linear both;
+  }
+}
