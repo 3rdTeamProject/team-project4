@@ -149,6 +149,7 @@ export const api = {
   pointLogs: (offset = 0, limit = 20) => request(`/me/point-logs?offset=${offset}&limit=${limit}`),
   updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
   diagnosisQuota: () => request('/diagnoses/quota'),
+  diagnosisHistory: (page = 1, plantingId = '') => request(`/diagnoses/history?${new URLSearchParams({ page, page_size: 10, ...(plantingId ? { planting_id: plantingId } : {}) })}`),
   createDiagnosis: (formData, idempotencyKey) =>
     diagnosisRequest('/diagnoses', {
       method: 'POST',

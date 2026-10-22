@@ -9,7 +9,7 @@ from datetime import datetime, time, timedelta
 from typing import Callable, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 from openai import APIStatusError, AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -443,6 +443,7 @@ def register_diagnoses(
                 user_id=user["id"],
                 planting_id=planting_id,
                 usage_date=current.astimezone(KST).date(),
+                created_at=current,
                 status="reserved",
                 idempotency_key=idempotency_key,
                 request_fingerprint=fingerprint,
@@ -517,6 +518,12 @@ def register_diagnoses(
 
         completed = now_kst()
         result["is_demo"] = service.is_demo
+        result["metadata"] = {
+            "planting_id": planting_id,
+            "crop_name": crop_name,
+            "symptoms": symptoms,
+            "description": description,
+        }
         with engine.begin() as conn:
             conn.execute(
                 update(requests)
@@ -590,6 +597,63 @@ def register_diagnoses(
                 demo_outcome=test_outcome,
             )
 
+    def history_metadata(row):
+        result = row["result"] if isinstance(row["result"], dict) else {}
+        saved = result.get("metadata")
+        saved = saved if isinstance(saved, dict) else {}
+        return {
+            "planting_id": row["planting_id"],
+            "crop_name": saved.get("crop_name") if isinstance(saved.get("crop_name"), str) else None,
+            "symptoms": [s for s in saved.get("symptoms", []) if isinstance(s, str)]
+            if isinstance(saved.get("symptoms"), list) else [],
+            "description": saved.get("description") if isinstance(saved.get("description"), str) else "",
+        }
+
+    @router.get("/history")
+    def read_diagnosis_history(
+        page: int = Query(1, ge=1),
+        page_size: int = Query(10, ge=1, le=50),
+        planting_id: int | None = Query(None, ge=1),
+        user=Depends(get_current_user),
+    ):
+        conditions = [
+            requests.c.user_id == user["id"],
+            requests.c.status == "completed",
+            requests.c.outcome.in_(["diagnosed", "uncertain"]),
+            requests.c.is_demo.is_(False),
+        ]
+        with engine.connect() as conn:
+            # Options cover all of this user's history, independently of the current page/filter.
+            options = conn.execute(
+                select(requests).where(*conditions)
+                .order_by(requests.c.created_at.desc(), requests.c.request_id.desc())
+            ).mappings().all()
+            if planting_id is not None:
+                conditions.append(requests.c.planting_id == planting_id)
+            total = conn.execute(select(func.count()).select_from(requests).where(*conditions)).scalar_one()
+            rows = conn.execute(
+                select(requests).where(*conditions)
+                .order_by(requests.c.created_at.desc(), requests.c.request_id.desc())
+                .offset((page - 1) * page_size).limit(page_size)
+            ).mappings().all()
+        filters = {}
+        for row in options:
+            info = history_metadata(row)
+            if row["planting_id"] is not None:
+                filters.setdefault(row["planting_id"], info)
+        return {
+            "items": [{
+                "request_id": row["request_id"],
+                "outcome": row["outcome"],
+                "created_at": row["created_at"].isoformat(),
+                "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+                "result": row["result"],
+                **history_metadata(row),
+            } for row in rows],
+            "total": total, "page": page, "page_size": page_size,
+            "plantings": list(filters.values()),
+        }
+
     @router.get("/requests/{request_id}")
     def read_diagnosis_request(request_id: str, user=Depends(get_current_user)):
         with engine.connect() as conn:
@@ -602,6 +666,7 @@ def register_diagnoses(
         if row is None:
             raise HTTPException(404, "진단 요청을 찾을 수 없습니다.")
         return {
+            **history_metadata(row),
             "request_id": row["request_id"],
             "status": row["status"],
             "outcome": row["outcome"],

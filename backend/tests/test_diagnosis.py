@@ -229,6 +229,66 @@ class DiagnosisQuotaTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
 
+    def test_history_metadata_ownership_filter_and_pagination(self):
+        first_planting = self.add_growing_plant()
+        second_planting = self.add_growing_plant(client_id="other-farm")
+        self.add_growing_plant(user_id=2)
+        first = self.post_diagnosis("history-first").json()
+        self.analysis.failure = "uncertain"
+        second = self.post_diagnosis("history-second", farm_client_id="other-farm").json()
+        self.post_diagnosis("history-other-user", user_id=2)
+        self.post_diagnosis("history-demo", path="/diagnoses/demo")
+        self.analysis.failure = "after"
+        self.post_diagnosis("history-unknown")
+
+        history = self.client.get("/diagnoses/history?page_size=1", headers=self.headers()).json()
+        self.assertEqual(history["total"], 2)
+        self.assertEqual(len(history["items"]), 1)
+        self.assertEqual(history["items"][0]["request_id"], second["request_id"])
+        self.assertEqual(history["items"][0]["outcome"], "uncertain")
+        self.assertEqual(history["items"][0]["symptoms"], ["잎 변색"])
+        next_page = self.client.get("/diagnoses/history?page_size=1&page=2", headers=self.headers()).json()
+        self.assertEqual(next_page["items"][0]["request_id"], first["request_id"])
+        self.assertEqual({p["planting_id"] for p in history["plantings"]}, {first_planting, second_planting})
+        filtered = self.client.get(f"/diagnoses/history?planting_id={first_planting}", headers=self.headers()).json()
+        self.assertEqual(filtered["total"], 1)
+        self.assertEqual(filtered["items"][0]["request_id"], first["request_id"])
+        detail = self.client.get(f"/diagnoses/requests/{first['request_id']}", headers=self.headers()).json()
+        self.assertEqual(detail["crop_name"], "상추")
+        self.assertEqual(detail["description"], "잎에 변화가 보여요.")
+        denied = self.client.get(f"/diagnoses/requests/{first['request_id']}", headers=self.headers(2))
+        self.assertEqual(denied.status_code, 404)
+        self.assertNotEqual(self.client.get("/diagnoses/history").status_code, 200)
+        self.assertEqual(self.client.get("/diagnoses/history?page=0", headers=self.headers()).status_code, 422)
+        self.assertEqual(self.client.get("/diagnoses/history?page_size=51", headers=self.headers()).status_code, 422)
+
+        # A planting deleted later must not erase the saved name or analysis.
+        with self.engine.begin() as conn:
+            conn.execute(self.requests.update().where(
+                self.requests.c.request_id == first["request_id"]
+            ).values(planting_id=None))
+        saved = self.client.get(f"/diagnoses/requests/{first['request_id']}", headers=self.headers()).json()
+        self.assertIsNone(saved["planting_id"])
+        self.assertEqual(saved["crop_name"], "상추")
+        self.assertEqual(saved["result"]["status"], "diagnosed")
+
+    def test_history_handles_legacy_metadata_and_deleted_planting(self):
+        self.add_growing_plant()
+        response = self.post_diagnosis("history-legacy").json()
+        with self.engine.begin() as conn:
+            row = conn.execute(select(self.requests)).mappings().one()
+            legacy_result = dict(row["result"])
+            legacy_result.pop("metadata")
+            conn.execute(self.requests.update().values(result=legacy_result, planting_id=None))
+        history = self.client.get("/diagnoses/history", headers=self.headers()).json()
+        self.assertEqual(history["total"], 1)
+        self.assertIsNone(history["items"][0]["crop_name"])
+        self.assertEqual(history["items"][0]["symptoms"], [])
+        self.assertEqual(history["plantings"], [])
+        detail = self.client.get(f"/diagnoses/requests/{response['request_id']}", headers=self.headers()).json()
+        self.assertEqual(detail["result"]["status"], "diagnosed")
+        self.assertEqual(detail["description"], "")
+
     def test_initial_quota_and_three_uses_reject_fourth_without_call(self):
         self.add_growing_plant()
         self.assertEqual(self.quota()["remaining_count"], 3)
