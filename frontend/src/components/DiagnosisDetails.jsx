@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import DiagnosisFailure from './DiagnosisFailure.jsx'
 import DiagnosisLoading from './DiagnosisLoading.jsx'
 import DiagnosisResult from './DiagnosisResult.jsx'
+import useDiagnosisQuota from './useDiagnosisQuota.js'
 
 const CROP_NAMES = {
   tomato: '방울토마토',
@@ -24,6 +26,7 @@ const PHOTO_SLOTS = [
 const ACCEPTED_PHOTO_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024
 const PENDING_DIAGNOSIS_KEY = 'pending_ai_diagnosis_request'
+const DELAYED_DIAGNOSIS_MESSAGE = 'AI 진단 결과를 확인하는 데 시간이 오래 걸리고 있습니다. 서버 또는 네트워크 연결 상태에 따라 지연될 수 있습니다. 이미 진단이 진행 중일 수 있으니 결과를 다시 확인해 주세요.'
 
 const DIAGNOSIS_DEMOS = {
   diagnosed: {
@@ -88,6 +91,18 @@ function readPendingDiagnosis() {
   }
 }
 
+function diagnosisDay(value) {
+  // A timestamp without an offset is ambiguous; never expire it by guessing
+  // the PC's timezone. Legacy attempts can learn their date from the server.
+  if (typeof value !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/i.test(value)) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date)
+  return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type).value).join('-')
+}
+
 async function fingerprintDiagnosis(input, crop, photos) {
   const photoHashes = {}
   for (const slot of ['close', 'whole', 'back']) {
@@ -119,11 +134,11 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   const [gardenLoading, setGardenLoading] = useState(true)
   const [gardenError, setGardenError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
-  const [summary, setSummary] = useState(null)
-  const [summaryLoading, setSummaryLoading] = useState(true)
-  const [summaryError, setSummaryError] = useState('')
-  const [quota, setQuota] = useState(null)
-  const [quotaError, setQuotaError] = useState('')
+  const [recentRecords, setRecentRecords] = useState([])
+  const [recentLoading, setRecentLoading] = useState(true)
+  const [recentError, setRecentError] = useState('')
+  const [recentRefreshKey, setRecentRefreshKey] = useState('')
+  const { quota, quotaLoading, quotaError, refreshQuota } = useDiagnosisQuota()
   const [submitting, setSubmitting] = useState(false)
   const [photoError, setPhotoError] = useState('')
   const [missingRequirement, setMissingRequirement] = useState('')
@@ -136,8 +151,15 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   const closePhotoSectionRef = useRef(null)
   const idempotencyKey = useRef(pendingAttemptState)
   const submitLock = useRef(false)
+  const statusCheckLock = useRef(false)
+  const mounted = useRef(true)
   const crops = useMemo(() => getGrowingCrops(farms, cropNames), [farms, cropNames])
   const selectedCrop = crops.find(crop => crop.id === diagnosisInput.cropId)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   useEffect(() => {
     const target = {
@@ -176,34 +198,30 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         if (!cancelled) setGardenLoading(false)
       })
 
-    api.mySummary()
-      .then(data => {
-        if (!cancelled) setSummary(data)
-      })
-      .catch(error => {
-        if (!cancelled) setSummaryError(`진단 기록 정보를 불러오지 못했어요. ${error.message}`)
-      })
-      .finally(() => {
-        if (!cancelled) setSummaryLoading(false)
-      })
-
-    api.diagnosisQuota()
-      .then(data => {
-        if (!cancelled) {
-          setQuota(data)
-          setQuotaError('')
-        }
-      })
-      .catch(error => {
-        if (!cancelled) setQuotaError(`진단 가능 횟수를 확인하지 못했어요. ${error.message}`)
-      })
-
     return () => {
       cancelled = true
       Object.values(ownedPhotoUrls.current).forEach(url => URL.revokeObjectURL(url))
       ownedPhotoUrls.current = {}
     }
   }, [reloadKey])
+
+  useEffect(() => {
+    let cancelled = false
+    setRecentLoading(true)
+    setRecentError('')
+    api.diagnosisHistory()
+      .then(data => {
+        // The history endpoint filters completed, non-demo outcomes and orders newest first.
+        if (!cancelled) setRecentRecords(data.items.slice(0, 3))
+      })
+      .catch(() => {
+        if (!cancelled) setRecentError('최근 진단을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+      })
+      .finally(() => {
+        if (!cancelled) setRecentLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [recentRefreshKey])
 
   function savePendingAttempt(attempt) {
     idempotencyKey.current = attempt
@@ -219,15 +237,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
     idempotencyKey.current = null
     setPendingAttemptState(null)
     sessionStorage.removeItem(PENDING_DIAGNOSIS_KEY)
-  }
-
-  function refreshQuota() {
-    api.diagnosisQuota()
-      .then(data => {
-        setQuota(data)
-        setQuotaError('')
-      })
-      .catch(error => setQuotaError(`진단 가능 횟수를 다시 확인하지 못했어요. ${error.message}`))
   }
 
   function toggleSymptom(symptom) {
@@ -298,26 +307,33 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
     return formData
   }
 
-  function updateQuotaFromResult(result) {
-    if (result.quota) {
-      setQuota(result.quota)
-      setQuotaError('')
-    } else {
-      refreshQuota()
-    }
-  }
-
   function applyDiagnosisResponse(result) {
-    if (result.status === 'limit') {
-      setFlow({ screen: 'result', source: 'api', result })
+    if (result.status === 'rejected_before_creation'
+      && result.request_created === false && !result.requestId && !result.request_id) {
       clearPendingAttempt()
-      updateQuotaFromResult(result)
+      refreshQuota({ invalidate: true })
+      setFlow({
+        screen: 'error', source: 'api', retryMode: 'new',
+        message: result.detail || '진단 요청이 접수되지 않았어요. 입력 내용을 확인하고 다시 시도해 주세요.',
+      })
+      return
+    }
+    if (result.status === 'limit') {
+      setFlow({ screen: 'result', source: 'api', result: {
+        ...result, limitResetAt: result.quota?.reset_at ?? result.nextAvailableAt,
+      } })
+      // A preflight quota check has not submitted a new request. Retain an
+      // older pending request so its status can still be queried.
+      if (!result.quota) clearPendingAttempt()
+      // A preflight limit already came from the quota GET; avoid a duplicate read.
+      if (!result.quota) refreshQuota({ invalidate: true })
       return
     }
     if (result.status === 'diagnosed' || result.status === 'uncertain') {
+      if (!result.isDemo && result.requestId) setRecentRefreshKey(result.requestId)
       setFlow({ screen: 'result', source: 'api', result })
       clearPendingAttempt()
-      updateQuotaFromResult(result)
+      refreshQuota({ invalidate: true })
       return
     }
     if (result.status === 'processing' || result.status === 'reserved') {
@@ -332,6 +348,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
       return
     }
     if (result.status === 'unknown') {
+      refreshQuota({ invalidate: true })
       const attempt = idempotencyKey.current
       if (attempt) savePendingAttempt({ ...attempt, requestId: result.requestId ?? attempt.requestId, status: 'unknown' })
       setFlow({
@@ -354,15 +371,11 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         retryMode: 'new',
         message: result.detail || '분석을 시작하기 전에 요청을 완료하지 못했어요.',
       })
-      refreshQuota()
+      refreshQuota({ invalidate: true })
       return
     }
-    setFlow({
-      screen: 'error',
-      source: 'api',
-      retryMode: 'same',
-      message: result.detail || '진단 응답을 확인할 수 없어요. 같은 요청의 상태를 확인해 주세요.',
-    })
+    // Unrecognized error payloads are not proof that no request was created.
+    applyDiagnosisResponse({ ...result, status: 'unknown' })
   }
 
   async function sendDiagnosis() {
@@ -370,16 +383,21 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
     submitLock.current = true
     setSubmitting(true)
     setNotice('')
+    let submittedKey
     try {
       const fingerprint = await fingerprintDiagnosis(diagnosisInput, selectedCrop, photos)
       const pendingAttempt = readPendingDiagnosis()
+      const pendingDay = diagnosisDay(pendingAttempt?.createdAt)
+      const previousDay = pendingDay && pendingDay < diagnosisDay(new Date(Date.now()).toISOString())
       const isRecovery = Boolean(
         pendingAttempt
+        && !previousDay
         && pendingAttempt.fingerprint === fingerprint
       )
 
       if (
         pendingAttempt
+        && !previousDay
         && ['submitting', 'processing', 'reserved', 'unknown'].includes(pendingAttempt.status)
         && !isRecovery
       ) {
@@ -400,13 +418,8 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
       }
 
       if (!isRecovery) {
-        let currentQuota
-        try {
-          currentQuota = await api.diagnosisQuota()
-          setQuota(currentQuota)
-          setQuotaError('')
-        } catch (error) {
-          setQuotaError(`진단 가능 횟수를 확인하지 못했어요. ${error.message}`)
+        const currentQuota = await refreshQuota()
+        if (!currentQuota) {
           setFlow({
             screen: 'error',
             source: 'api',
@@ -430,12 +443,17 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
       const attempt = isRecovery
         ? pendingAttempt
-        : { idempotencyKey: makeIdempotencyKey(), fingerprint, status: 'submitting' }
+        : { idempotencyKey: makeIdempotencyKey(), fingerprint, status: 'submitting', createdAt: new Date(Date.now()).toISOString() }
       savePendingAttempt(attempt)
+      submittedKey = attempt.idempotencyKey
       setFlow({ screen: 'loading', source: 'api', requestId: attempt.requestId ?? null, pollAttempts: 0 })
       const result = await api.createDiagnosis(createDiagnosisFormData(), attempt.idempotencyKey)
+      if (!mounted.current || readPendingDiagnosis()?.idempotencyKey !== attempt.idempotencyKey) return
       applyDiagnosisResponse(result)
-    } catch (error) {
+    } catch {
+      if (!mounted.current) return
+      if (submittedKey && readPendingDiagnosis()?.idempotencyKey !== submittedKey) return
+      refreshQuota({ invalidate: true })
       const attempt = idempotencyKey.current
       if (attempt) savePendingAttempt({ ...attempt, status: 'unknown' })
       setFlow({
@@ -443,12 +461,12 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         source: 'api',
         status: 'unknown',
         requestId: idempotencyKey.current?.requestId,
-        retryMode: 'same',
-        message: `요청 응답을 받지 못했어요. 같은 입력으로 다시 시도하면 동일한 요청을 복구합니다. ${error.message || ''}`.trim(),
+        retryMode: 'status',
+        message: DELAYED_DIAGNOSIS_MESSAGE,
       })
     } finally {
       submitLock.current = false
-      setSubmitting(false)
+      if (mounted.current) setSubmitting(false)
     }
   }
 
@@ -471,15 +489,30 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
     sendDiagnosis()
   }
 
-  async function recoverRequestStatus(attempt) {
-    if (!attempt?.requestId) return false
+  async function recoverRequestStatus(attempt, manual = false) {
+    if (!attempt?.idempotencyKey) return false
+    const activeKey = readPendingDiagnosis()?.idempotencyKey
+    const isCurrent = () => mounted.current && readPendingDiagnosis()?.idempotencyKey === activeKey
     try {
-      const request = await api.diagnosisRequest(attempt.requestId)
+      const request = attempt.requestId
+        ? await api.diagnosisRequest(attempt.requestId)
+        : await api.diagnosisRequestByKey(attempt.idempotencyKey)
+      if (!isCurrent()) return false
+      attempt = { ...attempt, requestId: request.requestId ?? attempt.requestId }
+      savePendingAttempt(attempt)
+      if (diagnosisDay(request.created_at)) {
+        attempt = { ...attempt, createdAt: request.created_at }
+        savePendingAttempt(attempt)
+      }
       if (request.status === 'completed' && request.result) {
         applyDiagnosisResponse({ ...request.result, requestId: attempt.requestId })
       } else if (request.status === 'processing' || request.status === 'reserved') {
         savePendingAttempt({ ...attempt, status: request.status })
-        setFlow({ screen: 'loading', source: 'api', requestId: attempt.requestId, pollAttempts: 0 })
+        setFlow(manual ? {
+          screen: 'error', source: 'api', status: request.status,
+          requestId: attempt.requestId, retryMode: 'status',
+          message: 'AI 진단이 아직 진행 중입니다. 잠시 후 진단 결과를 다시 확인해 주세요. 재확인은 새 분석을 실행하지 않습니다.',
+        } : { screen: 'loading', source: 'api', requestId: attempt.requestId, pollAttempts: 0 })
       } else {
         applyDiagnosisResponse({
           status: request.status,
@@ -488,7 +521,9 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         })
       }
       return true
-    } catch (error) {
+    } catch {
+      if (!isCurrent()) return false
+      refreshQuota({ invalidate: true })
       savePendingAttempt({ ...attempt, status: 'unknown' })
       setFlow({
         screen: 'error',
@@ -496,7 +531,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         status: 'unknown',
         requestId: attempt.requestId,
         retryMode: 'status',
-        message: `요청 상태를 불러오지 못했어요. ${error.message}`,
+        message: '진단 요청의 접수 여부 또는 결과를 확인할 수 없습니다. 아직 처리 중일 수 있으므로 잠시 후 다시 확인해 주세요. 새로운 분석 요청은 보내지 않았습니다.',
       })
       return false
     }
@@ -504,22 +539,26 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   async function checkRequestStatus(requestId) {
     const attempt = readPendingDiagnosis()
-    if (!attempt || attempt.requestId !== requestId) return
-    setFlow({ screen: 'loading', source: 'api', requestId, pollAttempts: 0 })
-    await recoverRequestStatus(attempt)
+    if (!attempt || (requestId && attempt.requestId !== requestId) || statusCheckLock.current) return
+    statusCheckLock.current = true
+    try {
+      setFlow({ screen: 'error', source: 'api', status: 'unknown', retryMode: 'status', message: '저장된 진단 결과를 확인하고 있습니다.' })
+      await recoverRequestStatus(attempt, true)
+    } finally {
+      statusCheckLock.current = false
+    }
   }
 
   useEffect(() => {
     const attempt = readPendingDiagnosis()
     if (!attempt) return
     idempotencyKey.current = attempt
-    if (attempt.requestId) recoverRequestStatus(attempt)
+    recoverRequestStatus(attempt)
   }, [])
 
   function retryCurrentRequest() {
-    if (flow.retryMode === 'status' && flow.requestId) {
-      checkRequestStatus(flow.requestId)
-      return
+    if (flow.retryMode === 'status' || flow.retryMode === 'same') {
+      return checkRequestStatus(flow.requestId)
     }
     sendDiagnosis()
   }
@@ -538,6 +577,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   }
 
   function returnToForm() {
+    refreshQuota()
     setFlow({ screen: 'form' })
     setNotice('')
   }
@@ -569,7 +609,12 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
             savePendingAttempt({ ...attempt, status: request.status })
           }
           setFlow(current => current.screen === 'loading' && current.requestId === flow.requestId
-            ? { ...current, pollAttempts: flow.pollAttempts + 1 }
+            ? flow.pollAttempts + 1 >= 20
+              ? {
+                  screen: 'error', source: 'api', status: request.status,
+                  requestId: flow.requestId, retryMode: 'status', message: DELAYED_DIAGNOSIS_MESSAGE,
+                }
+              : { ...current, pollAttempts: flow.pollAttempts + 1 }
             : current)
         } else {
           applyDiagnosisResponse({
@@ -579,6 +624,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
           })
         }
       } catch (error) {
+        if (!cancelled) refreshQuota({ invalidate: true })
         if (!cancelled) {
           const attempt = readPendingDiagnosis()
           if (attempt?.requestId === flow.requestId) {
@@ -602,6 +648,33 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
     }
   }, [flow.screen, flow.source, flow.requestId, flow.pollAttempts])
 
+  useEffect(() => {
+    if (flow.screen !== 'result' || flow.source !== 'api' || flow.result?.status !== 'limit'
+      || quotaLoading || quotaError || !quota || quota.remaining_count <= 0) return
+    const oldResetDay = diagnosisDay(flow.result.limitResetAt)
+    const newResetDay = diagnosisDay(quota.reset_at)
+    const today = diagnosisDay(new Date(Date.now()).toISOString())
+    if (oldResetDay && newResetDay && newResetDay > oldResetDay && today >= oldResetDay) {
+      // Change only the view, preserving uploaded files, inputs and pending IDs.
+      // A successful server quota refresh never starts an analysis.
+      setFlow(current => current.result === flow.result ? { screen: 'form' } : current)
+    }
+  }, [flow.screen, flow.source, flow.result, quota, quotaLoading, quotaError])
+
+  const quotaNotice = <section className="diagnosis-detail-card" aria-live="polite">
+    <h2>오늘의 AI 상세 진단</h2>
+    <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있으며, 외부 AI 상세 진단에만 무료 횟수가 적용돼요.</p>
+    {quota && <p>
+      오늘 남은 무료 상세 진단: {quota.remaining_count}/{quota.daily_limit}회
+      {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
+    </p>}
+    {quotaLoading && <p role="status">남은 횟수를 확인하는 중이에요.</p>}
+    {quotaError && <div role="alert">
+      <p className="diagnosis-detail-error">{quotaError}</p>
+      <button type="button" className="btn secondary" onClick={() => refreshQuota()}>횟수 다시 확인</button>
+    </div>}
+  </section>
+
   if (flow.screen === 'loading') {
     return (
       <DiagnosisLoading
@@ -617,30 +690,40 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   if (flow.screen === 'error') {
     return (
+      <>
       <DiagnosisFailure
         message={flow.message}
         isDemo={flow.source === 'demo'}
         status={flow.status}
         retryLabel={flow.retryMode === 'status'
-          ? '요청 상태 확인하기'
+          ? '진단 결과 다시 확인'
           : flow.retryMode === 'same'
-            ? '같은 요청 복구하기'
+            ? '진단 결과 다시 확인'
             : '분석 다시 요청하기'}
         onRetry={flow.source === 'demo' ? returnToForm : retryCurrentRequest}
         onBack={returnToForm}
       />
+      {flow.source !== 'demo' && quotaNotice}
+      </>
     )
   }
 
   if (flow.screen === 'result') {
+    // The live card is authoritative; limit snapshots may predate midnight.
+    const result = flow.source !== 'demo' && flow.result?.status === 'limit'
+      ? { ...flow.result, remainingCount: undefined, nextAvailableAt: undefined }
+      : flow.result
     return (
+      <>
       <DiagnosisResult
-        result={flow.result}
+        result={result}
         cropName={selectedCrop?.cropName}
         source={flow.source}
         onRetake={returnToForm}
         onRestartObservation={onRestartObservation}
       />
+      {flow.source !== 'demo' && quotaNotice}
+      </>
     )
   }
 
@@ -652,17 +735,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         <p>선택한 작물과 증상, 사진은 AI 상세 진단 요청 시 분석 서버로 전송됩니다.</p>
       </section>
 
-      <section className="diagnosis-detail-card" aria-live="polite">
-        <h2>오늘의 AI 상세 진단</h2>
-        <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있으며, 외부 AI 상세 진단에만 무료 횟수가 적용돼요.</p>
-        {quota && (
-          <p>
-            오늘 남은 무료 상세 진단: {quota.remaining_count}/{quota.daily_limit}회
-            {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
-          </p>
-        )}
-        {quotaError && <p className="diagnosis-detail-error" role="alert">{quotaError}</p>}
-      </section>
+      {quotaNotice}
 
       <section className="diagnosis-detail-card" ref={cropSectionRef}>
         <div className="diagnosis-detail-heading">
@@ -677,9 +750,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
             <button type="button" className="diagnosis-inline-retry" onClick={() => {
               setGardenError('')
               setGardenLoading(true)
-              setSummary(null)
-              setSummaryError('')
-              setSummaryLoading(true)
               setReloadKey(value => value + 1)
             }}>다시 불러오기</button>
           </div>
@@ -844,23 +914,45 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
       <section className="diagnosis-recent-section">
         <h2>최근 진단</h2>
-        {summaryLoading && <p role="status">진단 기록을 확인하는 중이에요.</p>}
-        {summaryError && <p className="diagnosis-detail-error" role="alert">{summaryError}</p>}
-        {!summaryLoading && !summaryError && summary?.diagnoses === 0 && (
-          <p>아직 진단 기록이 없어요.</p>
-        )}
-        {!summaryLoading && !summaryError && Number(summary?.diagnoses) > 0 && (
-          <p>진단 기록 {summary.diagnoses}건이 있어요. 최근 진단의 작물명·병해충명·날짜를 조회하는 API는 아직 연결되지 않았습니다.</p>
-        )}
+        {recentLoading && <p role="status">진단 기록을 확인하는 중이에요.</p>}
+        {recentError && <div role="alert">
+          <p className="diagnosis-detail-error">{recentError}</p>
+          <button type="button" className="btn secondary" onClick={() => setRecentRefreshKey(key => `${key}:retry`)}>다시 시도</button>
+        </div>}
+        {!recentLoading && !recentError && (recentRecords.length === 0 ? (
+          <p>아직 완료된 AI 상세 진단이 없습니다</p>
+        ) : (
+          <ul className="diagnosis-recent-list">
+            {recentRecords.map(record => {
+              const dateValue = record.completed_at || record.created_at
+              const date = new Date(dateValue)
+              const dateLabel = !dateValue || Number.isNaN(date.getTime()) ? '기록 없음'
+                : date.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+              return <li key={record.request_id}>
+                <Link className="diagnosis-recent-record" to={`/diagnosis/history/${encodeURIComponent(record.request_id)}`}>
+                  <span className="diagnosis-status-pill">{record.outcome === 'uncertain' ? '판단 어려움' : '진단 완료'}</span>
+                  <p>작물명: {record.crop_name?.trim() || '기록 없음'}</p>
+                  <p>진단 일시: {dateLabel} (한국 시간)</p>
+                  <p>선택 증상: {record.symptoms?.length ? record.symptoms.join(', ') : '기록 없음'}</p>
+                  <p>결과 요약: {(record.outcome === 'uncertain' ? record.result?.reason : record.result?.disease_name) || '기록 없음'}</p>
+                </Link>
+              </li>
+            })}
+          </ul>
+        ))}
+        <Link className="btn secondary" to="/diagnosis/history">전체 이력 보기</Link>
       </section>
 
       <div className="diagnosis-detail-actions">
         <button type="submit" className="btn primary" disabled={submitting}>AI 진단하기</button>
         {pendingAttemptState && (
+          <button type="button" className="btn secondary" onClick={() => checkRequestStatus(pendingAttemptState.requestId)}>진단 결과 다시 확인</button>
+        )}
+        {pendingAttemptState && (
           <p className="diagnosis-detail-notice" role="status">
             {pendingAttemptState.requestId
               ? '이전에 시작한 진단 요청 상태를 확인하고 있어요.'
-              : '이전 진단 요청의 결과를 복구하려면 같은 작물·증상·설명과 사진을 다시 선택해 주세요. 새로고침 후 사진 파일은 브라우저에 보관하지 않습니다.'}
+              : '이전 진단 요청은 진단 결과 다시 확인 버튼으로 조회할 수 있어요. 새로고침 후 사진 파일은 브라우저에 보관하지 않습니다.'}
           </p>
         )}
         {notice && <p className="diagnosis-detail-notice" role="status">{notice}</p>}

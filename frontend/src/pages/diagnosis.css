@@ -1150,3 +1150,26 @@
     animation: none;
   }
 }
+
+.diagnosis-recent-list {
+  display: grid;
+  gap: var(--space-gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diagnosis-recent-record {
+  display: grid;
+  gap: var(--space-gap);
+  padding: var(--space-card);
+  border-radius: var(--radius-small);
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.diagnosis-recent-record:focus-visible {
+  outline: solid var(--color-green-dark);
+}

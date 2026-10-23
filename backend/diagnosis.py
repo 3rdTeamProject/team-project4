@@ -6,11 +6,13 @@ import os
 import re
 import uuid
 from datetime import datetime, time, timedelta
-from typing import Callable, Literal
+from threading import Lock
+from typing import Awaitable, Callable, Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from openai import APIStatusError, AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import (
@@ -157,18 +159,20 @@ class OpenAIDiagnosisService:
 
     def __init__(self, client: AsyncOpenAI | None = None):
         self._client = client
+        self._prepare_lock = Lock()
 
     def prepare(self) -> None:
-        if self._client is not None:
-            return
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise DiagnosisServiceError("진단 서비스를 사용할 수 없습니다.", analysis_started=False)
-        self._client = AsyncOpenAI(
-            api_key=api_key,
-            max_retries=0,
-            timeout=OPENAI_TIMEOUT_SECONDS,
-        )
+        with self._prepare_lock:
+            if self._client is not None:
+                return
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise DiagnosisServiceError("진단 서비스를 사용할 수 없습니다.", analysis_started=False)
+            self._client = AsyncOpenAI(
+                api_key=api_key,
+                max_retries=0,
+                timeout=OPENAI_TIMEOUT_SECONDS,
+            )
 
     async def analyze(
         self,
@@ -176,7 +180,7 @@ class OpenAIDiagnosisService:
         symptoms: list[str],
         description: str,
         photos: dict[str, bytes | None],
-        on_start: Callable[[], None],
+        on_start: Callable[[], Awaitable[None]],
     ) -> dict:
         if self._client is None:
             raise DiagnosisServiceError("진단 서비스가 준비되지 않았습니다.", analysis_started=False)
@@ -214,7 +218,7 @@ class OpenAIDiagnosisService:
                 },
             })
 
-        on_start()
+        await on_start()
         try:
             completion = await self._client.chat.completions.parse(
                 model=OPENAI_MODEL,
@@ -264,13 +268,13 @@ class DevelopmentDiagnosisService:
         symptoms: list[str],
         description: str,
         photos: dict[str, bytes | None],
-        on_start: Callable[[], None],
+        on_start: Callable[[], Awaitable[None]],
         outcome: str,
     ) -> dict:
         if outcome == "error_before_analysis":
             raise DiagnosisServiceError("데모 입력 오류입니다.", analysis_started=False)
 
-        on_start()
+        await on_start()
         self.calls += 1
         if outcome == "error_during_analysis":
             raise DiagnosisServiceError("데모 분석 오류입니다.", analysis_started=True)
@@ -389,70 +393,112 @@ def register_diagnoses(
         }
         request_id = str(uuid.uuid4())
 
-        # Fail fast when the server is misconfigured; no quota reservation or provider request is made.
-        try:
-            service.prepare()
-        except DiagnosisServiceError as error:
-            raise HTTPException(503, str(error)) from error
+        def reserve_request():
+            """Own the connection, user lock and commit in one worker thread."""
+            with engine.begin() as conn:
+                locked = conn.execute(
+                    update(users).where(users.c.id == user["id"]).values(id=users.c.id)
+                ).rowcount
+                if not locked:
+                    raise HTTPException(401, "사용자를 찾을 수 없습니다.")
+                current = now_kst()
 
-        with engine.begin() as conn:
-            locked = conn.execute(
-                update(users).where(users.c.id == user["id"]).values(id=users.c.id)
-            ).rowcount
-            if not locked:
-                raise HTTPException(401, "사용자를 찾을 수 없습니다.")
-            current = now_kst()
+                # Replay lookup and reservation stay under the same user lock.
+                existing = conn.execute(
+                    select(requests).where(
+                        requests.c.user_id == user["id"],
+                        requests.c.idempotency_key == idempotency_key,
+                    )
+                ).mappings().first()
+                if existing:
+                    if existing["is_demo"] != service.is_demo:
+                        raise HTTPException(409, "데모와 실제 진단 요청은 같은 Idempotency-Key를 공유할 수 없습니다.")
+                    saved_result = existing["result"] if isinstance(existing["result"], dict) else {}
+                    saved = saved_result.get("metadata", {})
+                    saved = saved if isinstance(saved, dict) else {}
+                    original_planting_id = existing["planting_id"] or saved.get("planting_id")
+                    if original_planting_id is None:
+                        raise HTTPException(409, "기존 요청의 작물 정보를 확인할 수 없습니다. 요청 ID로 상태를 확인해 주세요.")
+                    if "farm_client_id" in saved and (
+                        saved["farm_client_id"] != farm_client_id or saved.get("plot_number") != plot_number
+                    ):
+                        raise HTTPException(409, "같은 Idempotency-Key로 다른 진단 내용을 요청할 수 없습니다.")
+                    if "farm_client_id" not in saved:
+                        # Validate legacy coordinates where still available, even
+                        # after harvest. Deleted completed records retain their
+                        # original planting ID in the result metadata.
+                        target = conn.execute(
+                            select(farms.c.client_id, plots.c.position)
+                            .select_from(plantings)
+                            .join(plots, plots.c.id == plantings.c.plot_id)
+                            .join(farms, farms.c.id == plots.c.farm_id)
+                            .where(plantings.c.id == original_planting_id, farms.c.user_id == user["id"])
+                        ).first()
+                        if target is not None and tuple(target) != (farm_client_id, plot_number):
+                            raise HTTPException(409, "같은 Idempotency-Key로 다른 진단 내용을 요청할 수 없습니다.")
+                    fingerprint = request_fingerprint(original_planting_id, symptoms, description, photos)
+                    if existing["request_fingerprint"] != fingerprint:
+                        raise HTTPException(409, "같은 Idempotency-Key로 다른 진단 내용을 요청할 수 없습니다.")
+                    return None, replay_response(existing)
 
-            planting = conn.execute(
-                select(plantings.c.id, crops.c.name)
-                .join(crops, crops.c.id == plantings.c.crop_id)
-                .join(plots, plots.c.id == plantings.c.plot_id)
-                .join(farms, farms.c.id == plots.c.farm_id)
-                .where(
-                    farms.c.client_id == farm_client_id,
-                    farms.c.user_id == user["id"],
-                    plots.c.position == plot_number,
-                    plantings.c.user_id == user["id"],
-                    plantings.c.status == "growing",
-                )
-            ).first()
-            if planting is None:
-                raise HTTPException(404, "사용자 소유의 재배 중인 작물을 찾을 수 없습니다.")
-            planting_id, crop_name = planting
-            fingerprint = request_fingerprint(planting_id, symptoms, description, photos)
+                # Only new diagnoses need provider preparation and a growing crop.
+                try:
+                    service.prepare()
+                except DiagnosisServiceError as error:
+                    raise HTTPException(503, str(error)) from error
 
-            existing = conn.execute(
-                select(requests).where(
-                    requests.c.user_id == user["id"],
-                    requests.c.idempotency_key == idempotency_key,
-                )
-            ).mappings().first()
-            if existing:
-                if existing["is_demo"] != service.is_demo:
-                    raise HTTPException(409, "데모와 실제 진단 요청은 같은 Idempotency-Key를 공유할 수 없습니다.")
-                if existing["request_fingerprint"] != fingerprint:
-                    raise HTTPException(409, "같은 Idempotency-Key로 다른 진단 내용을 요청할 수 없습니다.")
-                return replay_response(existing)
+                planting = conn.execute(
+                    select(plantings.c.id, crops.c.name)
+                    .join(crops, crops.c.id == plantings.c.crop_id)
+                    .join(plots, plots.c.id == plantings.c.plot_id)
+                    .join(farms, farms.c.id == plots.c.farm_id)
+                    .where(
+                        farms.c.client_id == farm_client_id,
+                        farms.c.user_id == user["id"],
+                        plots.c.position == plot_number,
+                        plantings.c.user_id == user["id"],
+                        plantings.c.status == "growing",
+                    )
+                ).first()
+                if planting is None:
+                    raise HTTPException(404, "사용자 소유의 재배 중인 작물을 찾을 수 없습니다.")
+                planting_id, crop_name = planting
+                fingerprint = request_fingerprint(planting_id, symptoms, description, photos)
+                request_metadata = {
+                    "planting_id": planting_id,
+                    "crop_name": crop_name,
+                    "farm_client_id": farm_client_id,
+                    "plot_number": plot_number,
+                    "symptoms": symptoms,
+                    "description": description,
+                }
 
-            quota = quota_snapshot(conn, requests, user["id"], current)
-            if not service.is_demo and quota["remaining_count"] == 0:
-                return JSONResponse(status_code=429, content={"status": "limit_exceeded", **quota})
+                quota = quota_snapshot(conn, requests, user["id"], current)
+                if not service.is_demo and quota["remaining_count"] == 0:
+                    return None, JSONResponse(status_code=429, content={"status": "limit_exceeded", **quota})
 
-            conn.execute(insert(requests).values(
-                request_id=request_id,
-                user_id=user["id"],
-                planting_id=planting_id,
-                usage_date=current.astimezone(KST).date(),
-                created_at=current,
-                status="reserved",
-                idempotency_key=idempotency_key,
-                request_fingerprint=fingerprint,
-                quota_reserved=not service.is_demo,
-                quota_consumed=False,
-                is_demo=service.is_demo,
-            ))
+                conn.execute(insert(requests).values(
+                    request_id=request_id,
+                    user_id=user["id"],
+                    planting_id=planting_id,
+                    usage_date=current.astimezone(KST).date(),
+                    created_at=current,
+                    status="reserved",
+                    idempotency_key=idempotency_key,
+                    request_fingerprint=fingerprint,
+                    quota_reserved=not service.is_demo,
+                    quota_consumed=False,
+                    is_demo=service.is_demo,
+                    result={"metadata": request_metadata},
+                ))
+            return request_metadata, None
 
-        def mark_analysis_started():
+        request_metadata, early_response = await run_in_threadpool(reserve_request)
+        if early_response is not None:
+            return early_response
+        crop_name = request_metadata["crop_name"]
+
+        def mark_analysis_started_db():
             started = now_kst()
             with engine.begin() as conn:
                 conn.execute(
@@ -460,6 +506,9 @@ def register_diagnoses(
                     .where(requests.c.request_id == request_id, requests.c.status == "reserved")
                     .values(status="processing", analysis_started_at=started)
                 )
+
+        async def mark_analysis_started():
+            await run_in_threadpool(mark_analysis_started_db)
 
         try:
             if service.is_demo:
@@ -473,17 +522,21 @@ def register_diagnoses(
         except DiagnosisServiceError as error:
             next_status = "unknown" if error.analysis_started else "failed_before_analysis"
             completed = now_kst()
-            with engine.begin() as conn:
-                conn.execute(
-                    update(requests)
-                    .where(requests.c.request_id == request_id)
-                    .values(
-                        status=next_status,
-                        quota_reserved=error.analysis_started and not service.is_demo,
-                        error_message=str(error),
-                        completed_at=completed,
+
+            def record_service_failure():
+                with engine.begin() as conn:
+                    conn.execute(
+                        update(requests)
+                        .where(requests.c.request_id == request_id)
+                        .values(
+                            status=next_status,
+                            quota_reserved=error.analysis_started and not service.is_demo,
+                            error_message=str(error),
+                            completed_at=completed,
+                        )
                     )
-                )
+
+            await run_in_threadpool(record_service_failure)
             status_code = error.response_status or (502 if error.analysis_started else 422)
             return JSONResponse(status_code=status_code, content={
                 "status": next_status,
@@ -494,20 +547,25 @@ def register_diagnoses(
             })
         except Exception:
             completed = now_kst()
-            with engine.begin() as conn:
-                analysis_started = conn.execute(
-                    select(requests.c.analysis_started_at).where(requests.c.request_id == request_id)
-                ).scalar_one_or_none() is not None
-                conn.execute(
-                    update(requests)
-                    .where(requests.c.request_id == request_id)
-                    .values(
-                        status="unknown" if analysis_started else "failed_before_analysis",
-                        quota_reserved=analysis_started and not service.is_demo,
-                        error_message="진단 서비스 처리 중 오류가 발생했습니다.",
-                        completed_at=completed,
+
+            def record_unexpected_failure():
+                with engine.begin() as conn:
+                    analysis_started = conn.execute(
+                        select(requests.c.analysis_started_at).where(requests.c.request_id == request_id)
+                    ).scalar_one_or_none() is not None
+                    conn.execute(
+                        update(requests)
+                        .where(requests.c.request_id == request_id)
+                        .values(
+                            status="unknown" if analysis_started else "failed_before_analysis",
+                            quota_reserved=analysis_started and not service.is_demo,
+                            error_message="진단 서비스 처리 중 오류가 발생했습니다.",
+                            completed_at=completed,
+                        )
                     )
-                )
+                return analysis_started
+
+            analysis_started = await run_in_threadpool(record_unexpected_failure)
             return JSONResponse(status_code=502, content={
                 "status": "unknown" if analysis_started else "failed_before_analysis",
                 "request_id": request_id,
@@ -516,33 +574,82 @@ def register_diagnoses(
                 "status_url": f"/diagnoses/requests/{request_id}",
             })
 
-        completed = now_kst()
-        result["is_demo"] = service.is_demo
-        result["metadata"] = {
-            "planting_id": planting_id,
-            "crop_name": crop_name,
-            "symptoms": symptoms,
-            "description": description,
-        }
-        with engine.begin() as conn:
-            conn.execute(
-                update(requests)
-                .where(requests.c.request_id == request_id, requests.c.status == "processing")
-                .values(
-                    status="completed",
-                    outcome=result["status"],
-                    result=result,
-                    quota_reserved=False,
-                    quota_consumed=not service.is_demo,
-                    completed_at=completed,
-                )
-            )
-            quota = quota_snapshot(conn, requests, user["id"], completed)
-        return {
-            **result,
-            "request_id": request_id,
-            "quota": quota if not service.is_demo else None,
-        }
+        def save_result():
+            """Commit or confirm durable data without crossing thread boundaries."""
+            completed = now_kst()
+            result["is_demo"] = service.is_demo
+            result["metadata"] = request_metadata
+            unexpected_row_count = False
+            try:
+                with engine.begin() as conn:
+                    written = conn.execute(
+                        update(requests)
+                        .where(
+                            requests.c.request_id == request_id,
+                            requests.c.user_id == user["id"],
+                            requests.c.status == "processing",
+                        )
+                        .values(
+                            status="completed",
+                            outcome=result["status"],
+                            result=result,
+                            quota_reserved=False,
+                            quota_consumed=not service.is_demo,
+                            completed_at=completed,
+                        )
+                    )
+                    if written.rowcount != 1:
+                        unexpected_row_count = True
+                        raise RuntimeError("Diagnosis result UPDATE did not affect exactly one row")
+                    quota = quota_snapshot(conn, requests, user["id"], completed)
+            except Exception:
+                # The transaction context has rolled back/closed. A lost commit
+                # acknowledgement is not proof of rollback; never reuse its failed
+                # connection or retry analysis. Verify only durable, owned data.
+                try:
+                    with engine.connect() as conn:
+                        saved = conn.execute(select(requests).where(
+                            requests.c.request_id == request_id,
+                            requests.c.user_id == user["id"],
+                        )).mappings().first()
+                        if (
+                            not unexpected_row_count
+                            and saved is not None and saved["status"] == "completed"
+                            and saved["is_demo"] == service.is_demo
+                            and not saved["quota_reserved"]
+                            and saved["quota_consumed"] == (not service.is_demo)
+                            and isinstance(saved["result"], dict)
+                        ):
+                            stored_result = saved["result"]
+                            validated = DiagnosisAnalysis.model_validate({
+                                key: stored_result[key] for key in DiagnosisAnalysis.model_fields
+                                if key in stored_result
+                            })
+                            if saved["outcome"] == validated.status and stored_result.get("is_demo") == service.is_demo:
+                                confirmed_quota = quota_snapshot(conn, requests, user["id"], now_kst())
+                                return {
+                                    **stored_result,
+                                    "request_id": request_id,
+                                    "quota": confirmed_quota if not service.is_demo else None,
+                                }
+                except Exception:
+                    # Unavailable DB or invalid/incomplete saved JSON: no success
+                    # claim and no invented result from the in-memory analysis.
+                    pass
+                return JSONResponse(status_code=503, content={
+                    "status": "unknown",
+                    "request_id": request_id,
+                    "is_demo": service.is_demo,
+                    "detail": "진단 결과의 저장 여부를 확인하지 못했습니다. 기존 요청의 상태를 다시 확인해 주세요.",
+                    "status_url": f"/diagnoses/requests/{request_id}",
+                })
+            return {
+                **result,
+                "request_id": request_id,
+                "quota": quota if not service.is_demo else None,
+            }
+
+        return await run_in_threadpool(save_result)
 
     @router.post("")
     async def create_diagnosis(
@@ -556,18 +663,43 @@ def register_diagnoses(
         idempotency_key: str = Header(..., alias="Idempotency-Key"),
         user=Depends(get_current_user),
     ):
-        return await process_request(
-            farm_client_id=farm_client_id,
-            plot_number=plot_number,
-            symptoms=symptoms,
-            description=description,
-            close_photo=close_photo,
-            whole_photo=whole_photo,
-            back_photo=back_photo,
-            idempotency_key=idempotency_key,
-            user=user,
-            service=actual_service,
-        )
+        try:
+            return await process_request(
+                farm_client_id=farm_client_id,
+                plot_number=plot_number,
+                symptoms=symptoms,
+                description=description,
+                close_photo=close_photo,
+                whole_photo=whole_photo,
+                back_photo=back_photo,
+                idempotency_key=idempotency_key,
+                user=user,
+                service=actual_service,
+            )
+        except HTTPException as error:
+            if error.status_code not in {404, 409, 413, 415, 422, 503}:
+                raise
+            # A preflight rejection can also happen on a replay. Only promise
+            # "not created" after checking this user's exact key in storage.
+            def read_existing_request_id():
+                with engine.connect() as conn:
+                    existing_id = conn.execute(
+                        select(requests.c.request_id).where(
+                            requests.c.user_id == user["id"],
+                            requests.c.idempotency_key == idempotency_key,
+                        )
+                    ).scalar_one_or_none()
+                return existing_id
+
+            existing_id = await run_in_threadpool(read_existing_request_id)
+            content = {
+                "detail": error.detail,
+                "status": "unknown" if existing_id else "rejected_before_creation",
+                "request_created": existing_id is not None,
+            }
+            if existing_id:
+                content["request_id"] = existing_id
+            return JSONResponse(status_code=error.status_code, content=content, headers=error.headers)
 
     if demo_enabled and demo_service is not None:
         @router.post("/demo")
@@ -653,6 +785,24 @@ def register_diagnoses(
             "total": total, "page": page, "page_size": page_size,
             "plantings": list(filters.values()),
         }
+
+    @router.get("/requests/by-idempotency-key")
+    def read_diagnosis_request_by_key(
+        idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        user=Depends(get_current_user),
+    ):
+        if not IDEMPOTENCY_KEY_PATTERN.fullmatch(idempotency_key):
+            raise HTTPException(422, "올바른 Idempotency-Key가 필요합니다.")
+        with engine.connect() as conn:
+            request_id = conn.execute(select(requests.c.request_id).where(
+                requests.c.user_id == user["id"],
+                requests.c.idempotency_key == idempotency_key,
+            )).scalar_one_or_none()
+        if request_id is None:
+            # Not found is an observation, not proof that an in-flight POST
+            # cannot commit later. This endpoint never reserves or analyzes.
+            raise HTTPException(404, "접수된 요청을 현재 확인할 수 없습니다.")
+        return read_diagnosis_request(request_id, user)
 
     @router.get("/requests/{request_id}")
     def read_diagnosis_request(request_id: str, user=Depends(get_current_user)):
