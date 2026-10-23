@@ -100,6 +100,17 @@ textarea{resize:vertical;min-height:100px}
 .menu-link{display:flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;gap:14px;font-size:14px;font-weight:750;width:100%}
 .menu-link .menu-icon{color:var(--green);width:22px;font-size:19px}
 .menu-link .chevron{margin-left:auto}
+.page:has(> .farm-list) .subtitle{font-size:14px;line-height:1.5;gap:9px}
+.page:has(> .farm-list) .subtitle .dot{width:10px;height:10px;flex:none}
+.page:has(> .farm-list) .farm-card{gap:7px;min-height:86px;padding:14px}
+.page:has(> .farm-list) .farm-info{min-width:0;margin-left:5px}
+.page:has(> .farm-list) .farm-card strong{font-size:18px;line-height:1.35;margin-bottom:5px}
+.page:has(> .farm-list) .farm-card small{font-size:14px;line-height:1.4}
+.page:has(> .farm-list) .farm-card .dot{width:10px;height:10px;flex:none;margin-left:auto}
+.page:has(> .farm-list) .farm-card .chevron{width:16px;height:24px;flex:none;display:grid;place-items:center;font-size:0}
+.page:has(> .farm-list) .farm-card .chevron::before{content:"";width:9px;height:9px;border-top:2px solid currentColor;border-right:2px solid currentColor;transform:translate(-2px,4px) rotate(45deg)}
+.page:has(> .farm-list) .outline-add{font-size:15px}
+.page:has(> .farm-list)+.footer .primary{font-size:15px}
 .menu-bottom{margin-top:auto;text-align:center;padding:24px;font-size:10px;color:#819077}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .stat{text-align:center;background:#fff;border:1px solid var(--line);padding:18px 4px;border-radius:14px}

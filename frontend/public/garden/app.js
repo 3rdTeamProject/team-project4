@@ -126,6 +126,6 @@ setInterval(()=>{if(view==='garden'&&!document.hidden)refreshWeather()},10*60*10
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='garden')refreshWeather()});
 
 view=window.GARDEN_VIEW||'farms';restoreView();
-render();
+if(!window.GARDEN_DEFER_RENDER)render();
 
 app.addEventListener('keydown',e=>{if(e.key==='Escape'){const picker=app.querySelector?.('.farm-picker[open]');if(picker){picker.open=false;picker.querySelector('summary').focus()}}});

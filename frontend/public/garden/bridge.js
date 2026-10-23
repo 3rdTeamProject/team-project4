@@ -7,6 +7,7 @@ window.addEventListener('message', event => {
   initialized = true;
   window.GARDEN_STORAGE_KEY = `woori-garden-user-${message.userId}`;
   window.GARDEN_VIEW = message.view;
+  window.GARDEN_DEFER_RENDER = true;
   localStorage.setItem(window.GARDEN_STORAGE_KEY, JSON.stringify(message.state));
   const script = document.createElement('script');
   script.src = 'app.js';
@@ -22,8 +23,18 @@ window.addEventListener('message', event => {
         const transition = document.createElement('script');
         transition.src = 'transition.js';
         document.body.append(transition);
+        window.GARDEN_DEFER_RENDER = false;
+        render();
+      };
+      tasks.onerror = () => {
+        window.GARDEN_DEFER_RENDER = false;
+        render();
       };
       document.body.append(tasks);
+    };
+    features.onerror = () => {
+      window.GARDEN_DEFER_RENDER = false;
+      render();
     };
     document.body.append(features);
     const report = () => parent.postMessage({type:'garden:height',height:Math.ceil(document.querySelector(".phone-shell").getBoundingClientRect().height)}, location.origin);
@@ -31,7 +42,10 @@ window.addEventListener('message', event => {
     report();
     hostFooter();
   };
-  document.body.append(script);
+  const imageBounds = document.createElement('script');
+  imageBounds.src = 'crop-image-bounds.js';
+  imageBounds.onload = imageBounds.onerror = () => document.body.append(script);
+  document.body.append(imageBounds);
 });
 // 화면 아래 버튼(.footer)은 이 화면이 iframe이라 스크롤을 따라오지 못한다. 바깥 페이지가 하단 고정 막대로 대신 보여 주고,
 // 눌렀을 때만 여기로 알려 준다. 버튼만 들어 있는 푸터만 옮기고, 글자나 입력이 섞인 푸터는 원래 자리에 둔다.
