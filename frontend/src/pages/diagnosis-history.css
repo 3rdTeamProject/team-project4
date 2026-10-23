@@ -1,0 +1,10 @@
+.diagnosis-history-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.diagnosis-history-record { display: block; color: var(--text); text-decoration: none; }
+.diagnosis-history-record:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.diagnosis-history-info { display: grid; gap: 8px; margin: 12px 0; }
+.diagnosis-history-info p { margin: 0; overflow-wrap: anywhere; }
+.diagnosis-history-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.diagnosis-history-filter { display: grid; gap: 8px; }
+.diagnosis-history-filter select { width: 100%; padding: 12px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card-bg); color: var(--text); font: inherit; }
+.diagnosis-history-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.diagnosis-history-pagination .btn { width: auto; min-width: 72px; }

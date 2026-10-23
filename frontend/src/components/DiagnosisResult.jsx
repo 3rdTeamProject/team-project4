@@ -32,6 +32,7 @@ export default function DiagnosisResult({
   result,
   cropName,
   source = 'api',
+  showActions = true,
   onRetake,
   onRestartObservation,
 }) {
@@ -71,7 +72,11 @@ export default function DiagnosisResult({
             {!isDemo && Number.isFinite(result.remainingCount) && result.remainingCount >= 0 && (
               <p>남은 외부 AI 진단 횟수: {result.remainingCount}회</p>
             )}
-            {!isDemo && result.nextAvailableAt && <p>다음 이용 가능 시점: {result.nextAvailableAt}</p>}
+            {!isDemo && result.nextAvailableAt && (
+              <p>
+                다음 무료 횟수 초기화: {new Date(result.nextAvailableAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)
+              </p>
+            )}
             <button type="button" className="btn primary" onClick={onRestartObservation}>잎 관찰 다시 하기</button>
             <Link className="btn secondary diagnosis-journal-link" to="/journals">재배일지 작성하기</Link>
             <ExpertGuidance />
@@ -84,7 +89,7 @@ export default function DiagnosisResult({
             {result.reason && <p>{result.reason}</p>}
             <ResultList title="추가 촬영 방법" items={result.retakeGuidance} />
             <ResultList title="추가 확인 사항" items={result.additionalChecks} />
-            <button type="button" className="btn primary" onClick={onRetake}>사진 다시 촬영하기</button>
+            {showActions && <button type="button" className="btn primary" onClick={onRetake}>사진 다시 촬영하기</button>}
             <ExpertGuidance />
           </>
         ) : (
@@ -96,9 +101,11 @@ export default function DiagnosisResult({
             <ResultList title="AI 판단 근거" items={result.evidence} />
             <ResultList title="권장 관리 방법" items={result.management} />
             <ResultList title="추가 확인 사항" items={result.additionalChecks} />
+            {showActions && <>
             <button type="button" className="btn secondary" onClick={onRetake}>사진 다시 촬영하기</button>
             <Link className="btn primary diagnosis-journal-link" to="/journals">재배일지에 기록하기</Link>
             <p className="diagnosis-result-note">재배일지 작성 화면으로 이동합니다. 진단 결과를 자동으로 저장하지 않습니다.</p>
+            </>}
           </>
         )}
       </section>

@@ -586,4 +586,6 @@ register_diagnoses(
     users,
     garden_tables["plantings"],
     garden_tables["crops"],
+    garden_tables["farms"],
+    garden_tables["plots"],
 )

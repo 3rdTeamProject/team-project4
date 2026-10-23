@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>작물 성장 이미지 미리보기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; background: #f4f7ec; color: #203022; font-family: system-ui, "Malgun Gothic", sans-serif; }
+    main { max-width: 1120px; margin: auto; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 0 0 24px; color: #63745b; }
+    section { margin: 0 0 20px; padding: 16px; border: 1px solid #dce7d2; border-radius: 16px; background: #fff; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    .stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    figure { margin: 0; min-width: 0; text-align: center; }
+    .image-box { display: grid; place-items: center; width: 100%; aspect-ratio: 1; padding: 0; border: 0; border-radius: 12px; background: #edf3e6; overflow: hidden; cursor: zoom-in; }
+    img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    figcaption { padding-top: 6px; font-size: 13px; color: #53654c; }
+    dialog { width: min(90vw, 620px); max-height: 94vh; padding: 16px; border: 0; border-radius: 18px; box-shadow: 0 18px 60px #20302255; }
+    dialog::backdrop { background: #17271899; }
+    .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+    .dialog-head h2 { margin: 0; }
+    .close { padding: 7px 12px; border: 1px solid #cadbc3; border-radius: 10px; background: #fff; cursor: pointer; }
+    .large-preview { width: 100%; aspect-ratio: 1; border-radius: 12px; background: #edf3e6; overflow: hidden; }
+    .download { display: inline-block; margin-top: 12px; color: #2f7d32; }
+    @media (max-width: 600px) { body { padding: 12px; } section { padding: 10px; } .stages { gap: 4px; } figcaption { font-size: 11px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>작물 성장 이미지</h1>
+    <p>이미지의 검게 보이는 영역은 투명 배경입니다. 이 페이지에서는 밝은 배경 위에서 원본을 확인할 수 있습니다.</p>
+    <div id="crops"></div>
+  </main>
+  <dialog id="preview">
+    <div class="dialog-head"><h2 id="preview-title"></h2><button class="close" id="close-preview" type="button">닫기</button></div>
+    <div class="large-preview"><img id="preview-image" alt=""></div>
+    <a class="download" id="download-image" download>투명 PNG 다운로드</a>
+  </dialog>
+  <script>
+    const crops = [
+      ['방울토마토', 'tomato'], ['상추', 'lettuce'], ['오이', 'cucumber'], ['고추', 'pepper'],
+      ['감자', 'potato'], ['가지', 'eggplant'], ['애호박', 'zucchini'],
+      ['갓', 'gat'], ['고들빼기', 'godeulppaegi'], ['고사리', 'gosari'], ['곰취', 'gomchwi'],
+      ['근대', 'geundae'], ['냉이', 'naengi'], ['당근', 'carrot'], ['두릅', 'dureup'],
+      ['딸기', 'strawberry'], ['마늘', 'garlic'], ['무', 'radish'], ['미나리', 'minari'],
+      ['부추', 'buchu'], ['브로콜리', 'broccoli'], ['비트', 'beet'], ['생강', 'ginger'],
+      ['셀러리', 'celery'], ['시금치', 'spinach'], ['신선초', 'sinsuncho'],
+      ['쑥갓', 'ssukgat'], ['아스파라거스', 'asparagus'], ['아욱', 'auk']
+    ];
+    document.querySelector('#crops').innerHTML = crops.map(([name, id]) => `
+      <section>
+        <h2>${name}</h2>
+        <div class="stages">${[1, 2, 3, 4].map(stage => `
+          <figure>
+            <button class="image-box" type="button" data-src="crops/${id}-${stage}.png" data-title="${name} ${stage}단계" aria-label="${name} ${stage}단계 확대">
+              <img src="crops/${id}-${stage}.png" alt="${name} ${stage}단계" loading="lazy">
+            </button>
+            <figcaption>${stage}단계</figcaption>
+          </figure>
+        `).join('')}</div>
+      </section>
+    `).join('');
+    const dialog = document.querySelector('#preview');
+    document.querySelector('#crops').addEventListener('click', event => {
+      const button = event.target.closest('[data-src]');
+      if (!button) return;
+      document.querySelector('#preview-title').textContent = button.dataset.title;
+      document.querySelector('#preview-image').src = button.dataset.src;
+      document.querySelector('#preview-image').alt = button.dataset.title;
+      document.querySelector('#download-image').href = button.dataset.src;
+      dialog.showModal();
+    });
+    document.querySelector('#close-preview').addEventListener('click', () => dialog.close());
+  </script>
+</body>
+</html>

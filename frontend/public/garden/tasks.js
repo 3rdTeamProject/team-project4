@@ -61,7 +61,7 @@ categories.cucumber_summer = 'fruit';
 // ---------- 그림·단계: 오이는 한 종류 그림을 쓰고, 0단계는 포트, 단계는 서버가 정한다
 const potArt = () => '<svg class="plant-art pot-art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><ellipse cx="50" cy="94" rx="31" ry="5" fill="var(--color-text)" opacity=".18"/><path d="M21 46h58l-6 44a6 6 0 0 1-6 5H33a6 6 0 0 1-6-5z" fill="var(--color-soil)"/><rect x="15" y="35" width="70" height="15" rx="6" fill="var(--color-soil)"/><ellipse cx="50" cy="37" rx="31" ry="6" fill="var(--color-text)" opacity=".6"/><circle cx="39" cy="37" r="2.4" fill="var(--color-point-chip)"/><circle cx="52" cy="39" r="2.4" fill="var(--color-point-chip)"/><circle cx="63" cy="36" r="2.4" fill="var(--color-point-chip)"/></svg>';
 const baseCropSvg = CropArt.svg;
-CropArt.svg = (kind, stage = 5, preview = false) => stage === 0 ? potArt() : baseCropSvg(kind.startsWith('cucumber') ? 'cucumber' : kind, stage, preview);
+CropArt.svg = (kind, stage = 5, preview = false) => stage === 0 ? potArt() : baseCropSvg(kind, stage, preview);
 const basePlant = plant;
 plant = function (p) { return isTaskPlant(p) && isPrep(p) ? potArt() : basePlant(p); };
 const baseGrowthStage = GardenGrowth.stage;
@@ -153,7 +153,7 @@ preparationPage = function () {
   const name = CROPS.find(c => c.id === chosenCrop).name, prep = cropInfo[chosenCrop].prep, sow = firstTask();
   // 첫 작업(씨앗은 포트에 씨앗 심기, 모종은 모종 옮겨심기)을 체크하고 '심었어요'를 누르면 완료된다(카드 어디를 눌러도 체크) — 오늘 할 일에는 나오지 않는다
   const sowCard = sow ? `<h3>이번에 할 일</h3><div class="check-card tk-sow" role="checkbox" tabindex="0" aria-checked="${sowChecked}" aria-label="${esc(sow.title)}" data-tk="toggle-sow"><span class="check-box ${sowChecked ? 'checked' : ''}">${sowChecked ? '✓' : ''}</span><div class="task-content"><b>${esc(sow.title)}</b>${sow.howTo ? `<small>${esc(sow.howTo)}</small>` : ''}${sow.tip ? `<div class="tk-tip-open">💡 ${esc(sow.tip)}</div>` : ''}</div></div>` : '';
-  return `<main class="page">${head('심기 전 준비', 'select')}<div class="seed-sign"><b>${esc(name)}</b><small>${plantingMethod === 'seed' ? '씨앗' : '모종'}으로 시작 · ${pendingPlot + 1}번째 칸</small></div>${infoSection(prep)}${sowCard}${photoSection(plantingDraft.photos)}<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="준비하면서 한 일을 적어보세요 (선택)">${esc(plantingDraft.memo)}</textarea></div><div class="info">ⓘ 준비가 되면 아래 버튼을 눌러요. 누르면 오늘부터 재배가 시작돼요.</div></main>${footer('<button class="primary" data-feature="plant">심었어요</button>')}`;
+  return `<main class="page planting-prep-page">${head('심기 전 준비', 'select')}<div class="seed-sign"><b>${esc(name)}</b><small>${plantingMethod === 'seed' ? '씨앗' : '모종'}으로 시작 · ${pendingPlot + 1}번째 칸</small></div>${infoSection(prep)}${sowCard}${photoSection(plantingDraft.photos)}<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="준비하면서 한 일을 적어보세요 (선택)">${esc(plantingDraft.memo)}</textarea></div><div class="info">ⓘ 준비가 되면 아래 버튼을 눌러요. 누르면 오늘부터 재배가 시작돼요.</div></main>${footer('<button class="primary" data-feature="plant">심기</button>')}`;
 };
 
 // 오늘 할 일 모아보기: 농장별 목록(서버 할 일 + 서버 할 일이 없는 작물의 기존 할 일). 캘린더는 아직 없다
@@ -166,7 +166,7 @@ tasksPage = function () {
     return p.plantedAt <= day() && (!p.harvestedAt || day() <= p.harvestedAt)
       ? careItems(p).filter(([key]) => !completed(p, key)).map(([, label, sub]) => ({ i, label, sub: `${meta(p).name} · ${sub}` })) : [];
   }) }));
-  return `<main class="page">${head('오늘 할 일', tasksBack === 'garden' && current() ? 'garden' : 'farms')}${hasTaskCrop ? statusNote() : ''}${groups.map(({ f, rows }) => `<h3>${esc(f.name)} <span class="task-count">${rows.length}</span></h3>${rows.length ? rows.map(r => `<button class="check-card" data-feature="open-task" data-id="${esc(f.id)}" data-index="${r.i}"><span class="check-box"></span><span><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></span><span class="chevron">›</span></button>`).join('') : '<div class="no-tasks">오늘 할 일이 없어요</div>'}`).join('')}<p class="help">할 일을 누르면 작물 관리 화면으로 이동해요.</p></main>`;
+  return `<main class="page tasks-overview">${head('오늘 할 일', tasksBack === 'garden' && current() ? 'garden' : 'farms')}${hasTaskCrop ? statusNote() : ''}${groups.map(({ f, rows }) => `<h3 class="tasks-farm-heading"><span>${esc(f.name)}</span><span class="task-count" aria-label="할 일 ${rows.length}개">${rows.length}</span></h3>${rows.length ? rows.map(r => `<button class="check-card tasks-overview-card" data-feature="open-task" data-id="${esc(f.id)}" data-index="${r.i}"><span><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></span></button>`).join('') : '<div class="no-tasks">오늘 할 일이 없어요</div>'}`).join('')}<p class="help">할 일을 누르면 작물 관리 화면으로 이동해요.</p></main>`;
 };
 
 // ---------- 일지 올리기: 체크한 할 일(과 수확)을 완료하고 일지·포인트를 서버에서 한 번에 처리
@@ -279,7 +279,8 @@ Promise.all([
   hostApi('crops').then(r => {
     r.crops.forEach(c => {
       cropInfo[c.kind] = c;
-      // 처음 7종 밖의 작물은 서버 목록으로 채운다(그림은 잎만 있는 기본 그림). 분류는 서버가 내려준다
+      CropArt.register(c.kind, c.name);
+      // 처음 7종 밖의 작물은 서버 목록으로 채운다. 분류는 서버가 내려준다.
       if (!CROPS.some(x => x.id === c.kind)) CROPS.push({ id: c.kind, name: c.name, emoji: '🌱', days: c.days });
       categories[c.kind] = c.category || categories[c.kind] || 'other';
     });

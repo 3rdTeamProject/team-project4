@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+const API_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export const storage = {
   get token() {
@@ -28,9 +28,41 @@ export const storage = {
 }
 
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, data = {}) {
     super(message)
     this.status = status
+    this.data = data
+  }
+}
+
+function normalizeDiagnosisResult(data = {}) {
+  const quota = data.quota ?? data
+  const status = data.status === 'limit_exceeded' ? 'limit' : data.status
+
+  return {
+    ...data,
+    status,
+    diseaseName: data.disease_name ?? data.diseaseName,
+    retakeGuidance: data.retake_guidance ?? data.retakeGuidance,
+    additionalChecks: data.additional_checks ?? data.additionalChecks,
+    remainingCount: quota.remaining_count ?? data.remainingCount,
+    dailyLimit: quota.daily_limit ?? data.dailyLimit,
+    usedCount: quota.used_count ?? data.usedCount,
+    nextAvailableAt: data.next_available_at ?? quota.reset_at ?? data.nextAvailableAt,
+    requestId: data.request_id ?? data.requestId,
+    statusUrl: data.status_url ?? data.statusUrl,
+    isDemo: data.is_demo ?? data.isDemo,
+  }
+}
+
+async function parseResponse(response) {
+  return response.json().catch(() => ({}))
+}
+
+function handleUnauthorized(response, token) {
+  if (response.status === 401 && token) {
+    storage.logout()
+    if (window.location.pathname !== '/') window.location.assign('/')
   }
 }
 
@@ -52,15 +84,36 @@ export async function request(path, { method = 'GET', body, auth = true, redirec
     headers,
     body: body ? JSON.stringify(body) : undefined,
   })
-  const data = await res.json().catch(() => ({}))
+  const data = await parseResponse(res)
   if (!res.ok) {
-    if (res.status === 401 && token && redirectOn401) {
-      storage.logout()
-      if (window.location.pathname !== '/') window.location.assign('/')
+    if (redirectOn401) {
+      handleUnauthorized(res, token)
     }
-    throw new ApiError(res.status, data.detail || '요청에 실패했습니다.')
+    throw new ApiError(res.status, data.detail || '요청에 실패했습니다.', data)
   }
   return data
+}
+
+async function diagnosisRequest(path, { method = 'GET', body, idempotencyKey } = {}) {
+  const token = storage.token
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
+
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers,
+    body,
+  })
+  const data = await parseResponse(response)
+  if (!response.ok) {
+    if (response.status === 429 || data.status) {
+      return normalizeDiagnosisResult(data)
+    }
+    handleUnauthorized(response, token)
+    throw new ApiError(response.status, data.detail || 'AI 진단 요청을 처리하지 못했어요.', data)
+  }
+  return normalizeDiagnosisResult(data)
 }
 
 export const api = {
@@ -95,6 +148,22 @@ export const api = {
   mySummary: () => request('/me/summary'),
   pointLogs: (offset = 0, limit = 20) => request(`/me/point-logs?offset=${offset}&limit=${limit}`),
   updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
+  diagnosisQuota: () => request('/diagnoses/quota'),
+  diagnosisHistory: (page = 1, plantingId = '') => request(`/diagnoses/history?${new URLSearchParams({ page, page_size: 10, ...(plantingId ? { planting_id: plantingId } : {}) })}`),
+  createDiagnosis: (formData, idempotencyKey) =>
+    diagnosisRequest('/diagnoses', {
+      method: 'POST',
+      body: formData,
+      idempotencyKey,
+    }),
+  diagnosisRequest: (requestId) => request(`/diagnoses/requests/${encodeURIComponent(requestId)}`)
+    .then(data => ({
+      ...data,
+      result: data.result ? normalizeDiagnosisResult(data.result) : null,
+      requestId: data.request_id ?? data.requestId,
+      isDemo: data.is_demo ?? data.isDemo,
+      quotaReserved: data.quota_reserved ?? data.quotaReserved,
+    })),
 }
 
 export function kakaoAuthorizeUrl() {

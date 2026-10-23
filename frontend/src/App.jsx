@@ -17,6 +17,7 @@ import CartExchange from './pages/CartExchange.jsx'
 import ShippingAddress from './pages/ShippingAddress.jsx'
 import Intro from './pages/Intro.jsx'
 import Diagnosis from './pages/Diagnosis.jsx'
+import DiagnosisHistory from './pages/DiagnosisHistory.jsx'
 
 export default function App() {
   return (
@@ -28,6 +29,8 @@ export default function App() {
         <Route path="/home" element={<Home key="farms" />} />
         <Route path="/journals" element={<Home key="journals" gardenView="journal" />} />
         <Route path="/diagnosis" element={<Diagnosis />} />
+        <Route path="/diagnosis/history" element={<DiagnosisHistory />} />
+        <Route path="/diagnosis/history/:requestId" element={<DiagnosisHistory />} />
         <Route path="/pointshop" element={<PointShop />} />
         <Route path="/pointshop/orders" element={<OrderHistory />} />
         <Route path="/pointshop/orders/:orderId" element={<OrderDetail />} />

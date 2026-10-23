@@ -1,4 +1,9 @@
-export default function DiagnosisLoading({ source, onChooseDemoOutcome }) {
+export default function DiagnosisLoading({
+  source,
+  onChooseDemoOutcome,
+  onCheckStatus,
+  statusCheckDelayed = false,
+}) {
   const isDemo = source === 'demo'
 
   return (
@@ -16,8 +21,18 @@ export default function DiagnosisLoading({ source, onChooseDemoOutcome }) {
         <div className="diagnosis-loading-progress is-indeterminate" role="status" aria-label="진행률이 아닌 분석 중 표시">
           <span />
         </div>
-        <span className="diagnosis-loading-status">분석 중</span>
+        <span className="diagnosis-loading-status">
+          {statusCheckDelayed ? '응답 확인이 지연되고 있어요' : '분석 중'}
+        </span>
       </div>
+      {!isDemo && onCheckStatus && (
+        <div className="diagnosis-demo-response-picker">
+          <p>요청 상태는 서버 응답으로 확인합니다. 확인이 늦어지면 상태를 다시 조회해 주세요.</p>
+          <button type="button" className="btn secondary" onClick={onCheckStatus}>
+            진행 상태 다시 확인
+          </button>
+        </div>
+      )}
       {isDemo && (
         <section className="diagnosis-demo-response-picker">
           <h3>데모 응답을 선택해 화면을 확인하세요</h3>
