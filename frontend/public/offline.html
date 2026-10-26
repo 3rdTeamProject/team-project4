@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>우리텃밭</title>
+    <link rel="stylesheet" href="/garden/design-tokens.css" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 var(--space-screen-x);
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-body);
+        text-align: center;
+      }
+      main {
+        width: 100%;
+        max-width: var(--layout-max);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-gap);
+      }
+      img { width: 96px; height: 96px; border-radius: var(--radius-card); }
+      h1 { margin: 0; font-family: var(--font-title); font-size: var(--fs-section-title); font-weight: 400; }
+      p { margin: 0; font-size: var(--fs-body); color: var(--color-text-sub); line-height: 1.6; }
+      button {
+        width: 100%;
+        min-height: var(--size-button);
+        border: 0;
+        border-radius: var(--radius-button);
+        background: var(--color-green-btn);
+        color: var(--color-on-btn);
+        font: inherit;
+        font-size: var(--fs-card-title);
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icon-192.png" alt="" />
+      <h1>인터넷이 필요해요</h1>
+      <p>우리텃밭은 농장 데이터를 서버에서 불러와요.<br />인터넷에 연결한 뒤 다시 시도해 주세요.</p>
+      <button type="button" onclick="location.reload()">다시 시도</button>
+    </main>
+  </body>
+</html>
