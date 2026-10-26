@@ -3,7 +3,7 @@
   "short_name": "우리텃밭",
   "description": "나만의 6칸 텃밭에서 작물을 심고, 물을 주고, 재배 기록을 남겨보세요.",
   "lang": "ko",
-  "start_url": "/home",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F4F8EE",

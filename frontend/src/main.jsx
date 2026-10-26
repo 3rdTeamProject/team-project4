@@ -17,4 +17,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {}) // 등록에 실패해도 앱은 그대로 동작한다
   })
+} else if ('serviceWorker' in navigator) {
+  // 개발 서버로 열 때는 설치 시험(배포 빌드)에서 남은 서비스 워커를 지워, 옛 화면이 보이는 일을 막는다
+  navigator.serviceWorker.getRegistrations().then(list => list.forEach(registration => registration.unregister()))
 }
