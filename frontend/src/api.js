@@ -1,3 +1,5 @@
+import { DIAGNOSIS_QUOTA_CHANGED } from './components/diagnosisQuota.js'
+
 const API_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export const storage = {
@@ -74,7 +76,7 @@ function handleUnauthorized(response, token) {
  *  - auth: false  → 토큰을 붙이지 않는다(로그인 요청용).
  *  - redirectOn401: false → 401이어도 이동하지 않고 호출한 쪽이 처리하게 한다.
  */
-export async function request(path, { method = 'GET', body, auth = true, redirectOn401 = true } = {}) {
+export async function request(path, { method = 'GET', body, auth = true, redirectOn401 = true, signal } = {}) {
   const token = auth ? storage.token : null
   const headers = {}
   if (body) headers['Content-Type'] = 'application/json'
@@ -83,6 +85,7 @@ export async function request(path, { method = 'GET', body, auth = true, redirec
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   })
   const data = await parseResponse(res)
   if (!res.ok) {
@@ -176,7 +179,26 @@ export const api = {
   completeGardenTasks: (body) => request('/garden/tasks/complete', { method: 'POST', body }),
   me: () => request('/me'),
   rewards: () => request('/rewards'),
-  exchange: (body) => request('/exchanges', { method: 'POST', body }),
+  exchange: async (body) => {
+    const controller = new AbortController()
+    let timer
+    let result
+    try {
+      result = await Promise.race([
+        request('/exchanges', { method: 'POST', body, signal: controller.signal }),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort()
+            reject(new Error('교환 결과를 확인하지 못했어요. 다시 구매하기 전에 주문 내역을 확인해 주세요.'))
+          }, 30_000)
+        }),
+      ])
+    } finally { clearTimeout(timer) }
+    // Both single-item and cart purchases use this path. Mounted diagnosis
+    // screens must supersede reads started before the purchase committed.
+    window.dispatchEvent(new Event(DIAGNOSIS_QUOTA_CHANGED))
+    return result
+  },
   orders: (status = 'all') => request(`/me/orders?status=${status}`),
   order: (id) => request(`/me/orders/${id}`),
   cart: () => request('/cart'),

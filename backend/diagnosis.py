@@ -31,6 +31,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     insert,
+    or_,
     select,
     update,
 )
@@ -77,31 +78,54 @@ def now_kst() -> datetime:
     return datetime.now(KST)
 
 
-def quota_snapshot(conn, requests: Table, user_id: int, current: datetime) -> dict:
+def funding_source(row) -> str:
+    """Legacy requests without billing metadata always used the daily quota."""
+    result = row["result"] if isinstance(row["result"], dict) else {}
+    metadata = result.get("metadata")
+    return "purchased" if isinstance(metadata, dict) and metadata.get("quota_source") == "purchased" else "daily_free"
+
+
+def quota_snapshot(conn, requests: Table, user_id: int, current: datetime, users: Table) -> dict:
     usage_date = current.astimezone(KST).date()
     rows = conn.execute(
-        select(requests.c.quota_reserved, requests.c.quota_consumed).where(
+        select(requests.c.quota_reserved, requests.c.quota_consumed, requests.c.usage_date, requests.c.result).where(
             requests.c.user_id == user_id,
-            requests.c.usage_date == usage_date,
+            or_(requests.c.usage_date == usage_date, requests.c.quota_reserved.is_(True)),
             requests.c.is_demo.is_(False),
         )
     )
     reserved_count = 0
     consumed_count = 0
-    for reserved, consumed in rows:
+    purchased_reserved = 0
+    for row in rows.mappings():
+        reserved, consumed = row["quota_reserved"], row["quota_consumed"]
+        if funding_source(row) == "purchased":
+            purchased_reserved += int(bool(reserved))
+            continue
+        if row["usage_date"] != usage_date:
+            continue
         if reserved:
             reserved_count += 1
         elif consumed:
             consumed_count += 1
 
     used_count = reserved_count + consumed_count
+    purchased_balance = conn.execute(
+        select(users.c.diag_credits).where(users.c.id == user_id)
+    ).scalar_one()
+    purchased_available = max(0, purchased_balance - purchased_reserved)
+    remaining_count = max(0, DAILY_LIMIT - used_count)
     reset_at = datetime.combine(usage_date + timedelta(days=1), time.min, tzinfo=KST)
     return {
         "daily_limit": DAILY_LIMIT,
         "used_count": used_count,
-        "remaining_count": max(0, DAILY_LIMIT - used_count),
+        "remaining_count": remaining_count,
         "reserved_count": reserved_count,
         "reset_at": reset_at.isoformat(),
+        "purchased_balance": purchased_balance,
+        "purchased_reserved": purchased_reserved,
+        "purchased_available": purchased_available,
+        "can_request": remaining_count > 0 or purchased_available > 0,
     }
 
 
@@ -354,7 +378,7 @@ def register_diagnoses(
     @router.get("/quota")
     def read_quota(user=Depends(get_current_user)):
         with engine.connect() as conn:
-            return quota_snapshot(conn, requests, user["id"], now_kst())
+            return quota_snapshot(conn, requests, user["id"], now_kst(), users)
 
     async def process_request(
         *,
@@ -473,10 +497,16 @@ def register_diagnoses(
                     "description": description,
                 }
 
-                quota = quota_snapshot(conn, requests, user["id"], current)
-                if not service.is_demo and quota["remaining_count"] == 0:
+                quota = quota_snapshot(conn, requests, user["id"], current, users)
+                if not service.is_demo and not quota["can_request"]:
                     return None, JSONResponse(status_code=429, content={"status": "limit_exceeded", **quota})
 
+                # Persist the selected source before analysis; replay never reallocates it.
+                request_metadata["quota_version"] = 1
+                request_metadata["quota_source"] = (
+                    "demo" if service.is_demo else
+                    "daily_free" if quota["remaining_count"] > 0 else "purchased"
+                )
                 conn.execute(insert(requests).values(
                     request_id=request_id,
                     user_id=user["id"],
@@ -582,6 +612,9 @@ def register_diagnoses(
             unexpected_row_count = False
             try:
                 with engine.begin() as conn:
+                    # Same lock order as reservation and shop purchases. Never hold
+                    # this transaction open while calling the external provider.
+                    conn.execute(update(users).where(users.c.id == user["id"]).values(id=users.c.id))
                     written = conn.execute(
                         update(requests)
                         .where(
@@ -601,7 +634,15 @@ def register_diagnoses(
                     if written.rowcount != 1:
                         unexpected_row_count = True
                         raise RuntimeError("Diagnosis result UPDATE did not affect exactly one row")
-                    quota = quota_snapshot(conn, requests, user["id"], completed)
+                    if request_metadata["quota_source"] == "purchased":
+                        charged = conn.execute(
+                            update(users).where(
+                                users.c.id == user["id"], users.c.diag_credits >= 1,
+                            ).values(diag_credits=users.c.diag_credits - 1)
+                        ).rowcount
+                        if charged != 1:
+                            raise RuntimeError("Purchased diagnosis balance unavailable at completion")
+                    quota = quota_snapshot(conn, requests, user["id"], completed, users)
             except Exception:
                 # The transaction context has rolled back/closed. A lost commit
                 # acknowledgement is not proof of rollback; never reuse its failed
@@ -619,6 +660,7 @@ def register_diagnoses(
                             and not saved["quota_reserved"]
                             and saved["quota_consumed"] == (not service.is_demo)
                             and isinstance(saved["result"], dict)
+                            and (service.is_demo or funding_source(saved) == request_metadata["quota_source"])
                         ):
                             stored_result = saved["result"]
                             validated = DiagnosisAnalysis.model_validate({
@@ -626,7 +668,7 @@ def register_diagnoses(
                                 if key in stored_result
                             })
                             if saved["outcome"] == validated.status and stored_result.get("is_demo") == service.is_demo:
-                                confirmed_quota = quota_snapshot(conn, requests, user["id"], now_kst())
+                                confirmed_quota = quota_snapshot(conn, requests, user["id"], now_kst(), users)
                                 return {
                                     **stored_result,
                                     "request_id": request_id,
@@ -824,9 +866,10 @@ def register_diagnoses(
             "quota_reserved": bool(
                 row["quota_reserved"]
                 and not row["is_demo"]
-                and row["usage_date"] == now_kst().date()
+                and (funding_source(row) == "purchased" or row["usage_date"] == now_kst().date())
             ),
             "quota_consumed": row["quota_consumed"],
+            "funding_source": "demo" if row["is_demo"] else funding_source(row),
             "result": row["result"],
             "error": row["error_message"],
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,

@@ -87,6 +87,10 @@ export default function PointShop() {
           </span>
         )}
       </header>
+      {state?.purchaseUncertain && <section className="ex-card" role="alert">
+        <p>교환 결과를 확인하지 못했어요. 중복 구매를 피하려면 다시 구매하기 전에 주문 내역과 포인트 잔액을 확인해 주세요.</p>
+        <Link to="/pointshop/orders">주문 내역 확인하기</Link>
+      </section>}
 
       {(meError || loadError) && <p className="error">{meError || loadError}</p>}
 

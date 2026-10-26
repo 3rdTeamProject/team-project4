@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { ExchangeCard, ExchangeFooter, ExchangeLine, PointsCard, RefundNotice, ShippingBlock } from '../components/ExchangeParts.jsx'
@@ -25,6 +25,7 @@ export default function PointExchange() {
   const [saveAddress, setSaveAddress] = useState(true)
   const [agree, setAgree] = useState(false)
   const [busy, setBusy] = useState(false)
+  const submitLock = useRef(false)
   const [loadError, setLoadError] = useState('')
   const [toast, setToast] = useToast()
 
@@ -44,19 +45,33 @@ export default function PointExchange() {
   const useSaved = !!saved && !editing
 
   function submit() {
+    if (!agree || submitLock.current) return
     const body = { items: [{ reward_id: reward.id, quantity: 1 }], request_note: note }
-    if (reward.is_shipping && !useSaved) {
-      body.address = form
-      body.save_address = saveAddress
+    if (reward.is_shipping) {
+      body.address = useSaved ? saved : form
+      body.save_address = !useSaved && saveAddress
     }
+    completePurchase(body)
+  }
+
+  async function completePurchase(body) {
+    if (submitLock.current) return
+    submitLock.current = true
     setBusy(true)
-    api
-      .exchange(body)
-      .then(() => navigate('/pointshop', { replace: true, state: { toast: '교환했어요' } }))
-      .catch((e) => {
-        setToast(e.message)
+    try {
+      const result = await api.exchange(body)
+      if (result) navigate('/pointshop', { replace: true, state: { toast: '교환했어요' } })
+    } catch (error) {
+      const uncertain = !error.status || error.status >= 500
+      setToast(error.message)
+      if (uncertain) {
+        // Without purchase idempotency, never offer an automatic POST retry.
+        navigate('/pointshop', { replace: true, state: { purchaseUncertain: true } })
+      } else {
+        submitLock.current = false
         setBusy(false)
-      })
+      }
+    }
   }
 
   return (

@@ -523,19 +523,6 @@
   margin-bottom: auto;
 }
 
-.diagnosis-demo-banner {
-  margin: 0;
-  padding: 9px 12px;
-  border: 1px solid var(--warn-border);
-  border-radius: 12px;
-  background: var(--warn-bg);
-  color: var(--warn-text);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.45;
-  text-align: center;
-}
-
 .diagnosis-loading-card {
   display: flex;
   min-height: 340px;
@@ -635,8 +622,7 @@
   font-weight: 700;
 }
 
-.diagnosis-demo-response-picker,
-.diagnosis-demo-panel {
+.diagnosis-demo-response-picker {
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -646,31 +632,11 @@
   background: var(--card-bg);
 }
 
-.diagnosis-demo-response-picker h3,
-.diagnosis-demo-panel h2 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.diagnosis-demo-response-picker p,
-.diagnosis-demo-panel p {
+.diagnosis-demo-response-picker p {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
-}
-
-.diagnosis-demo-response-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.diagnosis-demo-response-options .btn,
-.diagnosis-demo-panel > .btn {
-  min-height: 44px;
-  padding: 9px 8px;
-  font-size: 12px;
 }
 
 .diagnosis-result-detail {

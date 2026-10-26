@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { ExchangeCard, ExchangeFooter, ExchangeLine, PointsCard, RefundNotice, ShippingBlock } from '../components/ExchangeParts.jsx'
@@ -25,6 +25,7 @@ export default function CartExchange() {
   const [saveAddress, setSaveAddress] = useState(true)
   const [agree, setAgree] = useState(false)
   const [busy, setBusy] = useState(false)
+  const submitLock = useRef(false)
   const [loadError, setLoadError] = useState('')
   const [toast, setToast] = useToast()
 
@@ -35,7 +36,6 @@ export default function CartExchange() {
 
   if (!storage.token) return <Navigate to="/" replace />
   if (me?.login_type === 'guest') return <Navigate to="/pointshop/blocked" replace />
-  // 주소로 바로 들어왔거나, 고른 상품이 장바구니에서 사라졌으면 장바구니로 보낸다
   if (!ids?.length || (items && items.length === 0)) return <Navigate to="/cart" replace />
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -46,23 +46,37 @@ export default function CartExchange() {
   const total = items?.reduce((sum, i) => sum + i.price * i.quantity, 0) ?? 0
 
   function submit() {
+    if (!agree || submitLock.current) return
     const body = {
       items: items.map((i) => ({ reward_id: i.reward_id, quantity: i.quantity })),
       request_note: note,
       remove_from_cart: true, // 교환한 항목은 장바구니에서 빠진다
     }
-    if (hasShipping && !useSaved) {
-      body.address = form
-      body.save_address = saveAddress
+    if (hasShipping) {
+      body.address = useSaved ? saved : form
+      body.save_address = !useSaved && saveAddress
     }
+    completePurchase(body)
+  }
+
+  async function completePurchase(body) {
+    if (submitLock.current) return
+    submitLock.current = true
     setBusy(true)
-    api
-      .exchange(body)
-      .then(() => navigate('/pointshop', { replace: true, state: { toast: '교환했어요' } }))
-      .catch((e) => {
-        setToast(e.message)
+    try {
+      const result = await api.exchange(body)
+      if (result) navigate('/pointshop', { replace: true, state: { toast: '교환했어요' } })
+    } catch (error) {
+      const uncertain = !error.status || error.status >= 500
+      setToast(error.message)
+      if (uncertain) {
+        // Without purchase idempotency, never offer an automatic POST retry.
+        navigate('/pointshop', { replace: true, state: { purchaseUncertain: true } })
+      } else {
+        submitLock.current = false
         setBusy(false)
-      })
+      }
+    }
   }
 
   return (

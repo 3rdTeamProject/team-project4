@@ -5,6 +5,7 @@ import DiagnosisFailure from './DiagnosisFailure.jsx'
 import DiagnosisLoading from './DiagnosisLoading.jsx'
 import DiagnosisResult from './DiagnosisResult.jsx'
 import useDiagnosisQuota from './useDiagnosisQuota.js'
+import { canRequestDiagnosis } from './diagnosisQuota.js'
 
 const CROP_NAMES = {
   tomato: '방울토마토',
@@ -27,28 +28,6 @@ const ACCEPTED_PHOTO_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024
 const PENDING_DIAGNOSIS_KEY = 'pending_ai_diagnosis_request'
 const DELAYED_DIAGNOSIS_MESSAGE = 'AI 진단 결과를 확인하는 데 시간이 오래 걸리고 있습니다. 서버 또는 네트워크 연결 상태에 따라 지연될 수 있습니다. 이미 진단이 진행 중일 수 있으니 결과를 다시 확인해 주세요.'
-
-const DIAGNOSIS_DEMOS = {
-  diagnosed: {
-    status: 'diagnosed',
-    diseaseName: '데모 예시 병해충명',
-    evidence: ['데모 예시 분석 근거입니다. 실제 사진 분석에서 나온 내용이 아닙니다.'],
-    management: ['실제 진단 데이터가 연결되면 AI가 제시한 관리 방법이 이곳에 표시됩니다.'],
-    additionalChecks: ['실제 진단 데이터가 연결되면 AI가 제시한 추가 확인 사항이 표시됩니다.'],
-  },
-  uncertain: {
-    status: 'uncertain',
-    reason: '데모 예시 판단 사유입니다. 실제 분석 응답이 아닙니다.',
-    retakeGuidance: ['데모 예시 추가 촬영 방법입니다. 실제 AI 안내가 아닙니다.'],
-    additionalChecks: ['데모 예시 확인 사항입니다. 실제 AI 안내가 아닙니다.'],
-  },
-  limit: {
-    status: 'limit',
-    remainingCount: 0,
-  },
-}
-
-const DEMO_ERROR_MESSAGE = '데모용 서버 오류 안내입니다. 실제 서버 요청이나 진단은 수행하지 않았습니다.'
 
 function PhotoMark() {
   return (
@@ -428,7 +407,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
           })
           return
         }
-        if (currentQuota.remaining_count === 0) {
+        if (!canRequestDiagnosis(currentQuota)) {
           applyDiagnosisResponse({
             status: 'limit',
             remainingCount: 0,
@@ -563,19 +542,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
     sendDiagnosis()
   }
 
-  function openDemo(screen) {
-    setNotice('')
-    setFlow({ screen, source: 'demo' })
-  }
-
-  function chooseDemoOutcome(outcome) {
-    if (outcome === 'error') {
-      setFlow({ screen: 'error', source: 'demo', message: DEMO_ERROR_MESSAGE })
-      return
-    }
-    setFlow({ screen: 'result', source: 'demo', result: DIAGNOSIS_DEMOS[outcome] })
-  }
-
   function returnToForm() {
     refreshQuota()
     setFlow({ screen: 'form' })
@@ -650,11 +616,12 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   useEffect(() => {
     if (flow.screen !== 'result' || flow.source !== 'api' || flow.result?.status !== 'limit'
-      || quotaLoading || quotaError || !quota || quota.remaining_count <= 0) return
+      || quotaLoading || quotaError || !canRequestDiagnosis(quota)) return
     const oldResetDay = diagnosisDay(flow.result.limitResetAt)
     const newResetDay = diagnosisDay(quota.reset_at)
     const today = diagnosisDay(new Date(Date.now()).toISOString())
-    if (oldResetDay && newResetDay && newResetDay > oldResetDay && today >= oldResetDay) {
+    const currentServerAvailability = quota.can_request === true && Date.parse(quota.reset_at) > Date.now()
+    if (currentServerAvailability || (oldResetDay && newResetDay && newResetDay > oldResetDay && today >= oldResetDay)) {
       // Change only the view, preserving uploaded files, inputs and pending IDs.
       // A successful server quota refresh never starts an analysis.
       setFlow(current => current.result === flow.result ? { screen: 'form' } : current)
@@ -663,10 +630,18 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   const quotaNotice = <section className="diagnosis-detail-card" aria-live="polite">
     <h2>오늘의 AI 상세 진단</h2>
-    <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있으며, 외부 AI 상세 진단에만 무료 횟수가 적용돼요.</p>
+    <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있어요. AI 상세 진단은 무료 횟수를 먼저 사용하고, 소진 후 구매한 횟수를 사용해요.</p>
     {quota && <p>
-      오늘 남은 무료 상세 진단: {quota.remaining_count}/{quota.daily_limit}회
+      오늘 무료 진단: {quota.remaining_count}/{quota.daily_limit}회
       {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
+    </p>}
+    {quota && Number.isFinite(quota.purchased_balance) && <p>구매한 진단 잔액: {quota.purchased_balance}회</p>}
+    {quota && Number.isFinite(quota.purchased_available) && <p>구매 진단 사용 가능: {quota.purchased_available}회</p>}
+    {quota && quota.purchased_reserved > 0 && <p>
+      구매 진단 예약 중: {quota.purchased_reserved}회 · 처리 결과 확인 전까지 사용할 수 없어요.
+    </p>}
+    {quota && Number.isFinite(quota.purchased_available) && <p>
+      총 이용 가능: {quota.remaining_count + quota.purchased_available}회
     </p>}
     {quotaLoading && <p role="status">남은 횟수를 확인하는 중이에요.</p>}
     {quotaError && <div role="alert">
@@ -678,12 +653,10 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   if (flow.screen === 'loading') {
     return (
       <DiagnosisLoading
-        source={flow.source}
         onCheckStatus={flow.source === 'api' && flow.requestId
           ? () => checkRequestStatus(flow.requestId)
           : undefined}
         statusCheckDelayed={flow.pollAttempts >= 20}
-        onChooseDemoOutcome={chooseDemoOutcome}
       />
     )
   }
@@ -693,24 +666,23 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
       <>
       <DiagnosisFailure
         message={flow.message}
-        isDemo={flow.source === 'demo'}
         status={flow.status}
         retryLabel={flow.retryMode === 'status'
           ? '진단 결과 다시 확인'
           : flow.retryMode === 'same'
             ? '진단 결과 다시 확인'
             : '분석 다시 요청하기'}
-        onRetry={flow.source === 'demo' ? returnToForm : retryCurrentRequest}
+        onRetry={retryCurrentRequest}
         onBack={returnToForm}
       />
-      {flow.source !== 'demo' && quotaNotice}
+      {quotaNotice}
       </>
     )
   }
 
   if (flow.screen === 'result') {
     // The live card is authoritative; limit snapshots may predate midnight.
-    const result = flow.source !== 'demo' && flow.result?.status === 'limit'
+    const result = flow.result?.status === 'limit'
       ? { ...flow.result, remainingCount: undefined, nextAvailableAt: undefined }
       : flow.result
     return (
@@ -718,11 +690,10 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
       <DiagnosisResult
         result={result}
         cropName={selectedCrop?.cropName}
-        source={flow.source}
         onRetake={returnToForm}
         onRestartObservation={onRestartObservation}
       />
-      {flow.source !== 'demo' && quotaNotice}
+      {quotaNotice}
       </>
     )
   }
@@ -899,18 +870,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
           <li>가능하면 작물 전체 모습도 함께 올려 주세요.</li>
         </ul>
       </aside>
-
-      <section className="diagnosis-demo-panel">
-        <h2>후속 화면 UI 데모</h2>
-        <p>아래 선택은 데모 화면만 보여주며, 실제 분석 요청·결과 저장·진단 횟수 차감은 발생하지 않습니다.</p>
-        <button type="button" className="btn secondary" onClick={() => openDemo('loading')}>분석 로딩 데모 보기</button>
-        <div className="diagnosis-demo-response-options">
-          <button type="button" className="btn secondary" onClick={() => chooseDemoOutcome('diagnosed')}>진단 결과 데모</button>
-          <button type="button" className="btn secondary" onClick={() => chooseDemoOutcome('uncertain')}>판단 어려움 데모</button>
-          <button type="button" className="btn secondary" onClick={() => chooseDemoOutcome('limit')}>횟수 초과 데모</button>
-          <button type="button" className="btn secondary" onClick={() => chooseDemoOutcome('error')}>네트워크·서버 오류 데모</button>
-        </div>
-      </section>
 
       <section className="diagnosis-recent-section">
         <h2>최근 진단</h2>

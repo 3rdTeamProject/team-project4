@@ -16,10 +16,6 @@ function ResultList({ title, items }) {
   )
 }
 
-function DemoBanner() {
-  return <p className="diagnosis-demo-banner">데모 화면 / 실제 AI 진단 아님 · 진단 기록 저장 및 횟수 차감 없음</p>
-}
-
 function ExpertGuidance() {
   return (
     <aside className="diagnosis-expert-guidance">
@@ -31,13 +27,10 @@ function ExpertGuidance() {
 export default function DiagnosisResult({
   result,
   cropName,
-  source = 'api',
   showActions = true,
   onRetake,
   onRestartObservation,
 }) {
-  const isDemo = source === 'demo'
-
   if (!result) {
     return (
       <section className="diagnosis-result-card" aria-live="polite">
@@ -59,20 +52,16 @@ export default function DiagnosisResult({
   ) {
     return (
     <section className="diagnosis-flow-screen">
-      {isDemo && <DemoBanner />}
       <section className="diagnosis-result-card diagnosis-result-detail">
         {result.status === 'limit' ? (
           <>
             <span className="diagnosis-status-pill is-warning">외부 AI 이용 횟수 안내</span>
             <h2>AI 상세 진단 이용 횟수를 모두 사용했어요</h2>
             <p>외부 AI 상세 진단 이용 가능 횟수가 남아 있지 않아요. 잎 관찰하기 기능은 횟수 제한 없이 이용할 수 있어요.</p>
-            {isDemo && Number.isFinite(result.remainingCount) && (
-              <p className="diagnosis-result-note">데모 예시 잔여 횟수: {result.remainingCount}회 (실제 서버 응답이 아닙니다.)</p>
-            )}
-            {!isDemo && Number.isFinite(result.remainingCount) && result.remainingCount >= 0 && (
+            {Number.isFinite(result.remainingCount) && result.remainingCount >= 0 && (
               <p>남은 외부 AI 진단 횟수: {result.remainingCount}회</p>
             )}
-            {!isDemo && result.nextAvailableAt && (
+            {result.nextAvailableAt && (
               <p>
                 다음 무료 횟수 초기화: {new Date(result.nextAvailableAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)
               </p>
@@ -115,7 +104,6 @@ export default function DiagnosisResult({
 
   return (
     <section className="diagnosis-flow-screen">
-    {isDemo && <DemoBanner />}
     <section className="diagnosis-result-card" role="alert">
       <h2>진단 결과를 표시할 수 없어요</h2>
       <p>분석 응답 형식을 확인한 뒤 다시 시도해 주세요.</p>

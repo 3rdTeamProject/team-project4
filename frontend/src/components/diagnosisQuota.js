@@ -1,5 +1,14 @@
 const KST_OFFSET = 9 * 60 * 60 * 1000
 const DAY = 24 * 60 * 60 * 1000
+export const DIAGNOSIS_QUOTA_CHANGED = 'diagnosis-quota-changed'
+
+export function canRequestDiagnosis(quota) {
+  // Older responses only describe the free quota. Never override an explicit
+  // server decision using a locally calculated purchased balance.
+  return typeof quota?.can_request === 'boolean'
+    ? quota.can_request
+    : quota?.remaining_count > 0
+}
 
 export function kstDate(now) {
   return new Date(now + KST_OFFSET).toISOString().slice(0, 10)
@@ -85,6 +94,11 @@ export function watchDiagnosisQuota(controller, { window, document, now = Date.n
     if (document.visibilityState !== 'hidden' && controller.checkDate()) schedule()
   }, 60_000)
   document.addEventListener('visibilitychange', activate)
+  const purchaseCompleted = () => {
+    controller.refresh({ invalidate: true })
+    schedule()
+  }
+  window.addEventListener(DIAGNOSIS_QUOTA_CHANGED, purchaseCompleted)
   window.addEventListener('focus', activate)
   window.addEventListener('pageshow', activate)
   schedule()
@@ -92,6 +106,7 @@ export function watchDiagnosisQuota(controller, { window, document, now = Date.n
     window.clearTimeout(timer)
     window.clearInterval(interval)
     document.removeEventListener('visibilitychange', activate)
+    window.removeEventListener(DIAGNOSIS_QUOTA_CHANGED, purchaseCompleted)
     window.removeEventListener('focus', activate)
     window.removeEventListener('pageshow', activate)
   }
