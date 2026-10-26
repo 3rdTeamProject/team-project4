@@ -69,10 +69,10 @@
       post({ type: 'garden:dev', dev: JSON.parse(payload) });
     }
 
-    // 농장이 하나도 없으면 안내 글과 버튼 대신(오른쪽 패널이 '첫 농장 만들기'를 보여 준다) 흐리게 빈 텃밭만 보여 준다
+    // 농장이 하나도 없으면 흐린 빈 텃밭을 보여 준다. 밭이나 버튼을 누르면 오른쪽 패널에 '내 농장'(첫 농장 만들기) 화면이 열린다
     farmsPage = function () {
-      const plots = Array.from({ length: 6 }, () => `<div class="plot" aria-hidden="true">${terrainPart('bed')}</div>`).join('');
-      return `<div class="garden-top"></div>${skyScene()}<main class="garden-field"><div class="terrain-grass-layer">${terrainPart('grass')}</div><div class="fence" aria-hidden="true">${terrainPart('fence')}${terrainPart('fence')}${terrainPart('fence')}</div><div class="plots pc-empty-plots">${plots}</div><p class="pc-empty-hint">농장을 만들면 여기에 텃밭이 나타나요</p></main>`;
+      const plots = Array.from({ length: 6 }, () => `<button class="plot" data-action="nav" data-to="farms" aria-label="내 농장 만들기">${terrainPart('bed')}</button>`).join('');
+      return `<div class="garden-top"></div>${skyScene()}<main class="garden-field"><div class="terrain-grass-layer">${terrainPart('grass')}</div><div class="fence" aria-hidden="true">${terrainPart('fence')}${terrainPart('fence')}${terrainPart('fence')}</div><div class="plots pc-empty-plots">${plots}</div><button class="pc-empty-hint" data-action="nav" data-to="farms">＋ 내 농장 만들기</button></main>`;
     };
 
     render = function () {

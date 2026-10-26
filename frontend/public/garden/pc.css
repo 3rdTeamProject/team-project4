@@ -106,14 +106,20 @@ html.pc-scene .terrain-fence {
   flex: 0 0 calc(var(--layout-max) * 0.34);
 }
 
-/* 농장이 하나도 없을 때: 빈 텃밭을 흐리게 보여 주고 안내 한 줄만 둔다(버튼은 오른쪽 패널에 있다) */
+/* 농장이 하나도 없을 때: 흐린 빈 텃밭과 '내 농장 만들기' 버튼을 보여 준다. 누르면 오른쪽 패널에 내 농장 화면이 열린다 */
 html.pc-scene .garden-top:empty {
   min-height: calc(var(--space-gap) * 5);
 }
 
-html.pc-scene .pc-empty-plots {
-  opacity: 0.45;
-  pointer-events: none;
+html.pc-scene .pc-empty-plots .plot {
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+html.pc-scene .pc-empty-plots .plot:hover,
+html.pc-scene .pc-empty-plots .plot:focus-visible {
+  opacity: 0.85;
 }
 
 html.pc-scene .pc-empty-hint {
@@ -122,12 +128,15 @@ html.pc-scene .pc-empty-hint {
   left: calc((var(--pc-side-l) + 100% - var(--pc-side-r)) / 2);
   transform: translate(-50%, -50%);
   margin: 0;
-  padding: calc(var(--space-gap) / 2) var(--space-card);
+  padding: calc(var(--space-gap) / 1.5) calc(var(--space-card) * 1.5);
   border-radius: var(--radius-chip);
-  background: var(--color-card);
-  color: var(--color-text);
-  font-size: var(--fs-body);
+  border: 0;
+  background: var(--color-green-btn);
+  color: var(--color-on-btn);
+  font: inherit;
+  font-size: var(--fs-card-title);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 /* 메뉴·전체 농장·오늘 할 일은 왼쪽 메뉴가 맡는다 */
