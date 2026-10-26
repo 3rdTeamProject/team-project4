@@ -41,21 +41,26 @@
   justify-content: center;
 }
 
-/* 오른쪽 아래 장바구니 버튼: 목록 끝에 붙어 있다가 화면을 내리면 화면 아래 오른쪽에 달라붙는다(높이 0이라 목록을 밀지 않는다) */
+/* 오른쪽 아래 장바구니 버튼: 상품이 적어도 화면 오른쪽 아래에 고정한다.
+   화면(또는 PC 오른쪽 패널) 전체 너비에 깔고, 안쪽을 앱 폭(430px)에 맞춰 그 오른쪽 끝에 둔다 */
 .shop-fab-wrap {
-  position: sticky;
-  bottom: var(--space-card);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(var(--space-card), env(safe-area-inset-bottom));
   z-index: 5;
-  height: 0;
-  margin-top: calc(var(--space-card) * -1); /* .screen의 칸 간격만큼 올려 목록 끝에 딱 붙게 한다 */
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   pointer-events: none;
+}
+
+.shop-fab-wrap > .shop-fab {
+  margin-left: auto;
+  margin-right: max(var(--page-pad-x), calc((100% - var(--app-max-width)) / 2 + var(--page-pad-x)));
 }
 
 .shop-fab {
   position: relative;
-  transform: translateY(-100%);
   width: var(--size-button);
   height: var(--size-button);
   display: flex;
