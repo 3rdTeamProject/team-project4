@@ -3,7 +3,6 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { storage } from '../api.js'
 import DiagnosisResult from '../components/DiagnosisResult.jsx'
 import DiagnosisDetails from '../components/DiagnosisDetails.jsx'
-import LeafDetectionOverlay from '../components/LeafDetectionOverlay.jsx'
 import { useGoBack } from '../hooks/useGoBack.js'
 import './diagnosis.css'
 
@@ -12,8 +11,6 @@ const STEPS = [
   { id: 'leaf', label: '잎 관찰' },
   { id: 'detail', label: 'AI 상세 진단' },
 ]
-
-const DEMO_DETECTIONS = [{ x: 0.48, y: 0.2, width: 0.28, height: 0.34, label: '의심 잎 · 데모' }]
 
 function PhotoMark() {
   return (
@@ -41,7 +38,6 @@ export default function Diagnosis() {
   const [step, setStep] = useState(direct ? 'detail' : 'plant')
   const [plantPhoto, setPlantPhoto] = useState(null)
   const [detailPhoto, setDetailPhoto] = useState(null)
-  const [leafDemo, setLeafDemo] = useState(null)
   const [error, setError] = useState('')
   const plantUrl = useRef(null)
   const detailUrl = useRef(null)
@@ -69,7 +65,6 @@ export default function Diagnosis() {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current)
     urlRef.current = nextUrl
     setPhoto({ url: nextUrl, name: file.name })
-    if (kind === 'plant') setLeafDemo(null)
     setError('')
   }
 
@@ -81,7 +76,6 @@ export default function Diagnosis() {
   }
 
   function restartLeafObservation() {
-    setLeafDemo(null)
     setError('')
     setStep('plant')
   }
@@ -171,68 +165,14 @@ export default function Diagnosis() {
           </section>
           <div className="diagnosis-photo-stage">
             <img src={plantPhoto.url} alt="선택한 작물 전체 사진" />
-            <LeafDetectionOverlay detections={leafDemo === 'detected' ? DEMO_DETECTIONS : []} />
           </div>
-          <fieldset className="diagnosis-demo-controls">
-            <legend>UI 검토용 데모 <span>실제 AI 분석 결과가 아닙니다</span></legend>
-            <p>YOLO 모델 연결 전입니다. 화면 확인이 필요할 때만 데모 상태를 선택해 주세요.</p>
-            <div className="diagnosis-demo-options">
-              <button
-                type="button"
-                className={`btn secondary${leafDemo === 'detected' ? ' is-selected' : ''}`}
-                aria-pressed={leafDemo === 'detected'}
-                onClick={() => setLeafDemo('detected')}
-              >
-                이상 탐지 데모
-              </button>
-              <button
-                type="button"
-                className={`btn secondary${leafDemo === 'not-detected' ? ' is-selected' : ''}`}
-                aria-pressed={leafDemo === 'not-detected'}
-                onClick={() => setLeafDemo('not-detected')}
-              >
-                이상 미탐지 데모
-              </button>
-            </div>
-          </fieldset>
-          {leafDemo === null && (
-            <aside className="diagnosis-notice" role="status">
-              <strong>모델 미연결</strong>
-              <p>사진을 업로드해도 아직 분석하지 않습니다. 위 데모는 화면 검토 전용입니다.</p>
-            </aside>
-          )}
-          {leafDemo === 'detected' && (
-            <>
-              <aside className="diagnosis-leaf-result is-suspected" role="status">
-                <span className="diagnosis-demo-badge">UI 데모 · 실제 탐지 아님</span>
-                <strong>문제가 의심돼요</strong>
-                <p>이상 의심 잎의 위치를 데모 Bounding Box로 표시했어요. 병명은 판단하지 않습니다.</p>
-              </aside>
-              <div className="diagnosis-actions">
-                <button type="button" className="btn primary" onClick={() => setStep('detail')}>
-                  AI 진단으로 자세히 보기
-                </button>
-                <button type="button" className="btn secondary" onClick={() => setStep('plant')}>다시 촬영하기</button>
-              </div>
-            </>
-          )}
-          {leafDemo === 'not-detected' && (
-            <>
-              <aside className="diagnosis-leaf-result" role="status">
-                <span className="diagnosis-demo-badge">UI 데모 · 실제 탐지 아님</span>
-                <strong>이상이 발견되지 않았어요</strong>
-                <p>현재 사진에서 뚜렷한 이상 징후가 탐지되지 않았습니다.</p>
-              </aside>
-              <div className="diagnosis-actions">
-                <button type="button" className="btn primary" onClick={() => setStep('plant')}>다시 촬영하기</button>
-              </div>
-            </>
-          )}
-          {leafDemo === null && (
-            <div className="diagnosis-actions">
-              <button type="button" className="btn secondary" onClick={() => setStep('plant')}>작물 사진 다시 선택</button>
-            </div>
-          )}
+          <aside className="diagnosis-notice" role="status">
+            <strong>모델 미연결</strong>
+            <p>사진을 업로드해도 아직 잎 이상을 분석하지 않습니다.</p>
+          </aside>
+          <div className="diagnosis-actions">
+            <button type="button" className="btn secondary" onClick={() => setStep('plant')}>작물 사진 다시 선택</button>
+          </div>
         </>
       )}
 

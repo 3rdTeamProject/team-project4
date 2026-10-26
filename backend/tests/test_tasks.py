@@ -282,9 +282,22 @@ class TaskTest(unittest.TestCase):
         self.assertEqual(self.titles()['모종 옮겨심기']['triggersStage'], 3)
         self.assertIsNone(self.titles()['석회·퇴비 섞기']['triggersStage'])
 
+    def test_dev_day_tool_is_only_for_dev_accounts(self):
+        import tasks
+        self.addCleanup(lambda: setattr(tasks, '_day_offset', 0))
+        # 일반 계정: 패널이 꺼져 있고(enabled false) 날짜를 옮길 수 없다
+        self.assertFalse(self.client.get('/garden/dev/day', headers=self.h).json()['enabled'])
+        self.assertEqual(self.client.post('/garden/dev/day', headers=self.h, json={'offset': 5}).status_code, 403)
+        self.assertEqual(tasks._day_offset, 0)
+        # 개발용 계정(users.is_dev)만 켜지고 옮길 수 있다
+        run('UPDATE users SET is_dev = :d WHERE id = :u', d=True, u=self.uid)
+        self.assertTrue(self.client.get('/garden/dev/day', headers=self.h).json()['enabled'])
+        self.assertEqual(self.client.post('/garden/dev/day', headers=self.h, json={'offset': 5}).status_code, 200)
+
     def test_dev_day_tool_moves_the_server_clock(self):
         import tasks
         self.addCleanup(lambda: setattr(tasks, '_day_offset', 0))
+        run('UPDATE users SET is_dev = :d WHERE id = :u', d=True, u=self.uid)
         res = self.client.post('/garden/dev/day', headers=self.h, json={'offset': 5})
         self.assertEqual((res.status_code, res.json()['offset']), (200, 5))
         self.assertEqual(self.client.get('/garden/dev/day', headers=self.h).json()['offset'], 5)

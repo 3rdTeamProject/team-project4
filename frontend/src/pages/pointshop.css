@@ -41,6 +41,44 @@
   justify-content: center;
 }
 
+/* 오른쪽 아래 장바구니 버튼: 상품이 적어도 화면 오른쪽 아래에 고정한다.
+   화면(또는 PC 오른쪽 패널) 전체 너비에 깔고, 안쪽을 앱 폭(430px)에 맞춰 그 오른쪽 끝에 둔다 */
+.shop-fab-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(var(--space-card), env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.shop-fab-wrap > .shop-fab {
+  margin-left: auto;
+  margin-right: max(var(--page-pad-x), calc((100% - var(--app-max-width)) / 2 + var(--page-pad-x)));
+}
+
+.shop-fab {
+  position: relative;
+  width: var(--size-button);
+  height: var(--size-button);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-chip);
+  background: var(--color-green-btn);
+  color: var(--color-on-btn);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-text) 30%, transparent);
+  pointer-events: auto;
+}
+
+.shop-fab .shop-badge {
+  top: 0;
+  right: 0;
+  background: var(--color-red-dot);
+}
+
 .shop-points {
   flex: none;
   display: inline-flex;

@@ -11,3 +11,13 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// 홈 화면에 추가해 앱처럼 쓰기 위한 서비스 워커(개발 중에는 화면이 안 바뀌는 문제가 생기므로 배포 빌드에서만 등록한다)
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {}) // 등록에 실패해도 앱은 그대로 동작한다
+  })
+} else if ('serviceWorker' in navigator) {
+  // 개발 서버로 열 때는 설치 시험(배포 빌드)에서 남은 서비스 워커를 지워, 옛 화면이 보이는 일을 막는다
+  navigator.serviceWorker.getRegistrations().then(list => list.forEach(registration => registration.unregister()))
+}
