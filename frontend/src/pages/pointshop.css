@@ -41,6 +41,39 @@
   justify-content: center;
 }
 
+/* 오른쪽 아래 장바구니 버튼: 목록 끝에 붙어 있다가 화면을 내리면 화면 아래 오른쪽에 달라붙는다(높이 0이라 목록을 밀지 않는다) */
+.shop-fab-wrap {
+  position: sticky;
+  bottom: var(--space-card);
+  z-index: 5;
+  height: 0;
+  margin-top: calc(var(--space-card) * -1); /* .screen의 칸 간격만큼 올려 목록 끝에 딱 붙게 한다 */
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.shop-fab {
+  position: relative;
+  transform: translateY(-100%);
+  width: var(--size-button);
+  height: var(--size-button);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-chip);
+  background: var(--color-green-btn);
+  color: var(--color-on-btn);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-text) 30%, transparent);
+  pointer-events: auto;
+}
+
+.shop-fab .shop-badge {
+  top: 0;
+  right: 0;
+  background: var(--color-red-dot);
+}
+
 .shop-points {
   flex: none;
   display: inline-flex;
