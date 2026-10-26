@@ -82,6 +82,8 @@ users = Table(
     Column("notify_point", Boolean, nullable=False, default=False, server_default=text("false")),
     # 텃밭 화면의 움직임 효과 켜짐/꺼짐
     Column("motion_effects", Boolean, nullable=False, default=True, server_default=text("true")),
+    # 개발용 계정 표시(날짜 이동·날씨 바꾸기 같은 개발용 패널은 true인 계정에서만 쓴다). Supabase에서 직접 true로 바꾼다
+    Column("is_dev", Boolean, nullable=False, default=False, server_default=text("false")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("login_type IN ('guest', 'kakao')", name="users_login_type_check"),
 )

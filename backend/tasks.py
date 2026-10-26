@@ -205,20 +205,23 @@ def register_tasks(app, engine, get_current_user, t, full_state):
     def lock_user(conn, user_id):
         conn.execute(select(t['users'].c.id).where(t['users'].c.id == user_id).with_for_update())
 
-    def dev_day():
-        return {'enabled': True, 'offset': _day_offset, 'today': today_kst().isoformat()}
+    def dev_day(user):
+        # enabled는 users.is_dev가 true인 개발용 계정에서만 true다(화면의 개발용 패널을 켤지 정한다)
+        return {'enabled': bool(user['is_dev']), 'offset': _day_offset, 'today': today_kst().isoformat()}
 
     @router.get('/dev/day')
     def read_dev_day(user=Depends(get_current_user)):
-        """개발용: 서버 시계가 지금 며칠 앞인지."""
-        return dev_day()
+        """개발용: 서버 시계가 지금 며칠 앞인지. 개발용 계정이 아니면 enabled가 false다."""
+        return dev_day(user)
 
     @router.post('/dev/day')
     def set_dev_day(body: DevDay, user=Depends(get_current_user)):
-        """개발용: 서버 시계를 body.offset일 앞으로 맞춘다(서버를 다시 켜면 .env 값으로 돌아간다)."""
+        """개발용: 서버 시계를 body.offset일 앞으로 맞춘다(서버를 다시 켜면 .env 값으로 돌아간다). 개발용 계정만 쓸 수 있다."""
+        if not user['is_dev']:
+            raise HTTPException(403, '개발용 계정만 사용할 수 있어요.')
         global _day_offset
         _day_offset = body.offset
-        return dev_day()
+        return dev_day(user)
 
     @router.get('/tasks')
     def today_tasks(user=Depends(get_current_user)):
