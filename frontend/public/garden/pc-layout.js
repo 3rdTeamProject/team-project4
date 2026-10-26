@@ -72,7 +72,7 @@
     // 농장이 하나도 없으면 흐린 빈 텃밭(누를 수 없음)과 팻말을 보여 준다. 밭 한가운데 놓인 큰 팻말을 누르면 오른쪽 패널에 '내 농장'(첫 농장 만들기) 화면이 열린다
     farmsPage = function () {
       const plots = Array.from({ length: 6 }, () => `<div class="plot" aria-hidden="true">${terrainPart('bed')}</div>`).join('');
-      return `<div class="garden-top"></div>${skyScene()}<main class="garden-field"><div class="terrain-grass-layer">${terrainPart('grass')}</div><div class="fence" aria-hidden="true">${terrainPart('fence')}${terrainPart('fence')}${terrainPart('fence')}</div><div class="plots pc-empty-plots">${plots}<button class="plot-label pc-empty-sign" data-action="nav" data-to="farms"><b>내 텃밭 만들기 ▶</b></button></div></main>`;
+      return `<div class="garden-top"></div>${skyScene()}<main class="garden-field"><div class="terrain-grass-layer">${terrainPart('grass')}</div><div class="fence" aria-hidden="true">${terrainPart('fence')}${terrainPart('fence')}${terrainPart('fence')}</div><div class="plots pc-empty-plots">${plots}<button class="plot-label pc-empty-sign" data-action="nav" data-to="farms"><b>첫 농장 만들기 →</b></button></div></main>`;
     };
 
     render = function () {
