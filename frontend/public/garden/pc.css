@@ -106,21 +106,25 @@ html.pc-scene .terrain-fence {
   flex: 0 0 calc(var(--layout-max) * 0.34);
 }
 
-/* 농장이 하나도 없을 때: 흐린 빈 텃밭(누를 수 없음)과 팻말을 보여 준다. 팻말을 누르면 오른쪽 패널에 내 농장 화면이 열린다 */
+/* 농장이 하나도 없을 때: 흐린 빈 텃밭(누를 수 없음)과 한가운데 팻말을 보여 준다. 팻말을 누르면 오른쪽 패널에 내 농장 화면이 열린다 */
 html.pc-scene .garden-top:empty {
   min-height: calc(var(--space-gap) * 5);
 }
 
 html.pc-scene .pc-empty-plots {
-  opacity: 0.45;
-  pointer-events: none;
+  position: relative;
 }
 
-/* 밭 위의 팻말(밭 이름표와 같은 모양). 가운데 칸의 한가운데, 밭 윗줄 바로 위에 둔다 */
+html.pc-scene .pc-empty-plots .plot {
+  opacity: 0.45;
+}
+
+/* 밭 6칸 한가운데에 큰 팻말을 세운다(밭 이름표와 같은 모양을 키운 것) */
 html.pc-scene .pc-empty-sign {
-  top: calc(var(--space-gap) * 2);
-  left: calc((var(--pc-side-l) + 100% - var(--pc-side-r)) / 2);
-  transform: translateX(-50%) rotate(2deg);
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  transform: translate(-50%, -50%) rotate(2deg) scale(1.7);
   pointer-events: auto; /* 밭 이름표는 원래 눌리지 않게 되어 있어서 다시 켠다 */
   cursor: pointer;
 }
