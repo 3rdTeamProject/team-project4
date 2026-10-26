@@ -1,0 +1,120 @@
+/* PC 레이아웃(1024px 이상)에서만 켜지는 농장 화면 규칙. html에 pc-scene / pc-panel 클래스가 붙었을 때만 적용된다. */
+
+/* ---------- 가운데 장면: 화면 전체 너비로 깔고, 안쪽 내용은 왼쪽 메뉴·오른쪽 패널 사이 가운데(최대 430px)에 둔다 */
+html.pc-scene {
+  --pc-scene-zoom: 1;
+  --pc-scene-w: calc(var(--layout-max) * var(--pc-scene-zoom));
+  --pc-free: calc(100vw - var(--pc-left-w) - var(--pc-right-w));
+  --pc-side-l: calc(var(--pc-left-w) + max(0px, (var(--pc-free) - var(--pc-scene-w)) / 2));
+  --pc-side-r: calc(var(--pc-right-w) + max(0px, (var(--pc-free) - var(--pc-scene-w)) / 2));
+}
+
+/* 화면이 충분히 넓으면(1250px 이상) 가운데를 남는 폭만큼 넓히고(최대 --layout-max의 2.2배),
+   밭을 3칸씩 2줄로 펼쳐 모바일과 같은 비율로 키운다. 한 화면에 다 보이도록 세로는 늘리지 않는다 */
+@media (min-width: 1250px) {
+  html.pc-scene {
+    --pc-scene-zoom: 1.25;
+    --pc-scene-w: min(var(--pc-free), calc(var(--layout-max) * 2.2));
+  }
+
+  html.pc-scene .garden-top,
+  html.pc-scene .garden-field {
+    padding-left: calc(var(--pc-side-l) + var(--space-screen-x) * 2);
+    padding-right: calc(var(--pc-side-r) + var(--space-screen-x) * 2);
+  }
+
+  html.pc-scene .plots {
+    zoom: var(--pc-scene-zoom);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: calc(var(--space-gap) * 5) calc(var(--space-gap) * 3);
+    max-width: none;
+    margin-top: calc(var(--space-gap) * 5);
+  }
+
+  /* 농장 이름과 날씨 카드를 한 줄에 나란히 둔다(아래로 쌓이지 않게) */
+  html.pc-scene .garden-top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-gap);
+  }
+
+  html.pc-scene .garden-nav {
+    flex: none;
+  }
+
+  /* 농장 이름이 줄어들지 않게 한다(모바일은 가로 전체 폭 기준으로 줄어들도록 되어 있다) */
+  html.pc-scene .farm-picker {
+    max-width: calc(var(--layout-max) / 2);
+  }
+
+  html.pc-scene .live-weather {
+    margin-top: 0;
+  }
+
+  /* 구름이 가운데 칸 오른쪽 끝에 몰리지 않게 칸 너비의 일부만큼 왼쪽으로 옮긴다(개별 transform 속성이라 구름 움직임과 겹치지 않는다) */
+  html.pc-scene .sky-stage .cloud {
+    translate: calc(var(--pc-scene-w) * -0.3) 0;
+  }
+
+  /* 이름·날씨가 한 줄이 되면서 줄어든 하늘을 다시 늘린다 */
+  html.pc-scene .sky {
+    height: calc(var(--space-gap) * 6);
+  }
+
+  /* 팻말이 위 줄 밭 위로 올라오므로 윗줄이 위에 오도록 겹침 순서를 3칸 기준으로 다시 정한다 */
+  html.pc-scene .plots > .plot:nth-child(-n+3) {
+    z-index: 3;
+  }
+
+  html.pc-scene .plots > .plot:nth-child(n+4) {
+    z-index: 2;
+  }
+}
+
+html.pc-scene .phone-shell {
+  max-width: none;
+  margin: 0;
+}
+
+html.pc-scene #app {
+  min-height: 100vh;
+}
+
+html.pc-scene .garden-top,
+html.pc-scene .garden-field {
+  padding-left: calc(var(--pc-side-l) + var(--space-screen-x));
+  padding-right: calc(var(--pc-side-r) + var(--space-screen-x));
+}
+
+/* 풀밭은 남는 높이를 채운다 */
+html.pc-scene .garden-field {
+  flex: 1 0 auto;
+}
+
+/* 해·달·구름은 가운데 칸 안에 둔다(바탕과 비·눈 효과는 전체 너비) */
+html.pc-scene .sky-stage {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--pc-side-l);
+  right: var(--pc-side-r);
+  pointer-events: none;
+}
+
+/* 울타리 조각은 모바일에서 보이던 크기(가운데 칸 너비의 34%)로 두고 옆으로 이어 붙인다 */
+html.pc-scene .terrain-fence {
+  flex: 0 0 calc(var(--layout-max) * 0.34);
+}
+
+/* 메뉴·전체 농장·오늘 할 일은 왼쪽 메뉴가 맡는다 */
+html.pc-scene .menu-button,
+html.pc-scene .garden-footer {
+  display: none;
+}
+
+/* ---------- 오른쪽 패널: 첫 화면(오늘 할 일·전체 농장)은 뒤로 갈 곳이 없고, 메뉴는 왼쪽 메뉴가 맡는다 */
+html.pc-panel #app[data-view="tasks"] .page-head .icon-btn[aria-label="뒤로 가기"],
+html.pc-panel #app[data-view="farms"] .page-head .icon-btn[aria-label="뒤로 가기"],
+html.pc-panel .page-head [data-action="menu"] {
+  display: none;
+}

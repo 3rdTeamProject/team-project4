@@ -4,6 +4,7 @@ import { storage } from '../api.js'
 import { ChevronRightIcon, CloseIcon, CoinIcon, DiagnosisIcon, JournalIcon, LevelIcon, SettingsIcon, ShopIcon } from '../components/Icons.jsx'
 import { levelFromExp } from '../constants/level.js'
 import { useGoBack } from '../hooks/useGoBack.js'
+import { useMediaQuery } from '../hooks/useMediaQuery.js'
 import { useMe } from '../hooks/useMe.js'
 import './screens.css'
 
@@ -23,6 +24,8 @@ const MENU_ITEMS = [
 ]
 
 export default function Menu() {
+  // PC(오른쪽 패널 안)에서는 닫기를 왼쪽 메뉴가 맡으므로 X를 보이지 않는다
+  const wide = useMediaQuery('(min-width: 1024px)')
   const { me, error } = useMe()
   const [openLabel, setOpenLabel] = useState(null)
   // 닫기: 메뉴를 열기 전 화면으로 돌아간다. 이전 기록이 없으면 홈으로
@@ -34,7 +37,7 @@ export default function Menu() {
     <div className="screen">
       <header className="screen-header">
         <h1 className="screen-title menu-title">메뉴</h1>
-        <button type="button" className="icon-btn" onClick={close} aria-label="닫기"><CloseIcon /></button>
+        {!wide && <button type="button" className="icon-btn" onClick={close} aria-label="닫기"><CloseIcon /></button>}
       </header>
 
       {error && <p className="error">{error}</p>}
