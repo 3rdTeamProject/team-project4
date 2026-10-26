@@ -139,6 +139,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable; /* 화면 내용 길이가 바뀌어도 폭이 변하지 않게 한다 */
 }
 
 /* 패널 안의 화면은 모바일 폭 그대로 쓴다(바깥 .app의 폭 제한은 풀고, 안쪽 여백은 모바일과 같게 둔다) */
