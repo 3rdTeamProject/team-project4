@@ -5,6 +5,7 @@ import os
 import tempfile
 import threading
 import unittest
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,8 +14,8 @@ from unittest.mock import AsyncMock, patch
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.testclient import TestClient
-from httpx import AsyncClient, MockTransport, ReadTimeout, Request, Response
-from openai import AsyncOpenAI
+from httpx import ASGITransport, AsyncClient, MockTransport, ReadTimeout, Request, Response
+from openai import APIStatusError, AsyncOpenAI
 from sqlalchemy import (
     Column,
     ForeignKey,
@@ -23,10 +24,12 @@ from sqlalchemy import (
     String,
     Table,
     create_engine,
+    event,
     insert,
     select,
 )
 from sqlalchemy.pool import NullPool
+from sqlalchemy.exc import SQLAlchemyError
 from diagnosis import (
     DiagnosisAnalysis,
     DiagnosisServiceError,
@@ -58,7 +61,7 @@ class FakeDiagnosisService:
         if self.failure == "before":
             self.failure = None
             raise DiagnosisServiceError("mock failure before analysis", analysis_started=False)
-        on_start()
+        await on_start()
         with self.lock:
             self.calls += 1
         if self.failure == "after":
@@ -94,7 +97,7 @@ class DiagnosisQuotaTest(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.engine = create_engine(
             f"sqlite:///{Path(self.temp_dir.name) / 'diagnosis.db'}",
-            connect_args={"check_same_thread": False, "timeout": 15},
+            connect_args={"check_same_thread": True, "timeout": 15},
             poolclass=NullPool,
         )
         self.metadata = MetaData()
@@ -228,6 +231,91 @@ class DiagnosisQuotaTest(unittest.TestCase):
         response = self.client.get("/diagnoses/quota", headers=self.headers(user_id))
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
+
+    def test_read_only_key_lookup_recovers_saved_result_without_analysis_or_quota_change(self):
+        self.add_growing_plant()
+        result = self.post_diagnosis("lost-response-key").json()
+        before = self.quota()
+        for _ in range(2):
+            response = self.client.get("/diagnoses/requests/by-idempotency-key", headers={
+                **self.headers(), "Idempotency-Key": "lost-response-key",
+            })
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["request_id"], result["request_id"])
+            self.assertEqual(response.json()["status"], "completed")
+            self.assertEqual(response.json()["result"]["status"], "diagnosed")
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.quota(), before)
+
+    def test_key_lookup_is_owned_validated_and_never_creates_a_request(self):
+        self.add_growing_plant()
+        self.add_growing_plant(user_id=2)
+        self.post_diagnosis("private-lookup-key")
+        for key, user_id, expected in [
+            ("private-lookup-key", 2, 404), ("not-submitted-key", 1, 404), ("bad", 1, 422),
+        ]:
+            response = self.client.get("/diagnoses/requests/by-idempotency-key", headers={
+                **self.headers(user_id), "Idempotency-Key": key,
+            })
+            self.assertEqual(response.status_code, expected, response.text)
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.quota()["used_count"], 1)
+
+    def test_key_lookup_returns_pending_unknown_and_preanalysis_failure_without_reexecution(self):
+        self.add_growing_plant()
+        result = self.post_diagnosis("lookup-states-key").json()
+        for status in ["reserved", "processing", "unknown", "failed_before_analysis"]:
+            with self.engine.begin() as conn:
+                conn.execute(self.requests.update().where(
+                    self.requests.c.request_id == result["request_id"]
+                ).values(status=status))
+            response = self.client.get("/diagnoses/requests/by-idempotency-key", headers={
+                **self.headers(), "Idempotency-Key": "lookup-states-key",
+            })
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["status"], status)
+        self.assertEqual(self.analysis.calls, 1)
+
+    def test_key_lookup_while_initial_post_is_waiting_never_restarts_analysis(self):
+        self.add_growing_plant()
+        original = self.analysis.analyze
+
+        async def exercise():
+            started, finish = asyncio.Event(), asyncio.Event()
+
+            async def delayed(crop, symptoms, description, photos, on_start):
+                async def notify():
+                    await on_start()
+                    started.set()
+                    await finish.wait()
+                return await original(crop, symptoms, description, photos, notify)
+
+            async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as client:
+                with patch.object(self.analysis, "analyze", side_effect=delayed):
+                    headers = {**self.headers(), "Idempotency-Key": "waiting-post-key"}
+                    pending = asyncio.create_task(client.post("/diagnoses", headers=headers,
+                        data={"farm_client_id": "farm-client-id", "plot_number": "1", "symptoms": "잎 변색"},
+                        files={"close_photo": ("close.png", PNG, "image/png")}))
+                    try:
+                        await asyncio.wait_for(started.wait(), 5)
+                        for _ in range(2):
+                            response = await asyncio.wait_for(client.get(
+                                "/diagnoses/requests/by-idempotency-key", headers=headers), 5)
+                            self.assertEqual(response.status_code, 200, response.text)
+                            self.assertEqual(response.json()["status"], "processing")
+                            self.assertFalse(pending.done())
+                    finally:
+                        finish.set()
+                        completed = await asyncio.wait_for(pending, 5)
+                    recovered = await client.get("/diagnoses/requests/by-idempotency-key", headers=headers)
+                    self.assertEqual(recovered.json()["result"], {
+                        k: v for k, v in completed.json().items()
+                        if k not in ("request_id", "quota")
+                    })
+
+        asyncio.run(exercise())
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.quota()["used_count"], 1)
 
     def test_history_metadata_ownership_filter_and_pagination(self):
         first_planting = self.add_growing_plant()
@@ -443,6 +531,517 @@ class DiagnosisQuotaTest(unittest.TestCase):
         self.assertFalse(response.json()["is_demo"])
         self.assertEqual(self.quota()["used_count"], 1)
 
+    def test_confirmed_precreation_rejections_have_explicit_marker(self):
+        self.add_growing_plant()
+        for status, kwargs, failure in [
+            (422, {"symptoms": "invalid-symptom"}, None),
+            (404, {"farm_client_id": "missing-farm"}, None),
+            (503, {}, "prepare"),
+        ]:
+            with self.subTest(status=status):
+                self.analysis.failure = failure
+                response = self.post_diagnosis(f"rejected-status-{status}", **kwargs)
+                self.assertEqual(response.status_code, status)
+                self.assertEqual(response.json().get("status"), "rejected_before_creation")
+                self.assertIs(response.json().get("request_created"), False)
+                self.assertNotIn("request_id", response.json())
+        self.assertEqual(self.quota()["used_count"], 0)
+        self.assertEqual(self.analysis.calls, 0)
+
+    def test_preflight_rejection_on_replay_preserves_existing_request(self):
+        self.add_growing_plant()
+        first = self.post_diagnosis("existing-replay-key").json()
+        self.analysis.failure = "prepare"
+        rejected = self.post_diagnosis("existing-replay-key")
+        # P2 now bypasses preflight for an existing key. Preserve P1's intent:
+        # never discard the existing record or run a duplicate analysis.
+        self.assertEqual(rejected.status_code, 200)
+        self.assertEqual(rejected.json().get("status"), "diagnosed")
+        self.assertTrue(rejected.json().get("replayed"))
+        self.assertEqual(rejected.json().get("request_id"), first["request_id"])
+        saved = self.client.get(f"/diagnoses/requests/{first['request_id']}", headers=self.headers()).json()
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(self.analysis.calls, 1)
+        new_request = self.post_diagnosis("new-preflight-failure")
+        self.assertEqual(new_request.status_code, 503)
+        self.assertEqual(new_request.json()["status"], "rejected_before_creation")
+        self.assertIs(new_request.json()["request_created"], False)
+
+    def test_provider_http_errors_preserve_existing_reservation_policy(self):
+        self.add_growing_plant()
+        for provider_status in (429, 500, 503):
+            with self.subTest(provider_status=provider_status):
+                parse = AsyncMock(side_effect=APIStatusError(
+                    "mock provider error",
+                    response=Response(provider_status, request=Request("POST", "https://mock.invalid")),
+                    body={},
+                ))
+                service = OpenAIDiagnosisService(client=SimpleNamespace(
+                    chat=SimpleNamespace(completions=SimpleNamespace(parse=parse))
+                ))
+                self.analysis.analyze = service.analyze
+                response = self.post_diagnosis(f"provider-status-{provider_status}")
+                self.assertEqual(response.status_code, 502)
+                expected = "unknown" if provider_status >= 500 else "failed_before_analysis"
+                self.assertEqual(response.json()["status"], expected)
+                saved = self.client.get(response.json()["status_url"], headers=self.headers()).json()
+                self.assertEqual(saved["quota_reserved"], provider_status >= 500)
+                self.assertFalse(saved["quota_consumed"])
+                self.assertEqual(parse.await_count, 1)
+
+    def test_p2_completed_replay_survives_deleted_planting(self):
+        planting_id = self.add_growing_plant()
+        first = self.post_diagnosis("p2-deleted-plant").json()
+        with self.engine.begin() as conn:
+            conn.execute(self.requests.update().values(planting_id=None))
+            conn.execute(self.plantings.delete().where(self.plantings.c.id == planting_id))
+        replay = self.post_diagnosis("p2-deleted-plant")
+        self.assertEqual(replay.status_code, 200, replay.text)
+        self.assertEqual(replay.json()["request_id"], first["request_id"])
+        self.assertEqual(replay.json()["disease_name"], first["disease_name"])
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.quota()["used_count"], 1)
+        self.assertEqual(self.post_diagnosis("p2-deleted-new-key").status_code, 404)
+        conflict = self.post_diagnosis("p2-deleted-plant", symptoms="시듦")
+        self.assertEqual(conflict.status_code, 409)
+        conflict = self.post_diagnosis("p2-deleted-plant", farm_client_id="different-farm")
+        self.assertEqual(conflict.status_code, 409)
+
+    def test_p2_replay_survives_service_failure_and_harvest(self):
+        planting_id = self.add_growing_plant()
+        first = self.post_diagnosis("p2-service-replay").json()
+        with self.engine.begin() as conn:
+            conn.execute(self.plantings.update().where(self.plantings.c.id == planting_id).values(status="ended"))
+        self.analysis.failure = "prepare"
+        replay = self.post_diagnosis("p2-service-replay")
+        self.assertEqual(replay.status_code, 200, replay.text)
+        self.assertEqual(replay.json()["request_id"], first["request_id"])
+        self.assertEqual(self.analysis.failure, "prepare", "replay must not prepare the service")
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.quota()["used_count"], 1)
+        self.assertEqual(self.post_diagnosis("p2-service-new-key").status_code, 503)
+
+    def test_p2_replay_ownership_and_noncompleted_states(self):
+        self.add_growing_plant()
+        self.add_growing_plant(user_id=2, client_id="user-two-farm")
+        first = self.post_diagnosis("p2-shared-key").json()
+        second = self.post_diagnosis("p2-shared-key", user_id=2, farm_client_id="user-two-farm").json()
+        self.assertNotEqual(first["request_id"], second["request_id"])
+        self.assertEqual(self.client.get(f"/diagnoses/requests/{first['request_id']}", headers=self.headers(2)).status_code, 404)
+        for state, reserved, expected_code in [
+            ("unknown", True, 202), ("processing", True, 202), ("failed_before_analysis", False, 422),
+        ]:
+            with self.subTest(state=state):
+                with self.engine.begin() as conn:
+                    conn.execute(self.requests.update().where(self.requests.c.request_id == first["request_id"]).values(
+                        status=state, quota_reserved=reserved, quota_consumed=False,
+                    ))
+                self.analysis.failure = "prepare"
+                replay = self.post_diagnosis("p2-shared-key")
+                self.assertEqual(replay.status_code, expected_code)
+                self.assertEqual(replay.json()["status"], state)
+                self.assertEqual(replay.json()["request_id"], first["request_id"])
+        self.assertEqual(self.analysis.calls, 2)
+
+    def test_p2_deleted_unknown_retains_replay_identity_without_result(self):
+        planting_id = self.add_growing_plant()
+        self.analysis.failure = "after"
+        first = self.post_diagnosis("p2-deleted-unknown").json()
+        with self.engine.begin() as conn:
+            conn.execute(self.requests.update().values(planting_id=None))
+            conn.execute(self.plantings.delete().where(self.plantings.c.id == planting_id))
+        self.analysis.failure = "prepare"
+        replay = self.post_diagnosis("p2-deleted-unknown")
+        self.assertEqual(replay.status_code, 202)
+        self.assertEqual(replay.json()["request_id"], first["request_id"])
+        self.assertEqual(replay.json()["status"], "unknown")
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.quota()["reserved_count"], 1)
+
+    def test_p2_legacy_deleted_result_uses_saved_planting_id(self):
+        planting_id = self.add_growing_plant()
+        first = self.post_diagnosis("p2-legacy-deleted").json()
+        with self.engine.begin() as conn:
+            row = conn.execute(select(self.requests)).mappings().one()
+            result = dict(row["result"])
+            result["metadata"] = dict(result["metadata"])
+            result["metadata"].pop("farm_client_id")
+            result["metadata"].pop("plot_number")
+            conn.execute(self.requests.update().values(planting_id=None, result=result))
+            conn.execute(self.plantings.delete().where(self.plantings.c.id == planting_id))
+        replay = self.post_diagnosis("p2-legacy-deleted")
+        self.assertEqual(replay.status_code, 200, replay.text)
+        self.assertEqual(replay.json()["request_id"], first["request_id"])
+        self.assertEqual(self.analysis.calls, 1)
+        # An older record with neither the FK nor the original ID cannot have
+        # its fingerprint verified safely. The request-ID GET still works.
+        with self.engine.begin() as conn:
+            result["metadata"].pop("planting_id")
+            conn.execute(self.requests.update().values(result=result))
+        self.assertEqual(self.post_diagnosis("p2-legacy-deleted").status_code, 409)
+        saved = self.client.get(f"/diagnoses/requests/{first['request_id']}", headers=self.headers()).json()
+        self.assertEqual(saved["status"], "completed")
+
+    @contextmanager
+    def result_storage_fault(self, mode):
+        """Inject only after a successful fake analysis, leaving preflight intact."""
+        real_begin, real_connect = self.engine.begin, self.engine.connect
+        real_analyze = self.analysis.analyze
+        observed = {"analyzed": False, "injected": False, "read_failed": False, "reads": 0, "rowcounts": []}
+
+        async def analyze(*args):
+            result = await real_analyze(*args)
+            observed["analyzed"] = True
+            return result
+
+        def connect(*args, **kwargs):
+            if observed["injected"]:
+                observed["reads"] += 1
+            if observed["read_failed"]:
+                raise SQLAlchemyError("mock fresh connection unavailable")
+            return real_connect(*args, **kwargs)
+
+        @contextmanager
+        def begin():
+            inject = observed["analyzed"] and not observed["injected"]
+            with real_begin() as conn:
+                if not inject:
+                    yield conn
+                    return
+                observed["injected"] = True
+                execute = conn.execute
+
+                def result_execute(statement, *args, **kwargs):
+                    if getattr(statement, "is_update", False):
+                        if mode == "update_error":
+                            raise SQLAlchemyError("mock result UPDATE failure")
+                        if mode == "zero_rows":
+                            observed["rowcounts"].append(0)
+                            return SimpleNamespace(rowcount=0)
+                        if mode == "owner_mismatch":
+                            execute(self.requests.update().values(user_id=2))
+                        updated = execute(statement, *args, **kwargs)
+                        count = 2 if mode == "unexpected_rows" else updated.rowcount
+                        observed["rowcounts"].append(count)
+                        return SimpleNamespace(rowcount=count)
+                    return execute(statement, *args, **kwargs)
+
+                with patch.object(conn, "execute", side_effect=result_execute):
+                    yield conn
+                if mode == "before_commit":
+                    raise SQLAlchemyError("mock failure before commit")
+            # The real SQLite commit has finished; only its acknowledgement is
+            # lost. A new connection must distinguish this from a rollback.
+            if inject and mode in {"after_commit", "after_commit_changed", "recheck_unavailable", "invalid_saved_json"}:
+                if mode in {"invalid_saved_json", "after_commit_changed"}:
+                    with real_begin() as conn:
+                        saved_result = dict(conn.execute(select(self.requests.c.result)).scalar_one())
+                        saved_result = {"status": "diagnosed"} if mode == "invalid_saved_json" else {
+                            **saved_result, "disease_name": "durable-only-result",
+                        }
+                        conn.execute(self.requests.update().values(result=saved_result))
+                observed["read_failed"] = mode == "recheck_unavailable"
+                raise SQLAlchemyError("mock commit acknowledgement lost")
+
+        with patch.object(self.analysis, "analyze", side_effect=analyze), \
+                patch.object(self.engine, "begin", side_effect=begin), \
+                patch.object(self.engine, "connect", side_effect=connect):
+            yield observed
+
+    def post_storage_case(self, mode, key):
+        with self.result_storage_fault(mode) as observed:
+            with TestClient(self.app, raise_server_exceptions=False) as client:
+                with patch.object(self, "client", client):
+                    response = self.post_diagnosis(key)
+        return response, observed
+
+    def assert_storage_unknown(self, response, key):
+        self.assertEqual(response.status_code, 503, response.text)
+        payload = response.json()
+        self.assertEqual(payload["status"], "unknown")
+        self.assertIn("request_id", payload)
+        self.assertNotIn("request_created", payload)
+        self.assertNotIn("result", payload)
+        self.assertNotIn("disease_name", payload)
+        with self.engine.connect() as conn:
+            saved = conn.execute(select(self.requests).where(self.requests.c.request_id == payload["request_id"])).mappings().one()
+        self.assertEqual(saved["status"], "processing")
+        self.assertTrue(saved["quota_reserved"])
+        self.assertFalse(saved["quota_consumed"])
+        self.assertNotIn("disease_name", saved["result"])
+        self.assertEqual(self.quota()["reserved_count"], 1)
+        self.assertEqual(self.quota()["used_count"], 1)
+        self.assertEqual(self.client.get("/diagnoses/history", headers=self.headers()).json()["total"], 0)
+        replay = self.post_diagnosis(key)
+        self.assertEqual(replay.status_code, 202)
+        self.assertEqual(replay.json()["request_id"], payload["request_id"])
+        self.assertEqual(self.analysis.calls, 1)
+
+    def test_storage_one_row_commit_preserves_result_quota_and_history(self):
+        self.add_growing_plant()
+        response, observed = self.post_storage_case("observe", "storage-normal")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(observed["rowcounts"], [1])
+        saved = self.client.get(f"/diagnoses/requests/{response.json()['request_id']}", headers=self.headers()).json()
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["result"]["disease_name"], response.json()["disease_name"])
+        self.assertFalse(saved["quota_reserved"])
+        self.assertTrue(saved["quota_consumed"])
+        self.assertEqual(self.quota()["used_count"], 1)
+        self.assertEqual(self.client.get("/diagnoses/history", headers=self.headers()).json()["total"], 1)
+
+    def test_storage_zero_rows_blocks_success(self):
+        self.add_growing_plant()
+        response, _ = self.post_storage_case("zero_rows", "storage-zero")
+        self.assert_storage_unknown(response, "storage-zero")
+
+    def test_storage_unexpected_rows_rolls_back_all_changes(self):
+        self.add_growing_plant()
+        response, _ = self.post_storage_case("unexpected_rows", "storage-unexpected")
+        self.assert_storage_unknown(response, "storage-unexpected")
+
+    def test_storage_update_exception_keeps_reservation_and_replay(self):
+        self.add_growing_plant()
+        response, observed = self.post_storage_case("update_error", "storage-update-error")
+        self.assert_storage_unknown(response, "storage-update-error")
+        self.assertGreaterEqual(observed["reads"], 1)
+
+    def test_storage_before_commit_rolls_back_and_checks_fresh_connection(self):
+        self.add_growing_plant()
+        response, observed = self.post_storage_case("before_commit", "storage-precommit")
+        self.assert_storage_unknown(response, "storage-precommit")
+        self.assertGreaterEqual(observed["reads"], 1)
+
+    def test_storage_lost_commit_ack_recovers_only_persisted_result(self):
+        self.add_growing_plant()
+        response, observed = self.post_storage_case("after_commit", "storage-committed")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertGreaterEqual(observed["reads"], 1)
+        with self.engine.connect() as conn:
+            saved = conn.execute(select(self.requests)).mappings().one()
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(response.json()["disease_name"], saved["result"]["disease_name"])
+        self.assertEqual(self.post_diagnosis("storage-committed").status_code, 200)
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.quota()["used_count"], 1)
+        self.assertEqual(self.client.get("/diagnoses/history", headers=self.headers()).json()["total"], 1)
+
+    def test_storage_uncertain_commit_and_failed_recheck_never_claims_success(self):
+        self.add_growing_plant()
+        response, observed = self.post_storage_case("recheck_unavailable", "storage-unconfirmed")
+        self.assertEqual(response.status_code, 503, response.text)
+        self.assertEqual(response.json()["status"], "unknown")
+        self.assertNotIn("request_created", response.json())
+        self.assertNotIn("disease_name", response.json())
+        self.assertGreaterEqual(observed["reads"], 1)
+        # The acknowledgement was lost, but SQLite did commit. Recovery after
+        # connectivity returns must reuse that row and never analyze again.
+        replay = self.post_diagnosis("storage-unconfirmed")
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.json()["request_id"], response.json()["request_id"])
+        self.assertEqual(self.analysis.calls, 1)
+
+    def test_storage_recheck_rejects_invalid_completed_json(self):
+        self.add_growing_plant()
+        response, _ = self.post_storage_case("invalid_saved_json", "storage-invalid-json")
+        self.assertEqual(response.status_code, 503, response.text)
+        self.assertEqual(response.json()["status"], "unknown")
+        self.assertNotIn("disease_name", response.json())
+        self.assertEqual(self.analysis.calls, 1)
+
+    def test_storage_update_requires_original_user_ownership(self):
+        self.add_growing_plant()
+        self.add_growing_plant(user_id=2, client_id="other-farm")
+        response, observed = self.post_storage_case("owner_mismatch", "storage-owner")
+        self.assertEqual(observed["rowcounts"], [0])
+        self.assert_storage_unknown(response, "storage-owner")
+
+    def test_storage_recovery_returns_db_result_not_analysis_memory(self):
+        self.add_growing_plant()
+        response, _ = self.post_storage_case("after_commit_changed", "storage-durable-only")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["disease_name"], "durable-only-result")
+        self.assertEqual(self.analysis.calls, 1)
+
+    def test_db_delays_do_not_block_the_event_loop(self):
+        self.add_growing_plant()
+        for stage in ("reservation", "started", "service_failure", "unexpected_failure", "result", "recheck", "preflight_lookup"):
+            with self.subTest(stage=stage):
+                entered, release, heartbeat = threading.Event(), threading.Event(), threading.Event()
+                observed = {"responsive": False, "timed_out": False}
+                self.analysis.failure = {"service_failure": "after", "unexpected_failure": "unexpected", "preflight_lookup": "prepare"}.get(stage)
+
+                def delay(conn, cursor, statement, parameters, context, executemany):
+                    if entered.is_set():
+                        return
+                    values = context.compiled_parameters[0] if context.compiled_parameters else {}
+                    clause = getattr(context.compiled, "statement", None)
+                    columns = [c.name for c in clause.selected_columns] if getattr(clause, "is_select", False) else []
+                    match = (
+                        (stage == "reservation" and statement.startswith("UPDATE users"))
+                        or (stage == "started" and values.get("status") == "processing")
+                        or (stage in {"service_failure", "unexpected_failure"} and values.get("status") == "unknown")
+                        or (stage == "result" and values.get("status") == "completed")
+                        or (stage == "recheck" and fault["injected"] and len(columns) > 1 and columns[0] == "request_id")
+                        or (stage == "preflight_lookup" and columns == ["request_id"])
+                    )
+                    if match:
+                        entered.set()
+                        if not release.wait(timeout=5):
+                            raise RuntimeError("test observer did not release DB delay")
+
+                async def exercise():
+                    loop = asyncio.get_running_loop()
+
+                    def observer():
+                        if not entered.wait(timeout=5):
+                            observed["timed_out"] = True
+                        else:
+                            loop.call_soon_threadsafe(heartbeat.set)
+                            observed["responsive"] = heartbeat.wait(timeout=1)
+                        release.set()
+
+                    watcher = threading.Thread(target=observer)
+                    watcher.start()
+                    try:
+                        async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as client:
+                            return await client.post(
+                                "/diagnoses", headers={**self.headers(), "Idempotency-Key": f"loop-delay-{stage}"},
+                                data={"farm_client_id": "farm-client-id", "plot_number": "1", "symptoms": "잎 변색"},
+                                files={"close_photo": ("close.png", PNG, "image/png")},
+                            )
+                    finally:
+                        release.set()
+                        watcher.join(timeout=6)
+
+                # Each scenario has its own quota rows; the fake analysis never
+                # contacts OpenAI. Only the result recheck injects a rollback.
+                with self.engine.begin() as conn:
+                    conn.execute(self.requests.delete())
+                fault = {"injected": False}
+                event.listen(self.engine, "before_cursor_execute", delay)
+                try:
+                    if stage == "recheck":
+                        with self.result_storage_fault("before_commit") as fault:
+                            response = asyncio.run(exercise())
+                    else:
+                        response = asyncio.run(exercise())
+                finally:
+                    event.remove(self.engine, "before_cursor_execute", delay)
+                self.assertFalse(observed["timed_out"], stage)
+                self.assertTrue(entered.is_set(), stage)
+                self.assertTrue(observed["responsive"], f"event loop was blocked during {stage}")
+                self.assertIn(response.status_code, (200, 422, 502, 503))
+
+    def test_slow_user_reservation_does_not_stop_another_user(self):
+        self.add_growing_plant()
+        self.add_growing_plant(user_id=2, client_id="other-farm")
+        entered, release, second_started = threading.Event(), threading.Event(), threading.Event()
+        observed = {"second_progressed": False}
+        original = self.analysis.analyze
+
+        async def analyze(crop, symptoms, description, photos, on_start):
+            if description == "second-user":
+                second_started.set()
+            return await original(crop, symptoms, description, photos, on_start)
+
+        def delay(conn, cursor, statement, parameters, context, executemany):
+            values = context.compiled_parameters[0] if context.compiled_parameters else {}
+            if statement.startswith("UPDATE users") and values.get("id_1") == 1 and not entered.is_set():
+                entered.set()
+                if not release.wait(timeout=5):
+                    raise RuntimeError("test did not release user-one delay")
+
+        async def exercise():
+            def observer():
+                if entered.wait(timeout=5):
+                    observed["second_progressed"] = second_started.wait(timeout=1)
+                release.set()
+
+            watcher = threading.Thread(target=observer)
+            watcher.start()
+            try:
+                async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as client:
+                    async def post(user_id, farm, description):
+                        return await client.post("/diagnoses",
+                            headers={**self.headers(user_id), "Idempotency-Key": f"independent-user-{user_id}"},
+                            data={"farm_client_id": farm, "plot_number": "1", "symptoms": "잎 변색", "description": description},
+                            files={"close_photo": ("close.png", PNG, "image/png")})
+                    return await asyncio.gather(post(1, "farm-client-id", "first-user"), post(2, "other-farm", "second-user"))
+            finally:
+                release.set()
+                watcher.join(timeout=6)
+
+        event.listen(self.engine, "before_cursor_execute", delay)
+        try:
+            with patch.object(self.analysis, "analyze", side_effect=analyze):
+                responses = asyncio.run(exercise())
+        finally:
+            event.remove(self.engine, "before_cursor_execute", delay)
+        self.assertTrue(observed["second_progressed"], "unrelated user could not progress while the first DB operation waited")
+        self.assertEqual([r.status_code for r in responses], [200, 200])
+        self.assertEqual(self.analysis.calls, 2)
+
+    def test_connections_stay_on_owning_thread_and_close_before_analysis(self):
+        self.add_growing_plant()
+        active, violations, db_threads = set(), [], set()
+        mutex = threading.Lock()
+        loop_thread = None
+        original = self.analysis.analyze
+
+        def opened(dbapi_conn, record):
+            record.info["test_owner_thread"] = threading.get_ident()
+            with mutex:
+                active.add(id(dbapi_conn))
+
+        def closed(dbapi_conn, record):
+            if record.info["test_owner_thread"] != threading.get_ident():
+                violations.append("close on different thread")
+            with mutex:
+                active.discard(id(dbapi_conn))
+
+        def operation(conn, *args):
+            identity = threading.get_ident()
+            db_threads.add(identity)
+            if conn.info["test_owner_thread"] != identity:
+                violations.append("connection used on different thread")
+            if identity == loop_thread:
+                violations.append("DB operation on event loop")
+
+        async def analyze(crop, symptoms, description, photos, on_start):
+            self.assertEqual(threading.get_ident(), loop_thread)
+            self.assertFalse(active, "reservation connection still open during async analysis")
+
+            async def started():
+                await on_start()
+                self.assertFalse(active, "analysis-start transaction still open")
+                self.assertEqual(threading.get_ident(), loop_thread)
+
+            return await original(crop, symptoms, description, photos, started)
+
+        async def exercise():
+            nonlocal loop_thread
+            loop_thread = threading.get_ident()
+            async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as client:
+                return await client.post("/diagnoses",
+                    headers={**self.headers(), "Idempotency-Key": "connection-ownership"},
+                    data={"farm_client_id": "farm-client-id", "plot_number": "1", "symptoms": "잎 변색"},
+                    files={"close_photo": ("close.png", PNG, "image/png")})
+
+        listeners = [("connect", opened), ("close", closed), ("before_cursor_execute", operation), ("commit", operation), ("rollback", operation)]
+        for name, listener in listeners:
+            event.listen(self.engine, name, listener)
+        try:
+            with patch.object(self.analysis, "analyze", side_effect=analyze):
+                response = asyncio.run(exercise())
+        finally:
+            for name, listener in listeners:
+                event.remove(self.engine, name, listener)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(db_threads)
+        self.assertEqual(violations, [])
+        self.assertEqual(active, set())
+
     def test_unknown_request_reserves_quota_only_until_korean_midnight(self):
         self.add_growing_plant()
         self.analysis.failure = "after"
@@ -622,7 +1221,7 @@ class OpenAIDiagnosisServiceTest(unittest.TestCase):
                     ["잎에 반점"],
                     "최근 잎에 점이 생겼어요.",
                     {"close": PNG, "whole": PNG, "back": None},
-                    lambda: None,
+                    AsyncMock(return_value=None),
                 )
             finally:
                 await sdk_client.close()
@@ -658,7 +1257,7 @@ class OpenAIDiagnosisServiceTest(unittest.TestCase):
             ["잎에 반점"],
             "최근 잎에 점이 생겼어요.",
             {"close": PNG, "whole": PNG, "back": None},
-            lambda: started.append(True),
+            AsyncMock(side_effect=lambda: started.append(True)),
         ))
 
         self.assertEqual(result["disease_name"], "의심 결과")

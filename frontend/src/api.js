@@ -94,18 +94,61 @@ export async function request(path, { method = 'GET', body, auth = true, redirec
   return data
 }
 
+// This deadline ends browser waiting only; abort does not cancel server analysis.
+async function fetchDiagnosis(path, options, timeoutMs) {
+  const controller = new AbortController()
+  let timer
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('Diagnosis response deadline exceeded')
+      error.name = 'TimeoutError'
+      reject(error)
+      controller.abort()
+    }, timeoutMs)
+  })
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(`${API_URL}${path}`, { ...options, signal: controller.signal })
+        return { response, data: await parseResponse(response) }
+      })(),
+      deadline,
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function readDiagnosisRequest(path, idempotencyKey) {
+  const token = storage.token
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
+  const { response, data } = await fetchDiagnosis(path, { method: 'GET', headers, cache: 'no-store' }, 10000)
+  if (!response.ok) {
+    handleUnauthorized(response, token)
+    throw new ApiError(response.status, data.detail || '진단 결과를 확인할 수 없습니다.', data)
+  }
+  return {
+    ...data,
+    result: data.result ? normalizeDiagnosisResult(data.result) : null,
+    requestId: data.request_id ?? data.requestId,
+    isDemo: data.is_demo ?? data.isDemo,
+    quotaReserved: data.quota_reserved ?? data.quotaReserved,
+  }
+}
+
 async function diagnosisRequest(path, { method = 'GET', body, idempotencyKey } = {}) {
   const token = storage.token
   const headers = {}
   if (token) headers.Authorization = `Bearer ${token}`
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const { response, data } = await fetchDiagnosis(path, {
     method,
     headers,
     body,
-  })
-  const data = await parseResponse(response)
+  }, 90000)
   if (!response.ok) {
     if (response.status === 429 || data.status) {
       return normalizeDiagnosisResult(data)
@@ -156,14 +199,8 @@ export const api = {
       body: formData,
       idempotencyKey,
     }),
-  diagnosisRequest: (requestId) => request(`/diagnoses/requests/${encodeURIComponent(requestId)}`)
-    .then(data => ({
-      ...data,
-      result: data.result ? normalizeDiagnosisResult(data.result) : null,
-      requestId: data.request_id ?? data.requestId,
-      isDemo: data.is_demo ?? data.isDemo,
-      quotaReserved: data.quota_reserved ?? data.quotaReserved,
-    })),
+  diagnosisRequest: (requestId) => readDiagnosisRequest(`/diagnoses/requests/${encodeURIComponent(requestId)}`),
+  diagnosisRequestByKey: (key) => readDiagnosisRequest('/diagnoses/requests/by-idempotency-key', key),
 }
 
 export function kakaoAuthorizeUrl() {
