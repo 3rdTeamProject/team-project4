@@ -47,6 +47,9 @@
     }
   }
 
+  // PC 레이아웃의 가운데 장면(pc-layout.js)도 오른쪽 패널에서 농장을 바꿀 때 같은 구름을 쓴다
+  window.enterWithClouds = enterWithClouds;
+
   const baseNavigate = navigate;
   let entering = false;
   navigate = function (next) {
