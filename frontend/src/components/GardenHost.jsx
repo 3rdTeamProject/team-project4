@@ -60,7 +60,9 @@ export function GardenHostProvider({ children }) {
     const f = frames.current[name]
     if (!f || !f.ready || f.inited || !session.current) return
     f.inited = true
-    const { role, view, show } = f.getOpts()
+    const { role, show, view: wanted } = f.getOpts()
+    // PC 패널은 농장이 하나도 없으면 오늘 할 일(비어 있음) 대신 '첫 농장 만들기'가 있는 전체 농장 화면부터 보여 준다
+    const view = role === 'panel' && !show && wanted === 'tasks' && session.current.state.farms.length === 0 ? 'farms' : wanted
     f.el.contentWindow?.postMessage({ type: 'garden:init', ...session.current, view, role, show }, ORIGIN)
   }
 
