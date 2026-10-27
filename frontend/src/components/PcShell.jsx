@@ -37,7 +37,7 @@ function PcLayout() {
 
   return <div className="pc-shell">
     <div className="pc-scene">
-      {!host.loaded && !host.error && <p className="muted">내 농장을 불러오는 중…</p>}
+      {!host.loaded && !host.error && <p className="muted garden-loading">내 농장을 불러오는 중…</p>}
       <GardenFrame name="main" role="scene" view="garden" title="우리텃밭 농장 관리" allow="geolocation 'self'" style={{display: host.loaded ? 'block' : 'none'}} />
     </div>
     <div className="pc-cloud-area"><CloudTransition phase={host.cloud.phase} timing={host.cloud.timing} /></div>

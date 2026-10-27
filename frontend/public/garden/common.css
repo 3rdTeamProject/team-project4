@@ -12,6 +12,7 @@ body, #app, button, input, select, textarea { font-family: var(--font-body); }
 body { padding: 0; background: var(--color-bg); }
 .phone-shell { width: 100%; max-width: var(--layout-max); min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; background: var(--color-bg); }
 #app { font-size: var(--fs-body); background: var(--color-bg); }
+.garden-first-render .page { animation-duration: 0s; } /* none이 아니라 0초: 표시를 지울 때 효과가 다시 시작되지 않는다 */
 .page { padding-left: var(--space-screen-x); padding-right: var(--space-screen-x); }
 .page-head h1 { font-family: var(--font-title); font-size: var(--fs-screen-title); }
 h2, h3, .section-label { font-family: var(--font-title); font-size: var(--fs-section-title); }

@@ -181,6 +181,10 @@ export default function Settings() {
           <section className="set-group">
             <h2 className="set-label">도움</h2>
             <div className="set-card">
+              <Link className="set-row set-link" to="/intro?reset">
+                <span className="set-title">앱 소개 다시 보기</span>
+                <Chevron />
+              </Link>
               <button type="button" className="set-row set-link" onClick={comingSoon}>
                 <span className="set-title">문의·피드백</span>
                 <Chevron />

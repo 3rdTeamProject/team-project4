@@ -53,6 +53,12 @@ export function GardenHostProvider({ children }) {
   const [panelView, setPanelView] = useState(null)
   const [sceneState, setSceneState] = useState(null)
   const [dev, setDev] = useState(null)
+  const [gardenToast, setGardenToast] = useState(null) // 농장 화면이 보낸 안내 문구 { text, key }
+  useEffect(() => {
+    if (!gardenToast) return
+    const timer = setTimeout(() => setGardenToast(null), 2700)
+    return () => clearTimeout(timer)
+  }, [gardenToast])
 
   const tell = (name, body) => frames.current[name]?.el?.contentWindow?.postMessage(body, ORIGIN)
   const tellOthers = (from, body) => Object.keys(frames.current).forEach(name => { if (name !== from) tell(name, body) })
@@ -130,10 +136,13 @@ export function GardenHostProvider({ children }) {
       }
       // PC: 저장이 끝나면 저장하지 않은 쪽 농장 화면도 서버 내용으로 맞춘다
       tellOthers(lastSaver.current, { type: 'garden:pc-refresh' })
+      // 이동할 곳은 한 번 쓰면 비운다. 안 비우면 나중에 일지 올리기 같은 저장이 끝날 때마다 그곳(메뉴 등)으로 다시 이동한다
+      const to = destination.current
       const state = destinationState.current
+      destination.current = null
       destinationState.current = null
-      if (destination.current === 'back') live.current.goBack()
-      else if (destination.current) live.current.navigate(destination.current, state ? { state } : undefined)
+      if (to === 'back') live.current.goBack()
+      else if (to) live.current.navigate(to, state ? { state } : undefined)
     } catch (e) {
       setError(e.status === 409 ? e.message : '농장을 서버에 저장하지 못했어요. 화면을 닫기 전에 다시 저장해 주세요.')
       destination.current = null
@@ -232,6 +241,8 @@ export function GardenHostProvider({ children }) {
       destination.current = `/diagnosis?${new URLSearchParams({ mode: 'detail', farm: message.farmId, plot: String(message.plotNumber) })}`
       destinationState.current = { from: live.current.pathname }
       flush()
+    } else if (message?.type === 'garden:toast' && typeof message.message === 'string') {
+      setGardenToast({ text: message.message, key: Date.now() }) // 농장 화면(iframe)은 내용만큼 길어서 안의 안내 문구는 화면 밖에 가려진다. 바깥에서 대신 보여 준다
     } else if (message?.type === 'garden:pc-open' && from === 'main') {
       openPanel(message) // 가운데 장면에서 누른 칸·농장 수정 같은 요청은 오른쪽 패널에 연다
     } else if (message?.type === 'garden:pc-select' && from === 'panel') {
@@ -264,6 +275,7 @@ export function GardenHostProvider({ children }) {
   return <GardenHostContext.Provider value={value}>
     {children}
     <span className="garden-save-status" role="status" aria-live="polite">{saving ? '저장 중…' : ''}</span>
+    {gardenToast && <div key={gardenToast.key} className={`toast garden-toast${loaded && footerButtons.length ? ' has-footer' : ''}`} role="status">{gardenToast.text}</div>}
   </GardenHostContext.Provider>
 }
 
