@@ -33,7 +33,7 @@ export default function Home({ gardenView = 'farms' }) {
 
   return <section className="garden-host">
     <GardenSaveError />
-    {!host.loaded && !host.error && <p className="muted">내 농장을 불러오는 중…</p>}
+    {!host.loaded && !host.error && <p className="muted garden-loading">내 농장을 불러오는 중…</p>}
     {/* 농장 카드를 눌러 작물 6칸 화면으로 들어갈 때 쓰는 구름 전환(농장 화면 iframe이 덮기/열기를 요청한다) */}
     <div className="garden-zoom" data-cloud={host.cloud.phase} style={host.cloud.timing}>
       <GardenFrame name="main" view={gardenView === 'farms' ? mobileScene?.view || gardenView : gardenView} gardenView={gardenView} show={mobileScene} title="우리텃밭 농장 관리" allow="geolocation 'self'" style={{height: host.height, display: host.loaded ? 'block' : 'none'}} />
