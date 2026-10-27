@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api.js'
 import DiagnosisFailure from './DiagnosisFailure.jsx'
 import DiagnosisLoading from './DiagnosisLoading.jsx'
@@ -133,6 +133,16 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
   const mounted = useRef(true)
   const crops = useMemo(() => getGrowingCrops(farms, cropNames), [farms, cropNames])
   const selectedCrop = crops.find(crop => crop.id === diagnosisInput.cropId)
+
+  // 작물 상세에서 들어오면(?farm=&plot=) 그 칸의 작물을 처음 한 번만 미리 골라 둔다
+  const [searchParams] = useSearchParams()
+  const presetCropId = searchParams.get('farm') && searchParams.get('plot') ? `${searchParams.get('farm')}:${searchParams.get('plot')}` : ''
+  const presetApplied = useRef(false)
+  useEffect(() => {
+    if (!presetCropId || presetApplied.current || !crops.some(crop => crop.id === presetCropId)) return
+    presetApplied.current = true
+    setDiagnosisInput(current => (current.cropId ? current : { ...current, cropId: presetCropId }))
+  }, [presetCropId, crops])
 
   useEffect(() => {
     mounted.current = true

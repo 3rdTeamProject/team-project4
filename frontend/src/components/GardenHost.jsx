@@ -40,6 +40,7 @@ export function GardenHostProvider({ children }) {
   const latest = useRef(null)
   const busy = useRef(false)
   const destination = useRef(null)
+  const destinationState = useRef(null) // destination으로 이동할 때 함께 넘길 state(뒤로가기가 돌아올 곳 등)
   const lastSaver = useRef('main')
   const footerFrame = useRef(null)
   const [loaded, setLoaded] = useState(false)
@@ -129,8 +130,10 @@ export function GardenHostProvider({ children }) {
       }
       // PC: 저장이 끝나면 저장하지 않은 쪽 농장 화면도 서버 내용으로 맞춘다
       tellOthers(lastSaver.current, { type: 'garden:pc-refresh' })
+      const state = destinationState.current
+      destinationState.current = null
       if (destination.current === 'back') live.current.goBack()
-      else if (destination.current) live.current.navigate(destination.current)
+      else if (destination.current) live.current.navigate(destination.current, state ? { state } : undefined)
     } catch (e) {
       setError(e.status === 409 ? e.message : '농장을 서버에 저장하지 못했어요. 화면을 닫기 전에 다시 저장해 주세요.')
       destination.current = null
@@ -220,6 +223,11 @@ export function GardenHostProvider({ children }) {
       flush()
     } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis/history' && typeof message.cropName === 'string') {
       destination.current = `/diagnosis/history?${new URLSearchParams({ crop_name: message.cropName, from: 'journal' })}`
+      flush()
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis' && typeof message.farmId === 'string' && Number.isInteger(message.plotNumber)) {
+      // 작물 상세의 AI진단: 진단 화면으로 가면서 그 농장·칸의 작물을 미리 골라 둔다. 닫으면 지금 화면으로 돌아온다
+      destination.current = `/diagnosis?${new URLSearchParams({ mode: 'detail', farm: message.farmId, plot: String(message.plotNumber) })}`
+      destinationState.current = { from: live.current.pathname }
       flush()
     } else if (message?.type === 'garden:pc-open' && from === 'main') {
       openPanel(message) // 가운데 장면에서 누른 칸·농장 수정 같은 요청은 오른쪽 패널에 연다
