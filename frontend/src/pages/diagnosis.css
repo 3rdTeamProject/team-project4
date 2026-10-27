@@ -1,10 +1,5 @@
 .diagnosis-screen {
-  gap: 14px;
-}
-
-.diagnosis-back {
-  justify-content: flex-start;
-  font-size: 32px;
+  gap: 16px;
 }
 
 .diagnosis-progress {
@@ -25,7 +20,7 @@
   align-items: center;
   gap: 7px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -60,7 +55,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px;
+  padding: 18px var(--space-card);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
   background: var(--card-bg);
@@ -75,22 +70,23 @@
 
 .diagnosis-leaf-art {
   display: grid;
-  width: 112px;
-  height: 88px;
+  width: 158px;
+  height: 130px;
   place-items: center;
-  border-radius: 50%;
-  background: #e2efd7;
+  border-radius: 24px;
+  background: #e5f1db;
 }
 
 .diagnosis-leaf-art svg {
-  width: 100px;
+  width: 128px;
+  height: 104px;
 }
 
 .diagnosis-intro-card h2,
 .diagnosis-copy h2 {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 22px;
+  font-size: var(--fs-section-title);
   font-weight: 400;
   line-height: 1.35;
 }
@@ -100,8 +96,8 @@
 .diagnosis-card-heading p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: var(--fs-body);
+  line-height: 1.6;
 }
 
 .diagnosis-card-heading {
@@ -112,7 +108,7 @@
 
 .diagnosis-card-heading h2 {
   margin: 0 0 3px;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .diagnosis-upload {
@@ -220,7 +216,7 @@
 
 .diagnosis-photo-input-option span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--fs-sub);
   line-height: 1.4;
 }
 
@@ -244,14 +240,14 @@
 }
 
 .diagnosis-actions .btn {
-  min-height: 48px;
-  padding: 13px 14px;
+  min-height: var(--size-button);
+  padding: 14px;
 }
 
 .diagnosis-privacy-note {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-sub);
   text-align: center;
 }
 
@@ -351,8 +347,8 @@
 .diagnosis-leaf-result p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: var(--fs-body);
+  line-height: 1.6;
 }
 
 .diagnosis-result-photo span {
@@ -389,8 +385,8 @@
 .diagnosis-result-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: var(--fs-body);
+  line-height: 1.6;
 }
 
 .diagnosis-result-note {
@@ -452,14 +448,14 @@
 .diagnosis-details {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   margin-bottom: auto;
 }
 
 .diagnosis-flow-screen {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   margin-bottom: auto;
 }
 
@@ -527,15 +523,15 @@
 .diagnosis-loading-card h2 {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 22px;
+  font-size: var(--fs-section-title);
   font-weight: 400;
 }
 
 .diagnosis-loading-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: var(--fs-body);
+  line-height: 1.6;
 }
 
 .diagnosis-loading-progress {
@@ -584,8 +580,8 @@
 }
 
 .diagnosis-result-detail .btn {
-  min-height: 46px;
-  padding: 12px;
+  min-height: var(--size-button);
+  padding: 14px;
 }
 
 .diagnosis-result-detail h2 {
@@ -617,8 +613,8 @@
   border-radius: 12px;
   background: var(--info-bg);
   color: var(--info-text);
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .diagnosis-failure-card {
@@ -652,10 +648,23 @@
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-  padding: 16px;
+  padding: 18px var(--space-card);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
   background: var(--card-bg);
+}
+
+.diagnosis-quota-card h2 {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.diagnosis-quota-card p {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
 }
 
 .diagnosis-detail-heading {
@@ -667,14 +676,14 @@
 .diagnosis-detail-heading h2 {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 400;
 }
 
 .diagnosis-detail-heading p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -683,19 +692,19 @@
 .diagnosis-detail-empty p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: var(--fs-body);
+  line-height: 1.6;
 }
 
 .diagnosis-inline-retry {
-  min-height: 40px;
+  min-height: var(--tap-min);
   margin-top: 9px;
   padding: 0 10px;
   border: 1px solid var(--pill-border);
   border-radius: 10px;
   background: #fff;
   color: var(--primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -750,7 +759,7 @@
 }
 
 .diagnosis-crop-option > span:not(.diagnosis-crop-option-name) {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .diagnosis-symptom-options {
@@ -797,7 +806,7 @@
 
 .diagnosis-description-label span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
 }
 
@@ -811,8 +820,8 @@
   background: #fff;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: var(--fs-body);
+  line-height: 1.6;
 }
 
 .diagnosis-description:focus {
@@ -824,7 +833,7 @@
   align-self: flex-end;
   margin-top: -7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-sub);
 }
 
 .diagnosis-detail-photo-list {
@@ -860,7 +869,7 @@
   border-radius: 9px;
   background: #edf1e8;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -872,7 +881,7 @@
 .diagnosis-detail-photo-heading p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -900,7 +909,7 @@
   overflow: hidden;
   padding: 8px 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-sub);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -914,7 +923,7 @@
 .diagnosis-photo-action {
   display: inline-flex;
   min-width: 52px;
-  min-height: 40px;
+  min-height: var(--tap-min);
   align-items: center;
   justify-content: center;
   padding: 0 10px;
@@ -922,7 +931,7 @@
   border-radius: 10px;
   background: #fff;
   color: var(--primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -954,7 +963,7 @@
 }
 
 .diagnosis-photo-guide {
-  padding: 14px;
+  padding: var(--space-card);
   border: 1px solid #c6ddec;
   border-radius: 14px;
   background: var(--info-bg);
@@ -968,7 +977,7 @@
 .diagnosis-photo-guide p {
   margin: 5px 0 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -978,7 +987,7 @@
   gap: 5px;
   margin: 0;
   padding-left: 18px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -986,7 +995,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px;
+  padding: var(--space-card);
   border: 1px solid var(--card-border);
   border-radius: 14px;
   background: var(--card-bg);
@@ -1002,8 +1011,8 @@
 .diagnosis-recent-section p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .diagnosis-detail-actions {
@@ -1014,7 +1023,7 @@
 }
 
 .diagnosis-detail-actions .btn {
-  min-height: 48px;
+  min-height: var(--size-button);
 }
 
 .diagnosis-detail-actions > p {

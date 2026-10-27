@@ -73,19 +73,23 @@ export default function PointShop() {
 
   return (
     <div className="screen">
-      <header className="screen-header shop-header">
-        <button type="button" className="icon-btn" onClick={goBack} aria-label="돌아가기">‹</button>
-        <h1 className="screen-title shop-title">포인트샵</h1>
-        <Link className="icon-btn shop-cart" to="/cart" aria-label="장바구니">
-          <CartIcon size={26} />
-          {cartCount > 0 && <span className="shop-badge">{cartCount}</span>}
-        </Link>
-        {me && (
-          <span className="shop-points">
-            <CoinIcon size={28} />
-            {me.point.toLocaleString()}P
-          </span>
-        )}
+      <header className="screen-header journal-aligned-header shop-header">
+        <div className="journal-aligned-title">
+          <button type="button" className="icon-btn journal-aligned-back" onClick={goBack} aria-label="돌아가기" />
+          <h1 className="screen-title shop-title">포인트샵</h1>
+        </div>
+        <div className="journal-aligned-actions">
+          <Link className="icon-btn shop-cart" to="/cart" aria-label="장바구니">
+            <CartIcon size={26} />
+            {cartCount > 0 && <span className="shop-badge">{cartCount}</span>}
+          </Link>
+          {me && (
+            <span className="shop-points">
+              <CoinIcon size={28} />
+              {me.point.toLocaleString()}P
+            </span>
+          )}
+        </div>
       </header>
 
       {(meError || loadError) && <p className="error">{meError || loadError}</p>}

@@ -34,6 +34,13 @@ input, textarea { min-width: 0; max-width: 100%; font-size: var(--fs-body); bord
 .footer > .diagnosis-button { flex: 0 0 32%; }
 .page-head { margin-bottom: var(--space-card); gap: 0; }
 .page-head h1 { font-weight: 400; }
+.farm-form-page .back-title { gap: 4px; }
+.farm-form-page .back-title .icon-btn { width: 44px; height: 44px; margin-left: -12px; padding: 0; font-size: 0; }
+.farm-form-page .back-title .icon-btn::before { content: ''; width: 10px; height: 10px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translate(2px, -1px) rotate(45deg); }
+.farm-form-page .field-label { font-size: 15px; }
+.farm-form-page .count, .farm-form-page .edit-crop small { font-size: 12px; }
+.farm-form-page .help, .farm-form-page .info, .farm-form-page .warning { font-size: 13px; line-height: 1.6; }
+.farm-form-page .edit-crop { font-size: 14px; }
 .field-label { font-size: var(--fs-body); margin-bottom: calc(var(--space-gap) / 2); }
 .detail-subhead { margin-top: 0; margin-bottom: var(--space-card); gap: calc(var(--space-gap) / 2); }
 .detail-subhead .icon-btn svg { width: calc(var(--size-touch) / 2); height: calc(var(--size-touch) / 2); color: var(--color-danger); }
@@ -73,8 +80,8 @@ input, textarea { min-width: 0; max-width: 100%; font-size: var(--fs-body); bord
 .plot-label { font-family: var(--font-sign); }
 
 /* 확인 창 (삭제처럼 되돌릴 수 없는 동작 전에 한 번 더 묻는다) */
-.confirm-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 0 var(--space-screen-x); background: color-mix(in srgb, var(--color-text) 45%, transparent); }
-.confirm { width: 100%; max-width: calc(var(--layout-max) * .8); box-sizing: border-box; display: flex; flex-direction: column; gap: calc(var(--space-gap) / 2); padding: calc(var(--space-card) * 1.5) var(--space-card) var(--space-card); border-radius: var(--radius-card); background: var(--color-card); color: var(--color-text); text-align: center; }
+.confirm-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: var(--space-card) var(--space-screen-x); background: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.confirm { width: 100%; max-width: calc(var(--layout-max) * .8); max-height: 100%; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: calc(var(--space-gap) / 2); padding: calc(var(--space-card) * 1.5) var(--space-card) var(--space-card); border-radius: var(--radius-card); background: var(--color-card); color: var(--color-text); text-align: center; }
 .confirm-title { margin: 0; font-family: var(--font-title); font-size: var(--fs-section-title); }
 .confirm-message { margin: 0; color: var(--color-text-sub); font-size: var(--fs-body); line-height: 1.5; word-break: keep-all; }
 .confirm-actions { display: flex; gap: calc(var(--space-gap) / 2); margin-top: calc(var(--space-gap) / 2); }

@@ -104,7 +104,7 @@ const statusNote = () => taskData.status === 'error'
 // 체크하면 '일지에 담을 할 일'로 표시되고, 일지를 올려야 완료된다(카드 어디를 눌러도 체크, 팁 보기는 제외)
 const taskCard = t => {
   const on = checked.has(t.id);
-  return `<div class="check-card tk-task" role="checkbox" tabindex="0" aria-checked="${on}" aria-label="${esc(t.title)}" data-tk="toggle-task" data-task="${t.id}"><span class="check-box ${on ? 'checked' : ''}">${on ? '✓' : ''}</span><div class="task-content"><div class="tk-title-row"><b>${esc(t.title)}</b><span class="tk-point-chip">+${t.points}P</span></div>${t.howTo ? `<small>${esc(t.howTo)}</small>` : ''}${t.tip ? `<div class="tk-tip-open">💡 ${esc(t.tip)}</div>` : ''}</div></div>`;
+  return `<div class="check-card tk-task" role="checkbox" tabindex="0" aria-checked="${on}" aria-label="${esc(t.title)}" data-tk="toggle-task" data-task="${t.id}"><span class="check-box ${on ? 'checked' : ''}">${on ? '<span class="check-mark">✓</span>' : ''}</span><div class="task-content"><div class="tk-title-row"><b>${esc(t.title)}</b><span class="tk-point-chip">+${t.points}P</span></div>${t.howTo ? `<small>${esc(t.howTo)}</small>` : ''}${t.tip ? `<div class="tk-tip-open">💡 ${esc(t.tip)}</div>` : ''}</div></div>`;
 };
 const infoCard = t => `<div class="tk-info-card"><b>${esc(t.title)}</b>${t.howTo ? `<small>${esc(t.howTo)}</small>` : ''}${t.tip ? `<div class="tk-tip-open">💡 ${esc(t.tip)}</div>` : ''}</div>`;
 // '미리 해 두면 좋아요' 목록: 제목을 누르면 접고 펼친다(화면을 다시 그려도 상태가 남도록 변수에 둔다)

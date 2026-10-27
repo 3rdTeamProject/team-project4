@@ -47,10 +47,11 @@ export default function OrderHistory() {
 
   return (
     <div className="screen ex-screen">
-      <header className="screen-header">
-        <button type="button" className="icon-btn" onClick={goBack} aria-label="돌아가기">‹</button>
-        <h1 className="screen-title">주문 내역</h1>
-        <span className="icon-btn-spacer" />
+      <header className="screen-header journal-aligned-header">
+        <div className="journal-aligned-title">
+          <button type="button" className="icon-btn journal-aligned-back" onClick={goBack} aria-label="돌아가기" />
+          <h1 className="screen-title">주문 내역</h1>
+        </div>
       </header>
 
       {error && <p className="error">{error}</p>}

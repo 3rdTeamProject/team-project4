@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery.js'
 import CloudTransition from './CloudTransition.jsx'
@@ -11,6 +12,16 @@ import '../pages/pc-layout.css'
  */
 export default function PcShell() {
   const wide = useMediaQuery('(min-width: 1024px)')
+  const host = useGardenHost()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const wasWide = useRef(wide)
+  useEffect(() => {
+    if (wasWide.current && !wide && pathname === '/menu') {
+      navigate('/home', { replace: true, state: { scene: host.sceneState } })
+    }
+    wasWide.current = wide
+  }, [wide, pathname, navigate, host.sceneState])
   return wide ? <PcLayout /> : <Outlet />
 }
 

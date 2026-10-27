@@ -44,10 +44,11 @@ export default function PointHistory() {
 
   return (
     <div className="screen">
-      <header className="screen-header">
-        <button type="button" className="icon-btn" onClick={goBack} aria-label="뒤로가기">‹</button>
-        <h1 className="screen-title">포인트 내역</h1>
-        <span className="icon-btn-spacer" />
+      <header className="screen-header journal-aligned-header">
+        <div className="journal-aligned-title">
+          <button type="button" className="icon-btn journal-aligned-back" onClick={goBack} aria-label="뒤로가기" />
+          <h1 className="screen-title">포인트 내역</h1>
+        </div>
       </header>
 
       {error && <p className="error">{error}</p>}

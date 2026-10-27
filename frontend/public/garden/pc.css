@@ -1,5 +1,16 @@
 /* PC 레이아웃(1024px 이상)에서만 켜지는 농장 화면 규칙. html에 pc-scene / pc-panel 클래스가 붙었을 때만 적용된다. */
 
+/* 오른쪽 농장 iframe은 자체 문서를 스크롤하므로 그 스크롤바도 숨긴다. */
+html.pc-panel,
+html.pc-panel body {
+  scrollbar-width: none;
+}
+
+html.pc-panel::-webkit-scrollbar,
+html.pc-panel body::-webkit-scrollbar {
+  display: none;
+}
+
 /* ---------- 가운데 장면: 화면 전체 너비로 깔고, 안쪽 내용은 왼쪽 메뉴·오른쪽 패널 사이 가운데(최대 430px)에 둔다 */
 html.pc-scene {
   --pc-scene-zoom: 1;
