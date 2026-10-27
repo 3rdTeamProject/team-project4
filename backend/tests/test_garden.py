@@ -165,6 +165,30 @@ class GardenIntegrationTest(unittest.TestCase):
         self.assertEqual((summary['farms'], summary['growing_crops'], summary['journals']), (1, 1, 1))
         self.assertEqual(self.client.get('/me/summary', headers=bh).json()['farms'], 0)
 
+    def test_summary_counts_only_diagnoses_shown_in_history(self):
+        _, ah = self.guest()
+        _, bh = self.guest()
+        me =self.client.get('/me', headers=ah).json()['id']
+        other = self.client.get('/me', headers=bh).json()['id']
+        cases = [  # (사용자, status, outcome, is_demo, 이력에 보이는가)
+            (me, 'completed', 'diagnosed', False, True),
+            (me, 'completed', 'uncertain', False, True),
+            (me, 'completed', 'diagnosed', True, False),  # 시연용
+            (me, 'completed', 'failed', False, False),
+            (me, 'failed_before_analysis', None, False, False),
+            (other, 'completed', 'diagnosed', False, False),  # 다른 사용자
+        ]
+        with engine.begin() as conn:
+            for i, (uid, status, outcome, demo, _) in enumerate(cases):
+                conn.execute(text(
+                    'INSERT INTO daily_diagnosis_requests (request_id, user_id, usage_date, status, idempotency_key, '
+                    'request_fingerprint, quota_reserved, quota_consumed, is_demo, outcome) '
+                    'VALUES (:id, :uid, :d, :status, :key, :fp, :f, :f, :demo, :outcome)'),
+                    {'id': f'summary-{me}-{i}', 'uid': uid, 'd': '2026-10-27', 'status': status, 'key': f'k{i}',
+                     'fp': 'f', 'f': False, 'demo': demo, 'outcome': outcome})
+        self.assertEqual(self.client.get('/me/summary', headers=ah).json()['diagnoses'], 2)
+        self.assertEqual(self.client.get('/me/summary', headers=bh).json()['diagnoses'], 1)
+
     def test_stale_revision_and_invalid_data_are_rejected(self):
         _, ah = self.guest()
         first = self.load(ah)['revision']
