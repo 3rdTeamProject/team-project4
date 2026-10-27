@@ -30,6 +30,7 @@
 
 .diagnosis-history-info {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin: 0;
 }
@@ -51,7 +52,8 @@
   margin: 0;
   font-size: var(--fs-body);
   line-height: 1.5;
-  overflow-wrap: anywhere;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .diagnosis-history-info > div:first-child dd {
@@ -226,4 +228,9 @@
   min-height: var(--tap-min);
   padding: 8px 14px;
   font-size: var(--fs-body);
+}
+
+.diagnosis-history-journal-action {
+  width: 100%;
+  min-height: var(--tap-min);
 }

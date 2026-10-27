@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, ReceiptIcon } from '../components/Icons.jsx'
@@ -31,6 +31,7 @@ export default function PointShop() {
   const [cartCount, setCartCount] = useState(0)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState('전체')
+  const tabsRef = useRef(null)
   const [query, setQuery] = useState('')
   const state = useLocation().state
   // 교환을 마치고 오면 '교환했어요', 카카오 연동에 실패하고 오면 환경설정과 같은 안내
@@ -53,6 +54,21 @@ export default function PointShop() {
     if (!isMember) return
     api.orders().then(setOrders).catch(() => {})
   }, [isMember])
+
+  useEffect(() => {
+    const strip = tabsRef.current
+    if (!strip) return
+    const onWheel = (event) => {
+      if (strip.scrollWidth <= strip.clientWidth) return
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+      const next = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, strip.scrollLeft + delta))
+      if (next === strip.scrollLeft) return
+      event.preventDefault()
+      strip.scrollLeft = next
+    }
+    strip.addEventListener('wheel', onWheel, { passive: false })
+    return () => strip.removeEventListener('wheel', onWheel)
+  }, [])
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -134,7 +150,7 @@ export default function PointShop() {
         )}
       </div>
 
-      <div className="shop-tabs" role="group" aria-label="상품 종류">
+      <div ref={tabsRef} className="shop-tabs" role="group" aria-label="상품 종류">
         {TABS.map((name) => (
           <button key={name} type="button" className="shop-tab" aria-pressed={tab === name} onClick={() => setTab(name)}>
             {name}

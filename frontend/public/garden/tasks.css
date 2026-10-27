@@ -2,10 +2,11 @@
 .crop-row.stage-0{--crop-height:var(--size-touch)}
 .pot-art{width:100%;height:100%}
 
-.tk-info-card{display:flex;flex-direction:column;gap:calc(var(--space-gap) / 4);padding:var(--space-card);margin-bottom:calc(var(--space-gap) / 2);background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-card);color:var(--color-text)}
-.tk-info-card b{font-size:var(--fs-card-title)}
-.tk-info-card small{font-size:var(--fs-sub);color:var(--color-text-sub)}
+.tk-info-card{display:flex;flex-direction:column;gap:calc(var(--space-gap) / 4);padding:var(--space-card);margin-bottom:22px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-card);color:var(--color-text)}
+.tk-info-card b{font-size:17px;line-height:1.4}
+.tk-info-card small{font-size:13px;line-height:1.5;color:var(--color-text-sub)}
 .tk-tip-open{margin-top:calc(var(--space-gap) / 4);padding:calc(var(--space-card) / 2) calc(var(--space-card) * .75);border-radius:var(--radius-small);background:var(--color-info-bg);color:var(--color-info-text);font-size:var(--fs-sub);line-height:1.6}
+.tk-info-card .tk-tip-open{font-size:13px;line-height:1.5}
 
 .tk-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:calc(var(--space-gap) / 2)}
 .tk-title-row b{min-width:0}
@@ -23,6 +24,10 @@
 .check-card[role="checkbox"]{cursor:pointer}
 .check-card[role="checkbox"]:focus-visible{outline:2px solid var(--color-green-btn);outline-offset:2px}
 .tk-sub-title{font-family:var(--font-title);font-size:var(--fs-section-title);font-weight:400;margin-top:0}
+.page:has(> .detail-subhead) > .tk-sub-title,.planting-prep-page > .tk-sub-title{margin:28px 0 18px}
+.page:has(> .detail-subhead) > .check-card,.planting-prep-page > .check-card,.tasks-overview > .check-card{margin:0 0 22px}
+.page:has(> .detail-subhead) > .field{margin:30px 0}
+.page:has(> .detail-subhead) > .field > .field-label{margin-bottom:12px}
 .tk-fold{display:flex;align-items:center;justify-content:space-between;gap:calc(var(--space-gap) / 2);width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .tk-fold:focus-visible{outline:2px solid var(--color-green-btn);outline-offset:2px}
 .tk-fold-arrow{flex:none;transition:transform .15s}
@@ -46,11 +51,11 @@
 .planting-prep-page .seed-sign small{font-size:14px}
 .planting-prep-page h3{margin:20px 0 14px}
 .planting-prep-page h3,.planting-prep-page .tk-sub-title{font-family:var(--font-title);font-size:21px;font-weight:400;line-height:1.35}
-.planting-prep-page .tk-sow{padding:18px 16px;gap:12px;margin:0 0 22px}
+.planting-prep-page .tk-sow{padding:18px 16px;gap:12px;margin:0 0 28px}
 .planting-prep-page .tk-sow .task-content b{font-size:17px;line-height:1.4}
 .planting-prep-page .tk-sow .task-content small{font-size:14px;line-height:1.5;margin-top:6px}
 .planting-prep-page .tk-sow .tk-tip-open{font-size:13px;line-height:1.5;padding:10px 12px;margin-top:10px}
-.planting-prep-page .field{margin:20px 0 24px}
+.planting-prep-page .field{margin:28px 0}
 .planting-prep-page .field>.field-label{font-size:15px;margin-bottom:10px}
 .planting-prep-page .field-label .count{font-size:12px}
 .planting-prep-page .photo-add,.planting-prep-page .photo-thumb,.planting-prep-page .photo-thumb img{width:96px;height:96px}
@@ -61,7 +66,7 @@
 .planting-prep-page .info{padding:14px;font-size:13px;line-height:1.5}
 .planting-prep-page+.footer .primary{font-size:16px}
 .tk-task{padding:18px 16px;gap:14px;align-items:center}
-.tk-task .check-mark{display:block;line-height:1;transform:translateY(-1px)}
+.tk-task .check-mark,.tk-sow .check-mark{display:block;line-height:1;transform:translateY(-1px)}
 .tk-task .task-content b{font-size:17px;line-height:1.4}
 .tk-task .task-content small{font-size:14px;line-height:1.5;margin-top:6px}
 .tk-task .tk-tip-open{font-size:13px;line-height:1.5;padding:10px 12px;margin-top:10px}
