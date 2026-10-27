@@ -496,15 +496,16 @@ def read_my_summary(user=Depends(get_current_user)):
             # harvests 테이블이 생기기 전에는 텃밭 화면이 남기는 "수확을 마쳤어요" 기록 수로 센다
             harvested = count("journals", "SELECT COUNT(*) FROM journals WHERE user_id = :uid AND content LIKE '%수확을 마쳤어요%'")
         journals = count("journals", "SELECT COUNT(*) FROM journals WHERE user_id = :uid")
+        # 진단 이력 화면(/diagnoses/history)에 보이는 것과 같은 조건으로 센다
         diagnoses = (
             conn.execute(
                 text(
-                    "SELECT COUNT(*) FROM pest_diagnoses d JOIN plantings p ON p.id = d.planting_id "
-                    "WHERE p.user_id = :uid"
+                    "SELECT COUNT(*) FROM daily_diagnosis_requests WHERE user_id = :uid "
+                    "AND status = 'completed' AND outcome IN ('diagnosed', 'uncertain') AND is_demo = :demo"
                 ),
-                uid,
+                {**uid, "demo": False},
             ).scalar_one()
-            if has_plantings and ("pest_diagnoses" in names)
+            if "daily_diagnosis_requests" in names
             else 0
         )
         point_logs = []

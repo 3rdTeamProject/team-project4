@@ -137,7 +137,7 @@ export default function MyPage() {
                 {summary.journals > 0 ? `지금까지 ${summary.journals}개` : '아직 쓴 일지가 없어요'}
               </span>
             </Link>
-            <Link className="shortcut" to="/diagnosis">
+            <Link className="shortcut" to="/diagnosis/history">
               <span className="shortcut-title">진단 기록</span>
               <span className="shortcut-sub">
                 {summary.diagnoses > 0 ? `${summary.diagnoses}번 진단했어요` : '아직 진단한 적이 없어요'}
