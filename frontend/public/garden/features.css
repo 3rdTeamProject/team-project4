@@ -57,7 +57,8 @@
 
 /* 바깥 페이지가 하단 고정 막대로 보여 주는 푸터는 이 안에서 숨긴다(글자·입력이 섞인 푸터는 data-own으로 남긴다) */
 html.hosted .footer:not([data-own]){display:none}
-.jr-write-page #jr-memo{min-height:160px;field-sizing:content;resize:vertical}
+.jr-write-page #jr-memo{height:160px;min-height:160px;field-sizing:fixed;resize:none;overflow-y:auto}
+#feature-memo,#jr-demo-detail,#jr-demo-result{resize:none;overflow-y:auto}
 
 /* Journal navigation and record readability */
 .jr-page .back-title,.jr-write-page .back-title{gap:4px}
