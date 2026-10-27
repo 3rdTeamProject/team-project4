@@ -2,11 +2,6 @@
   gap: 14px;
 }
 
-.diagnosis-back {
-  justify-content: flex-start;
-  font-size: 32px;
-}
-
 .diagnosis-progress {
   display: flex;
   align-items: center;
@@ -75,15 +70,16 @@
 
 .diagnosis-leaf-art {
   display: grid;
-  width: 112px;
-  height: 88px;
+  width: 128px;
+  height: 104px;
   place-items: center;
-  border-radius: 50%;
-  background: #e2efd7;
+  border-radius: 24px;
+  background: #e5f1db;
 }
 
 .diagnosis-leaf-art svg {
-  width: 100px;
+  width: 120px;
+  height: 98px;
 }
 
 .diagnosis-intro-card h2,

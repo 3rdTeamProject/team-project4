@@ -125,7 +125,15 @@ function useWeatherLocation(){
 setInterval(()=>{if(view==='garden'&&!document.hidden)refreshWeather()},10*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='garden')refreshWeather()});
 
-view=window.GARDEN_VIEW||'farms';restoreView();
+view=window.GARDEN_VIEW||'farms';
+if(!window.GARDEN_ROLE&&window.GARDEN_SHOW){
+  const initial=window.GARDEN_SHOW;
+  if(state.farms.some(f=>f.id===initial.selected))selected=initial.selected;
+  if(Number.isInteger(initial.plotIndex))plotIndex=initial.plotIndex;
+  if(Number.isInteger(initial.pendingPlot))pendingPlot=initial.pendingPlot;
+  if(view==='garden'&&!current())view='farms';
+}
+restoreView();
 if(!window.GARDEN_DEFER_RENDER)render();
 
 app.addEventListener('keydown',e=>{if(e.key==='Escape'){const picker=app.querySelector?.('.farm-picker[open]');if(picker){picker.open=false;picker.querySelector('summary').focus()}}});

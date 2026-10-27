@@ -73,8 +73,8 @@ input, textarea { min-width: 0; max-width: 100%; font-size: var(--fs-body); bord
 .plot-label { font-family: var(--font-sign); }
 
 /* 확인 창 (삭제처럼 되돌릴 수 없는 동작 전에 한 번 더 묻는다) */
-.confirm-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 0 var(--space-screen-x); background: color-mix(in srgb, var(--color-text) 45%, transparent); }
-.confirm { width: 100%; max-width: calc(var(--layout-max) * .8); box-sizing: border-box; display: flex; flex-direction: column; gap: calc(var(--space-gap) / 2); padding: calc(var(--space-card) * 1.5) var(--space-card) var(--space-card); border-radius: var(--radius-card); background: var(--color-card); color: var(--color-text); text-align: center; }
+.confirm-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: var(--space-card) var(--space-screen-x); background: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.confirm { width: 100%; max-width: calc(var(--layout-max) * .8); max-height: 100%; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: calc(var(--space-gap) / 2); padding: calc(var(--space-card) * 1.5) var(--space-card) var(--space-card); border-radius: var(--radius-card); background: var(--color-card); color: var(--color-text); text-align: center; }
 .confirm-title { margin: 0; font-family: var(--font-title); font-size: var(--fs-section-title); }
 .confirm-message { margin: 0; color: var(--color-text-sub); font-size: var(--fs-body); line-height: 1.5; word-break: keep-all; }
 .confirm-actions { display: flex; gap: calc(var(--space-gap) / 2); margin-top: calc(var(--space-gap) / 2); }

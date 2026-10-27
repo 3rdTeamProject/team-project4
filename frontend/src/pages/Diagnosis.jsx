@@ -84,17 +84,16 @@ export default function Diagnosis() {
 
   return (
     <main className="screen diagnosis-screen">
-      <header className="screen-header">
-        <button
-          type="button"
-          className="icon-btn diagnosis-back"
-          onClick={goBack}
-          aria-label={step === 'plant' ? '메뉴로 돌아가기' : '이전 단계'}
-        >
-          {step === 'plant' ? '✕' : '‹'}
-        </button>
-        <h1 className="screen-title">{step === 'plant' || step === 'leaf' ? '잎 관찰하기' : 'AI 진단'}</h1>
-        <span className="icon-btn-spacer" aria-hidden="true" />
+      <header className="screen-header journal-aligned-header">
+        <div className="journal-aligned-title">
+          <button
+            type="button"
+            className="icon-btn journal-aligned-back"
+            onClick={goBack}
+            aria-label={step === 'plant' ? '메뉴로 돌아가기' : '이전 단계'}
+          />
+          <h1 className="screen-title">{step === 'plant' || step === 'leaf' ? '잎 관찰하기' : 'AI 진단'}</h1>
+        </div>
       </header>
 
       <ol className="diagnosis-progress" aria-label="진단 진행 단계">
@@ -109,11 +108,13 @@ export default function Diagnosis() {
         <>
           <section className="diagnosis-intro-card">
             <div className="diagnosis-leaf-art" aria-hidden="true">
-              <svg viewBox="0 0 128 96" fill="none">
-                <path d="M20 75C25 36 54 14 112 16c-4 46-31 70-69 66-11-1-18-3-23-7Z" fill="#75BD55" />
-                <path d="M27 75c21-17 39-32 76-52M48 63l-2-20m17 9 2-20m-3 45 18-2" stroke="#3B8B3C" strokeWidth="3" strokeLinecap="round" />
-                <circle cx="77" cy="40" r="4" fill="#B98138" />
-                <circle cx="52" cy="57" r="3.5" fill="#B98138" />
+              <svg viewBox="0 0 128 104" fill="none">
+                <path d="M20 78C24 47 51 25 105 19c-3 43-29 67-64 66-9 0-16-3-21-7Z" fill="#77bc55" />
+                <path d="M30 73c13-22 35-38 68-47-7 30-30 49-57 51-5 0-8-2-11-4Z" fill="#96d473" />
+                <path d="M17 85c23-23 47-43 84-59M48 62l-2-15m20 1-1-17M46 62l16 12m21-35 13 8" stroke="#438f46" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="81" cy="65" r="13" fill="#ffffff30" stroke="#3c8550" strokeWidth="3" />
+                <path d="m90 74 10 10" stroke="#3c8550" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="78" cy="61" r="3" fill="#c9914b" />
               </svg>
             </div>
             <h2>작물 사진을 준비해 주세요</h2>

@@ -57,6 +57,10 @@
 .feature-tabs button:disabled{opacity:.5;cursor:not-allowed}
 
 .category-tabs{flex-wrap:wrap}
+.crop-pagination{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:18px 0 8px}
+.crop-pagination button{min-width:44px;min-height:44px;padding:8px;border:1px solid var(--color-border);border-radius:var(--radius-small);background:var(--color-card);color:var(--color-green-dark);font-weight:700;cursor:pointer}
+.crop-pagination button.active{background:var(--color-green-btn);border-color:var(--color-green-btn);color:var(--color-on-btn)}
+.crop-pagination button:focus-visible{outline:2px solid var(--color-green-btn);outline-offset:2px}
 
 /* 바깥 페이지가 하단 고정 막대로 보여 주는 푸터는 이 안에서 숨긴다(글자·입력이 섞인 푸터는 data-own으로 남긴다) */
 html.hosted .footer:not([data-own]){display:none}
@@ -83,3 +87,11 @@ html.hosted .footer:not([data-own]){display:none}
 .jr-page .jr-group-menu-row small{margin-bottom:3px}
 .jr-page .jr-group-menu-row button{padding:7px 8px}
 .jr-archive-farm{margin-bottom:12px}.jr-archive-farm>h3{margin:0 0 10px;font-size:15px}.jr-archive-farm>h3 button{display:flex;align-items:center;gap:8px;width:100%;min-height:var(--size-touch);padding:0 4px;border:0;background:none;color:var(--color-text);font:inherit;text-align:left;cursor:pointer}.jr-archive-farm>h3 b{font-size:15px}.jr-archive-farm>h3 span{padding:2px 8px;border:1px solid var(--color-border);border-radius:var(--radius-chip);background:var(--color-bg);color:var(--color-text-sub);font-size:11px;font-weight:600}.jr-archive-farm>h3 em{margin-left:auto;color:var(--color-text-sub);font-size:12px;font-style:normal;font-weight:400}.jr-archive-farm>h3 svg{flex:none;width:16px;height:16px}
+.jr-page .jr-group-menu-row button[data-jr="diagnosis-result"]{white-space:nowrap}
+.jr-diagnosis-result .jr-diagnosis-card{margin:16px 0;padding:18px;border:1px solid var(--color-border,#dce7d2);border-radius:14px;background:var(--color-card,#fff)}
+.jr-diagnosis-result .jr-diagnosis-card h2{margin:0 0 10px;font-size:16px}
+.jr-diagnosis-result .jr-diagnosis-card p{margin:0;line-height:1.6}
+.jr-diagnosis-result .jr-diagnosis-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.jr-diagnosis-result .jr-diagnosis-card small{display:block;margin-top:12px;color:var(--color-text-muted,#63745b)}
+.jr-diagnosis-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.jr-diagnosis-photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}

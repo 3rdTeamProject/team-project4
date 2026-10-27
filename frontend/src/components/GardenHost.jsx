@@ -50,6 +50,7 @@ export function GardenHostProvider({ children }) {
   const [footerButtons, setFooterButtons] = useState([])
   // PC: 오른쪽 패널의 농장 화면이 지금 어느 화면인지(왼쪽 메뉴 강조용), 개발용 날짜·날씨 값
   const [panelView, setPanelView] = useState(null)
+  const [sceneState, setSceneState] = useState(null)
   const [dev, setDev] = useState(null)
 
   const tell = (name, body) => frames.current[name]?.el?.contentWindow?.postMessage(body, ORIGIN)
@@ -94,6 +95,7 @@ export function GardenHostProvider({ children }) {
     setError('')
     setFooterButtons([])
     setPanelView(null)
+    setSceneState(null)
     setDev(null)
   }
 
@@ -105,7 +107,10 @@ export function GardenHostProvider({ children }) {
       delete frames.current[name]
       if (footerFrame.current === name) { footerFrame.current = null; setFooterButtons([]) }
       if (name === 'panel') setPanelView(null)
-      if (!Object.keys(frames.current).length) reset()
+      // 화면 폭 변경으로 iframe이 교체되는 동안에는 새 화면의 등록을 기다린다.
+      if (!Object.keys(frames.current).length) queueMicrotask(() => {
+        if (!Object.keys(frames.current).length) reset()
+      })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -213,12 +218,17 @@ export function GardenHostProvider({ children }) {
       // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
       destination.current = opts.gardenView === 'farms' ? '/menu' : 'back'
       flush()
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis/history' && typeof message.cropName === 'string') {
+      destination.current = `/diagnosis/history?${new URLSearchParams({ crop_name: message.cropName, from: 'journal' })}`
+      flush()
     } else if (message?.type === 'garden:pc-open' && from === 'main') {
       openPanel(message) // 가운데 장면에서 누른 칸·농장 수정 같은 요청은 오른쪽 패널에 연다
     } else if (message?.type === 'garden:pc-select' && from === 'panel') {
       tell('main', message)
     } else if (message?.type === 'garden:pc-view' && from === 'panel') {
       setPanelView(message.view)
+    } else if (message?.type === 'garden:pc-view' && from === 'main' && opts.role === 'scene') {
+      setSceneState({ view: message.view, selected: message.selected, plotIndex: message.plotIndex, pendingPlot: message.pendingPlot })
     } else if (message?.type === 'garden:pc-changed' && from === 'main') {
       tell('panel', { type: 'garden:pc-refresh' })
     } else if (message?.type === 'garden:dev' && from === 'main') {
@@ -239,7 +249,7 @@ export function GardenHostProvider({ children }) {
     }
   }, [])
 
-  const value = { loaded, error, saving, height, footerButtons, panelView, dev, cloud, registerFrame, openPanel, sendDev, clickFooter, retrySave }
+  const value = { loaded, error, saving, height, footerButtons, panelView, sceneState, dev, cloud, registerFrame, openPanel, sendDev, clickFooter, retrySave }
   return <GardenHostContext.Provider value={value}>
     {children}
     <span className="garden-save-status" role="status" aria-live="polite">{saving ? '저장 중…' : ''}</span>
