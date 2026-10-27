@@ -139,12 +139,19 @@
 
 /* 탭 */
 .shop-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.shop-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .shop-tab {
+  flex: 0 0 calc((100% - 24px) / 4);
   height: var(--tap-min);
   border: 1px solid var(--card-border);
   border-radius: 999px;
@@ -152,6 +159,7 @@
   color: var(--text);
   font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 

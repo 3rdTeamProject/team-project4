@@ -57,7 +57,8 @@
 
 /* 바깥 페이지가 하단 고정 막대로 보여 주는 푸터는 이 안에서 숨긴다(글자·입력이 섞인 푸터는 data-own으로 남긴다) */
 html.hosted .footer:not([data-own]){display:none}
-.jr-write-page #jr-memo{min-height:160px;field-sizing:content;resize:vertical}
+.jr-write-page #jr-memo{height:160px;min-height:160px;field-sizing:fixed;resize:none;overflow-y:auto}
+#feature-memo,#jr-demo-detail,#jr-demo-result{resize:none;overflow-y:auto}
 
 /* Journal navigation and record readability */
 .jr-page .back-title,.jr-write-page .back-title{gap:4px}
@@ -67,6 +68,7 @@ html.hosted .footer:not([data-own]){display:none}
 .crop-selection-page .back-title .icon-btn{width:44px;height:44px;margin-left:-12px;padding:0;font-size:0}
 .crop-selection-page .back-title .icon-btn::before{content:"";width:10px;height:10px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:translate(2px,-1px) rotate(45deg)}
 .crop-selection-page .selection-card.active{background:var(--color-card);border:1px solid var(--green);box-shadow:0 0 0 1px var(--green)}
+.crop-selection-page .selection-grid{gap:22px 18px}
 .jr-page .jr-card{padding:19px 16px;margin:14px 0}
 .jr-page .jr-card-head{gap:9px;margin-bottom:16px;line-height:1.5}
 .jr-page .jr-card-head small,.jr-page .jr-planting small,.jr-page .jr-note small,.jr-page .jr-memo-label{font-size:13px}
@@ -98,3 +100,8 @@ html.hosted .footer:not([data-own]){display:none}
 .jr-archive-farm>h3 button{display:inline-grid;grid-template-columns:max-content 18px;align-items:center;justify-content:center;flex:none;width:auto;margin-left:auto;min-height:44px;padding:0 4px 0 8px;column-gap:8px;line-height:20px}
 .jr-archive-farm>h3 button em{display:block;margin-left:0;color:var(--color-text);font-family:var(--font-body);font-size:16px;font-style:normal;font-weight:700;line-height:20px;white-space:nowrap}
 .jr-archive-farm>h3 button svg{display:block;width:18px;height:18px;stroke-width:2.2}
+.jr-filters{max-width:100%;overscroll-behavior-x:contain}
+.jr-filters::-webkit-scrollbar{display:none}
+.jr-note-ai .jr-diagnosis-link{display:block;margin-top:8px;padding:2px 0;border:0;background:none;color:#225578;font-size:13px;font-weight:700;text-align:left;text-decoration:underline;cursor:pointer}
+.jr-note-ai b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.jr-note-ai .jr-diagnosis-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}

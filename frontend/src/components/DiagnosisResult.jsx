@@ -30,6 +30,9 @@ export default function DiagnosisResult({
   showActions = true,
   onRetake,
   onRestartObservation,
+  onSaveJournal,
+  journalSaving = false,
+  journalError = '',
 }) {
   if (!result) {
     return (
@@ -79,6 +82,8 @@ export default function DiagnosisResult({
             <ResultList title="추가 촬영 방법" items={result.retakeGuidance} />
             <ResultList title="추가 확인 사항" items={result.additionalChecks} />
             {showActions && <button type="button" className="btn primary" onClick={onRetake}>사진 다시 촬영하기</button>}
+            {showActions && onSaveJournal && <button type="button" className="btn secondary diagnosis-journal-link" onClick={onSaveJournal} disabled={journalSaving}>{journalSaving ? '기록하는 중…' : '재배일지에 기록하기'}</button>}
+            {journalError && <p className="diagnosis-result-note" role="alert">{journalError}</p>}
             <ExpertGuidance />
           </>
         ) : (
@@ -92,8 +97,8 @@ export default function DiagnosisResult({
             <ResultList title="추가 확인 사항" items={result.additionalChecks} />
             {showActions && <>
             <button type="button" className="btn secondary" onClick={onRetake}>사진 다시 촬영하기</button>
-            <Link className="btn primary diagnosis-journal-link" to="/journals">재배일지에 기록하기</Link>
-            <p className="diagnosis-result-note">재배일지 작성 화면으로 이동합니다. 진단 결과를 자동으로 저장하지 않습니다.</p>
+            <button type="button" className="btn primary diagnosis-journal-link" onClick={onSaveJournal} disabled={journalSaving}>{journalSaving ? '기록하는 중…' : '재배일지에 기록하기'}</button>
+            {journalError && <p className="diagnosis-result-note" role="alert">{journalError}</p>}
             </>}
           </>
         )}

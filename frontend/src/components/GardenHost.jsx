@@ -230,6 +230,9 @@ export function GardenHostProvider({ children }) {
       // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
       destination.current = opts.gardenView === 'farms' ? '/menu' : 'back'
       flush()
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis/history' && typeof message.requestId === 'string') {
+      destination.current = `/diagnosis/history/${encodeURIComponent(message.requestId)}?${new URLSearchParams({ ...(message.cropName ? { crop_name: message.cropName } : {}), from: 'journal' })}`
+      flush()
     } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis/history' && typeof message.cropName === 'string') {
       destination.current = `/diagnosis/history?${new URLSearchParams({ crop_name: message.cropName, from: 'journal' })}`
       flush()

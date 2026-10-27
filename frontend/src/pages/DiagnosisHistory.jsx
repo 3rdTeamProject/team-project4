@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import DiagnosisResult from '../components/DiagnosisResult.jsx'
+import { recordDiagnosisInJournal } from '../utils/diagnosisJournal.js'
 import './screens.css'
 import './diagnosis.css'
 import './diagnosis-history.css'
 
-function diagnosisDate(value) {
+function diagnosisDay(value) {
   if (!value) return '기록 없음'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '기록 없음' : date.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+  return Number.isNaN(date.getTime()) ? '기록 없음' : new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric',
+  }).format(date)
 }
 
-function RecordInfo({ record }) {
+function RecordInfo({ record, farmName, detail = false }) {
   return <dl className="diagnosis-history-info">
+    {detail && <div><dt>농장명</dt><dd>{farmName || '기록 없음'}</dd></div>}
     <div><dt>작물명</dt><dd>{record.crop_name || '기록 없음'}</dd></div>
-    <div><dt>진단 일시</dt><dd>{diagnosisDate(record.completed_at || record.created_at)} (한국 시간)</dd></div>
+    <div><dt>진단일</dt><dd>{diagnosisDay(record.completed_at || record.created_at)}</dd></div>
     <div><dt>선택 증상</dt><dd>{record.symptoms?.length ? record.symptoms.join(', ') : '기록 없음'}</dd></div>
   </dl>
 }
@@ -32,6 +36,7 @@ async function loadCropHistory(cropName) {
 }
 
 export default function DiagnosisHistory() {
+  const navigate = useNavigate()
   const { requestId } = useParams()
   const [searchParams] = useSearchParams()
   const cropName = searchParams.get('crop_name')?.trim() || ''
@@ -42,12 +47,24 @@ export default function DiagnosisHistory() {
   const [plantingId, setPlantingId] = useState('')
   const [state, setState] = useState({ loading: true })
   const [reload, setReload] = useState(0)
+  const [journalSaving, setJournalSaving] = useState(false)
+  const [journalError, setJournalError] = useState('')
+  const [gardenFarms, setGardenFarms] = useState([])
   const cropHistoryCache = useRef({ key: '', promise: null })
   const filterRef = useRef(null)
   const token = storage.token
   const queryKey = JSON.stringify([requestId, page, plantingId, cropName, reload, token])
 
   useEffect(() => { setPage(1); setPlantingId('') }, [cropName])
+
+  useEffect(() => {
+    if (!requestId || !token) return
+    let cancelled = false
+    api.gardenState().then(result => {
+      if (!cancelled) setGardenFarms(result.state?.farms || [])
+    }).catch(() => { if (!cancelled) setGardenFarms([]) })
+    return () => { cancelled = true }
+  }, [requestId, token])
 
   useEffect(() => {
     const closeOnOutsideClick = event => {
@@ -96,6 +113,9 @@ export default function DiagnosisHistory() {
   const { data, error } = loading ? {} : state
   const completed = data?.status === 'completed' && !data?.isDemo
     && ['diagnosed', 'uncertain'].includes(data?.outcome) && data?.result
+  const farmName = requestId && data ? gardenFarms.find(farm =>
+    (farm.plots || []).some(plant => plant && String(plant.plantingId) === String(data.planting_id)),
+  )?.name || gardenFarms.find(farm => farm.id === data.result?.metadata?.farm_client_id)?.name : ''
   const visiblePlantings = !requestId ? (data?.plantings ?? []).filter(plant => !cropName || plant.crop_name === cropName) : []
   const selectedPlanting = visiblePlantings.find(plant => String(plant.planting_id) === String(plantingId))
   const allPlantingsLabel = cropName ? `${cropName} 전체 재배` : '전체 작물'
@@ -105,6 +125,21 @@ export default function DiagnosisHistory() {
     setPlantingId(String(id))
     setPage(1)
     if (filterRef.current) filterRef.current.open = false
+  }
+
+  async function saveDiagnosisToJournal() {
+    if (!completed || journalSaving) return
+    setJournalSaving(true)
+    setJournalError('')
+    try {
+      const [me, gardenState] = await Promise.all([api.me(), api.gardenState().catch(() => null)])
+      recordDiagnosisInJournal({ userId: me.id, record: data, gardenState, localStore: localStorage, sessionStore: sessionStorage })
+      navigate('/journals')
+    } catch {
+      setJournalError('재배일지에 기록하지 못했어요. 다시 시도해 주세요.')
+    } finally {
+      setJournalSaving(false)
+    }
   }
 
   return <main className="screen diagnosis-screen diagnosis-history-screen">
@@ -120,10 +155,14 @@ export default function DiagnosisHistory() {
     {!loading && !error && data && (requestId ? (
       completed ? <>
         <section className="diagnosis-card">
-          <RecordInfo record={data} />
+          <RecordInfo record={data} farmName={farmName} detail />
           <p className="diagnosis-history-description">추가 설명: {data.description || '기록 없음'}</p>
         </section>
         <DiagnosisResult result={data.result} cropName={data.crop_name} showActions={false} />
+        <button type="button" className="btn primary diagnosis-history-journal-action" onClick={saveDiagnosisToJournal} disabled={journalSaving}>
+          {journalSaving ? '기록하는 중…' : '재배일지에 기록하기'}
+        </button>
+        {journalError && <p className="diagnosis-history-feedback" role="alert">{journalError}</p>}
       </> : <p className="diagnosis-history-feedback" role="status">완료된 AI 진단 결과가 없습니다.</p>
     ) : <>
       <div className="diagnosis-history-filter">
