@@ -119,6 +119,11 @@
   box-sizing: border-box;
 }
 
+/* 내용이 짧아져 스크롤바가 사라져도 화면 폭이 변하지 않게 스크롤바 자리를 항상 확보한다(탭을 바꿀 때 카드 크기가 달라지는 것을 막음) */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background: var(--outside-bg);

@@ -1,0 +1,16 @@
+{
+  "name": "우리텃밭",
+  "short_name": "우리텃밭",
+  "description": "나만의 6칸 텃밭에서 작물을 심고, 물을 주고, 재배 기록을 남겨보세요.",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F8EE",
+  "theme_color": "#F4F8EE",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

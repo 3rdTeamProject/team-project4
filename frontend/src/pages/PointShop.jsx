@@ -178,6 +178,14 @@ export default function PointShop() {
         </div>
       )}
 
+      {/* 화면을 내려도 오른쪽 아래에 남아 있는 장바구니 이동 버튼 */}
+      <div className="shop-fab-wrap">
+        <Link className="shop-fab" to="/cart" aria-label="장바구니로 이동">
+          <CartIcon size={26} />
+          {cartCount > 0 && <span className="shop-badge">{cartCount}</span>}
+        </Link>
+      </div>
+
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   )

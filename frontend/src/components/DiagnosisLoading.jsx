@@ -21,7 +21,7 @@ export default function DiagnosisLoading({
         </span>
       </div>
       {onCheckStatus && (
-        <div className="diagnosis-demo-response-picker">
+        <div className="diagnosis-status-picker">
           <p>요청 상태는 서버 응답으로 확인합니다. 확인이 늦어지면 상태를 다시 조회해 주세요.</p>
           <button type="button" className="btn secondary" onClick={onCheckStatus}>
             진행 상태 다시 확인

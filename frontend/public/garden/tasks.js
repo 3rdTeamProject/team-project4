@@ -247,7 +247,8 @@ const devWeatherBar = () => {
   const on = i => { const o = DEV_WEATHER[i].o; return o ? !!now && now.code === o.code && now.isDay === o.isDay : !now; };
   return `<div class="tk-dev" role="group" aria-label="개발용 날씨 바꾸기"><b>🛠 날씨</b>${DEV_WEATHER.map((w, i) => `<button type="button" data-tk="dev-weather" data-i="${i}" aria-pressed="${on(i)}">${w.label}</button>`).join('')}</div>`;
 };
-const devBar = () => `<div class="tk-dev" role="group" aria-label="개발용 날짜 이동"><b>🛠 개발용</b><span>오늘 ${esc(day())} (+${dev.offset}일)</span>${[1, 5, 7, 30].map(n => `<button type="button" data-tk="dev-day" data-add="${n}">+${n}일</button>`).join('')}<button type="button" data-tk="dev-day" data-set="0">처음으로</button></div>`;
+const DEV_DAY_STEPS = [1, 5, 7, 30];
+const devBar = () => `<div class="tk-dev" role="group" aria-label="개발용 날짜 이동"><b>🛠 개발용</b><span>오늘 ${esc(day())} (+${dev.offset}일)</span>${DEV_DAY_STEPS.map(n => `<button type="button" data-tk="dev-day" data-add="${n}">+${n}일</button>`).join('')}<button type="button" data-tk="dev-day" data-set="0">처음으로</button></div>`;
 async function moveDay(b) {
   try {
     const r = await hostApi('devdayset', { offset: b.dataset.set !== undefined ? Number(b.dataset.set) : dev.offset + Number(b.dataset.add) });
@@ -271,7 +272,8 @@ render = function () {
     syncing = true;  // 새로 심은 작물은 저장이 끝난 뒤 서버 값(작물 번호·단계)을 받아 온다
     refreshFromServer().finally(() => { syncing = false; });
   }
-  if (dev.enabled) app.insertAdjacentHTML('afterbegin', devBar() + (view === 'garden' ? devWeatherBar() : ''));
+  // PC 레이아웃(role이 있을 때)에서는 개발용 줄을 왼쪽 메뉴가 대신 보여 준다(pc-layout.js가 내용을 바깥으로 보낸다)
+  if (dev.enabled && !window.GARDEN_ROLE) app.insertAdjacentHTML('afterbegin', devBar() + (view === 'garden' ? devWeatherBar() : ''));
 };
 
 // ---------- 시작: 작물 정보와 개발용 날짜를 받아 온다

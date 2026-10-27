@@ -328,56 +328,6 @@
   color: var(--info-text);
 }
 
-.diagnosis-demo-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  min-width: 0;
-  margin: 0;
-  padding: 13px;
-  border: 1px solid var(--card-border);
-  border-radius: 14px;
-  background: var(--card-bg);
-}
-
-.diagnosis-demo-controls legend {
-  padding: 0 4px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.diagnosis-demo-controls legend span {
-  color: var(--warn-text);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.diagnosis-demo-controls p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.diagnosis-demo-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.diagnosis-demo-options .btn {
-  min-height: 44px;
-  padding: 9px 6px;
-  font-size: 12px;
-}
-
-.diagnosis-demo-options .btn.is-selected {
-  border-color: var(--primary);
-  background: #e8f3e1;
-  color: var(--primary-dark);
-}
-
 .diagnosis-leaf-result {
   display: flex;
   flex-direction: column;
@@ -403,16 +353,6 @@
   color: var(--muted);
   font-size: 13px;
   line-height: 1.55;
-}
-
-.diagnosis-demo-badge {
-  align-self: flex-start;
-  padding: 4px 8px;
-  border-radius: 10px;
-  background: #fff;
-  color: var(--warn-text);
-  font-size: 10px;
-  font-weight: 700;
 }
 
 .diagnosis-result-photo span {
@@ -622,7 +562,7 @@
   font-weight: 700;
 }
 
-.diagnosis-demo-response-picker {
+.diagnosis-status-picker {
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -632,7 +572,7 @@
   background: var(--card-bg);
 }
 
-.diagnosis-demo-response-picker p {
+.diagnosis-status-picker p {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
