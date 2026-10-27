@@ -626,7 +626,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
     }
   }, [flow.screen, flow.source, flow.result, quota, quotaLoading, quotaError])
 
-  const quotaNotice = <section className="diagnosis-detail-card" aria-live="polite">
+  const quotaNotice = <section className="diagnosis-detail-card diagnosis-quota-card" aria-live="polite">
     <h2>오늘의 AI 상세 진단</h2>
     <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있으며, 외부 AI 상세 진단에만 무료 횟수가 적용돼요.</p>
     {quota && <p>

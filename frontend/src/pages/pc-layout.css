@@ -121,6 +121,12 @@
 }
 
 /* ---------- 오른쪽 패널 */
+/* PC 화면은 고정 패널 안에서만 스크롤하므로 바깥 문서의 스크롤바 자리를 없앤다. */
+html:has(.pc-shell) {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
 .pc-panel {
   position: fixed;
   top: 0;
@@ -139,7 +145,11 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-gutter: stable; /* 화면 내용 길이가 바뀌어도 폭이 변하지 않게 한다 */
+  scrollbar-width: none;
+}
+
+.pc-panel-body::-webkit-scrollbar {
+  display: none;
 }
 
 /* 패널 안의 화면은 모바일 폭 그대로 쓴다(바깥 .app의 폭 제한은 풀고, 안쪽 여백은 모바일과 같게 둔다) */

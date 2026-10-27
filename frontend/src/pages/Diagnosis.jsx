@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { storage } from '../api.js'
 import DiagnosisResult from '../components/DiagnosisResult.jsx'
 import DiagnosisDetails from '../components/DiagnosisDetails.jsx'
+import ObservationLeafArt from '../components/ObservationLeafArt.jsx'
 import { useGoBack } from '../hooks/useGoBack.js'
 import './diagnosis.css'
 
@@ -108,14 +109,7 @@ export default function Diagnosis() {
         <>
           <section className="diagnosis-intro-card">
             <div className="diagnosis-leaf-art" aria-hidden="true">
-              <svg viewBox="0 0 128 104" fill="none">
-                <path d="M20 78C24 47 51 25 105 19c-3 43-29 67-64 66-9 0-16-3-21-7Z" fill="#77bc55" />
-                <path d="M30 73c13-22 35-38 68-47-7 30-30 49-57 51-5 0-8-2-11-4Z" fill="#96d473" />
-                <path d="M17 85c23-23 47-43 84-59M48 62l-2-15m20 1-1-17M46 62l16 12m21-35 13 8" stroke="#438f46" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="81" cy="65" r="13" fill="#ffffff30" stroke="#3c8550" strokeWidth="3" />
-                <path d="m90 74 10 10" stroke="#3c8550" strokeWidth="5" strokeLinecap="round" />
-                <circle cx="78" cy="61" r="3" fill="#c9914b" />
-              </svg>
+              <ObservationLeafArt />
             </div>
             <h2>작물 사진을 준비해 주세요</h2>
             <p>사진을 선택하거나 촬영한 뒤 잎 상태를 관찰할 수 있어요.</p>

@@ -34,6 +34,13 @@ input, textarea { min-width: 0; max-width: 100%; font-size: var(--fs-body); bord
 .footer > .diagnosis-button { flex: 0 0 32%; }
 .page-head { margin-bottom: var(--space-card); gap: 0; }
 .page-head h1 { font-weight: 400; }
+.farm-form-page .back-title { gap: 4px; }
+.farm-form-page .back-title .icon-btn { width: 44px; height: 44px; margin-left: -12px; padding: 0; font-size: 0; }
+.farm-form-page .back-title .icon-btn::before { content: ''; width: 10px; height: 10px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translate(2px, -1px) rotate(45deg); }
+.farm-form-page .field-label { font-size: 15px; }
+.farm-form-page .count, .farm-form-page .edit-crop small { font-size: 12px; }
+.farm-form-page .help, .farm-form-page .info, .farm-form-page .warning { font-size: 13px; line-height: 1.6; }
+.farm-form-page .edit-crop { font-size: 14px; }
 .field-label { font-size: var(--fs-body); margin-bottom: calc(var(--space-gap) / 2); }
 .detail-subhead { margin-top: 0; margin-bottom: var(--space-card); gap: calc(var(--space-gap) / 2); }
 .detail-subhead .icon-btn svg { width: calc(var(--size-touch) / 2); height: calc(var(--size-touch) / 2); color: var(--color-danger); }

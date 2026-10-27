@@ -13,11 +13,11 @@ function diagnosisDate(value) {
 }
 
 function RecordInfo({ record }) {
-  return <div className="diagnosis-history-info">
-    <p>작물명: {record.crop_name || '기록 없음'}</p>
-    <p>진단 일시: {diagnosisDate(record.completed_at || record.created_at)} (한국 시간)</p>
-    <p>선택 증상: {record.symptoms?.length ? record.symptoms.join(', ') : '기록 없음'}</p>
-  </div>
+  return <dl className="diagnosis-history-info">
+    <div><dt>작물명</dt><dd>{record.crop_name || '기록 없음'}</dd></div>
+    <div><dt>진단 일시</dt><dd>{diagnosisDate(record.completed_at || record.created_at)} (한국 시간)</dd></div>
+    <div><dt>선택 증상</dt><dd>{record.symptoms?.length ? record.symptoms.join(', ') : '기록 없음'}</dd></div>
+  </dl>
 }
 
 async function loadCropHistory(cropName) {
@@ -43,10 +43,29 @@ export default function DiagnosisHistory() {
   const [state, setState] = useState({ loading: true })
   const [reload, setReload] = useState(0)
   const cropHistoryCache = useRef({ key: '', promise: null })
+  const filterRef = useRef(null)
   const token = storage.token
   const queryKey = JSON.stringify([requestId, page, plantingId, cropName, reload, token])
 
   useEffect(() => { setPage(1); setPlantingId('') }, [cropName])
+
+  useEffect(() => {
+    const closeOnOutsideClick = event => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) filterRef.current.open = false
+    }
+    const closeOnEscape = event => {
+      if (event.key === 'Escape' && filterRef.current?.open) {
+        filterRef.current.open = false
+        filterRef.current.querySelector('summary')?.focus()
+      }
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
 
   useEffect(() => {
     if (!token) return
@@ -77,15 +96,26 @@ export default function DiagnosisHistory() {
   const { data, error } = loading ? {} : state
   const completed = data?.status === 'completed' && !data?.isDemo
     && ['diagnosed', 'uncertain'].includes(data?.outcome) && data?.result
+  const visiblePlantings = !requestId ? (data?.plantings ?? []).filter(plant => !cropName || plant.crop_name === cropName) : []
+  const selectedPlanting = visiblePlantings.find(plant => String(plant.planting_id) === String(plantingId))
+  const allPlantingsLabel = cropName ? `${cropName} 전체 재배` : '전체 작물'
+  const plantingLabel = plant => `${plant.crop_name || '작물명 기록 없음'} · 재배 #${plant.planting_id}`
+
+  function selectPlanting(id) {
+    setPlantingId(String(id))
+    setPage(1)
+    if (filterRef.current) filterRef.current.open = false
+  }
 
   return <main className="screen diagnosis-screen diagnosis-history-screen">
-    <header className="screen-header">
-      <Link className="icon-btn" to={requestId ? `/diagnosis/history${historySearch}` : fromJournal ? '/journals' : '/menu'} aria-label="뒤로 가기">‹</Link>
-      <h1 className="screen-title">{requestId ? 'AI 진단 상세 결과' : '나의 AI 진단 이력'}</h1>
-      <span className="icon-btn-spacer" aria-hidden="true" />
+    <header className="screen-header journal-aligned-header">
+      <div className="journal-aligned-title">
+        <Link className="icon-btn journal-aligned-back" to={requestId ? `/diagnosis/history${historySearch}` : fromJournal ? '/journals' : '/menu'} aria-label="뒤로 가기" />
+        <h1 className="screen-title">{requestId ? 'AI 진단 상세 결과' : '나의 AI 진단 이력'}</h1>
+      </div>
     </header>
-    {loading && <p role="status">진단 이력을 불러오는 중이에요.</p>}
-    {error && <div role="alert"><p>{error}</p><button className="btn secondary" onClick={() => setReload(value => value + 1)}>다시 시도</button></div>}
+    {loading && <p className="diagnosis-history-feedback" role="status">진단 이력을 불러오는 중이에요.</p>}
+    {error && <div className="diagnosis-card diagnosis-history-feedback" role="alert"><p>{error}</p><button className="btn secondary" onClick={() => setReload(value => value + 1)}>다시 시도</button></div>}
     {!requestId && cropName && <p className="diagnosis-history-selected-crop">{cropName} 진단 이력 <Link to="/diagnosis/history">전체 작물 보기</Link></p>}
     {!loading && !error && data && (requestId ? (
       completed ? <>
@@ -94,28 +124,36 @@ export default function DiagnosisHistory() {
           <p className="diagnosis-history-description">추가 설명: {data.description || '기록 없음'}</p>
         </section>
         <DiagnosisResult result={data.result} cropName={data.crop_name} showActions={false} />
-      </> : <p role="status">완료된 AI 진단 결과가 없습니다.</p>
+      </> : <p className="diagnosis-history-feedback" role="status">완료된 AI 진단 결과가 없습니다.</p>
     ) : <>
-      <label className="diagnosis-history-filter">작물별 보기
-        <select value={plantingId} onChange={event => { setPlantingId(event.target.value); setPage(1) }}>
-          <option value="">{cropName ? `${cropName} 전체 재배` : '전체 작물'}</option>
-          {data.plantings.filter(plant => !cropName || plant.crop_name === cropName).map(plant => <option key={plant.planting_id} value={plant.planting_id}>
-            {plant.crop_name || '작물명 기록 없음'} · 재배 #{plant.planting_id}
-          </option>)}
-        </select>
-      </label>
-      {data.items.length === 0 ? <section className="diagnosis-card">
+      <div className="diagnosis-history-filter">
+        <span id="diagnosis-history-filter-label">작물별 보기</span>
+        <details className="diagnosis-history-filter-picker" ref={filterRef}>
+          <summary aria-labelledby="diagnosis-history-filter-label">
+            <span>{selectedPlanting ? plantingLabel(selectedPlanting) : allPlantingsLabel}</span>
+            <span className="diagnosis-history-filter-chevron" aria-hidden="true" />
+          </summary>
+          <div className="diagnosis-history-filter-options" role="group" aria-label="작물별 보기 선택">
+            <button type="button" className={!plantingId ? 'is-selected' : ''} aria-pressed={!plantingId} onClick={() => selectPlanting('')}>{allPlantingsLabel}</button>
+            {visiblePlantings.map(plant => {
+              const selected = String(plant.planting_id) === String(plantingId)
+              return <button key={plant.planting_id} type="button" className={selected ? 'is-selected' : ''} aria-pressed={selected} onClick={() => selectPlanting(plant.planting_id)}>{plantingLabel(plant)}</button>
+            })}
+          </div>
+        </details>
+      </div>
+      {data.items.length === 0 ? <section className="diagnosis-card diagnosis-history-empty">
         <p>{plantingId || cropName ? '선택한 작물의 AI 진단 이력이 없습니다' : '아직 AI 진단 이력이 없습니다'}</p>
         <Link className="btn primary" to="/diagnosis?mode=detail">AI 상세 진단하기</Link>
       </section> : <>
-        <p>총 {data.total}건</p>
+        <p className="diagnosis-history-count">총 {data.total}건</p>
         <ul className="diagnosis-history-list">
           {data.items.map(record => <li key={record.request_id}>
             <Link className="diagnosis-card diagnosis-history-record" to={`/diagnosis/history/${encodeURIComponent(record.request_id)}${historySearch}`}>
               <span className="diagnosis-status-pill">{record.outcome === 'uncertain' ? '판단 어려움' : '진단 완료'}</span>
               <RecordInfo record={record} />
               <p className="diagnosis-history-description">{record.result?.disease_name || record.result?.reason || '결과 요약 기록 없음'}</p>
-              <span>상세 결과 보기 ›</span>
+              <span className="diagnosis-history-link">상세 결과 보기 ›</span>
             </Link>
           </li>)}
         </ul>
