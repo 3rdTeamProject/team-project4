@@ -103,7 +103,7 @@ async function fingerprintDiagnosis(input, crop, photos) {
     .join('')
 }
 
-export default function DiagnosisDetails({ onBack, onRestartObservation }) {
+export default function DiagnosisDetails({ onBack }) {
   const [diagnosisInput, setDiagnosisInput] = useState({ cropId: '', symptoms: [], description: '' })
   const [photos, setPhotos] = useState({})
   const [farms, setFarms] = useState([])
@@ -638,7 +638,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   const quotaNotice = <section className="diagnosis-detail-card diagnosis-quota-card" aria-live="polite">
     <h2>오늘의 AI 상세 진단</h2>
-    <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있으며, 외부 AI 상세 진단에만 무료 횟수가 적용돼요.</p>
     {quota && <p>
       오늘 남은 무료 상세 진단: {quota.remaining_count}/{quota.daily_limit}회
       {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
@@ -691,7 +690,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         result={result}
         cropName={selectedCrop?.cropName}
         onRetake={returnToForm}
-        onRestartObservation={onRestartObservation}
       />
       {quotaNotice}
       </>
