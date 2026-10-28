@@ -13,6 +13,9 @@ window.addEventListener('message', event => {
   if (message.role) document.documentElement.classList.add('pc-' + message.role);
   if (message.role === 'scene') useMobileRules();
   window.GARDEN_DEFER_RENDER = true;
+  // 농장 화면이 새로 만들어진 직후(메뉴에서 돌아올 때 등) 첫 그리기는 나타나는 효과 없이 바로 보여, 깜빡이는 느낌을 줄인다
+  document.documentElement.classList.add('garden-first-render');
+  setTimeout(() => document.documentElement.classList.remove('garden-first-render'), 1500);
   localStorage.setItem(window.GARDEN_STORAGE_KEY, JSON.stringify(message.state));
   const script = document.createElement('script');
   script.src = 'app.js';

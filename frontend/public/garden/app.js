@@ -19,7 +19,7 @@ const planted=f=>f.plots.filter(Boolean).length;
 const taskDot=(f,p,i)=>typeof isTaskPlant==='function'&&isTaskPlant(p)?hasTask(f.id,i):p.needsWater;
 const due=f=>f.plots.some((p,i)=>p&&taskDot(f,p,i));
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));window.parent.postMessage({type:'garden:save',state},window.location.origin)}catch{toast('브라우저 저장이 제한되어 현재 화면에서만 유지됩니다.')}}
-function toast(message){const t=document.querySelector('#toast');t.textContent=message;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),2700)}
+function toast(message){if(window.parent!==window){window.parent.postMessage({type:'garden:toast',message:String(message)},window.location.origin);return}const t=document.querySelector('#toast');t.textContent=message;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),2700)}
 // 메뉴(☰)로 나가기 전 화면을 기억해 두었다가, 메뉴를 닫고 돌아오면 그 화면으로 복원한다
 function rememberView(){try{if(!['farms','garden','tasks','detail'].includes(view))return;sessionStorage.setItem('garden-resume',JSON.stringify({view,selected,plotIndex,at:Date.now()}))}catch{}}
 function restoreView(){try{if(window.GARDEN_VIEW&&window.GARDEN_VIEW!=='farms')return;const raw=sessionStorage.getItem('garden-resume');if(!raw)return;sessionStorage.removeItem('garden-resume');const r=JSON.parse(raw);if(Date.now()-r.at>1800000)return;if(!['farms','garden','tasks','detail'].includes(r.view))return;const f=state.farms.find(x=>x.id===r.selected);if(r.view!=='farms'&&!f)return;if(r.view==='detail'&&!f.plots[r.plotIndex])return;view=r.view;if(f)selected=f.id;plotIndex=Number.isInteger(r.plotIndex)?r.plotIndex:0}catch{}}

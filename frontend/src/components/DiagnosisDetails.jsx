@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api.js'
+import { recordDiagnosisInJournal } from '../utils/diagnosisJournal.js'
 import DiagnosisFailure from './DiagnosisFailure.jsx'
 import DiagnosisLoading from './DiagnosisLoading.jsx'
 import DiagnosisResult from './DiagnosisResult.jsx'
@@ -104,7 +105,9 @@ async function fingerprintDiagnosis(input, crop, photos) {
 }
 
 export default function DiagnosisDetails({ onBack }) {
+  const navigate = useNavigate()
   const [diagnosisInput, setDiagnosisInput] = useState({ cropId: '', symptoms: [], description: '' })
+  const [selectedFarmId, setSelectedFarmId] = useState('')
   const [photos, setPhotos] = useState({})
   const [farms, setFarms] = useState([])
   const [cropNames, setCropNames] = useState(new Map())
@@ -121,10 +124,14 @@ export default function DiagnosisDetails({ onBack }) {
   const [photoError, setPhotoError] = useState('')
   const [missingRequirement, setMissingRequirement] = useState('')
   const [notice, setNotice] = useState('')
+  const [journalSaving, setJournalSaving] = useState(false)
+  const [journalError, setJournalError] = useState('')
   const [flow, setFlow] = useState({ screen: 'form' })
   const [pendingAttemptState, setPendingAttemptState] = useState(() => readPendingDiagnosis())
   const ownedPhotoUrls = useRef({})
   const cropSectionRef = useRef(null)
+  const farmPickerRef = useRef(null)
+  const cropPickerRef = useRef(null)
   const symptomsSectionRef = useRef(null)
   const closePhotoSectionRef = useRef(null)
   const idempotencyKey = useRef(pendingAttemptState)
@@ -133,6 +140,46 @@ export default function DiagnosisDetails({ onBack }) {
   const mounted = useRef(true)
   const crops = useMemo(() => getGrowingCrops(farms, cropNames), [farms, cropNames])
   const selectedCrop = crops.find(crop => crop.id === diagnosisInput.cropId)
+  const cropGroups = useMemo(() => farms.map(farm => ({
+    id: farm.id,
+    name: farm.name,
+    region: farm.region,
+    crops: crops.filter(crop => crop.farmClientId === farm.id),
+  })).filter(group => group.crops.length > 0), [farms, crops])
+  const visibleFarm = cropGroups.find(group => group.id === selectedFarmId) || cropGroups[0]
+
+  useEffect(() => {
+    if (!cropGroups.length) return
+    setSelectedFarmId(current => cropGroups.some(group => group.id === current) ? current : cropGroups[0].id)
+  }, [cropGroups])
+
+  useEffect(() => {
+    if (!selectedCrop) return
+    setSelectedFarmId(selectedCrop.farmClientId)
+  }, [selectedCrop?.farmClientId])
+
+  useEffect(() => {
+    const closeOnOutsideClick = event => {
+      for (const picker of [farmPickerRef.current, cropPickerRef.current]) {
+        if (picker && !picker.contains(event.target)) picker.open = false
+      }
+    }
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') {
+        for (const picker of [farmPickerRef.current, cropPickerRef.current]) {
+          if (!picker?.open) continue
+          picker.open = false
+          picker.querySelector('summary')?.focus()
+        }
+      }
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
 
   // 작물 상세에서 들어오면(?farm=&plot=) 그 칸의 작물을 처음 한 번만 미리 골라 둔다
   const [searchParams] = useSearchParams()
@@ -200,7 +247,7 @@ export default function DiagnosisDetails({ onBack }) {
     api.diagnosisHistory()
       .then(data => {
         // The history endpoint filters completed, non-demo outcomes and orders newest first.
-        if (!cancelled) setRecentRecords(data.items.slice(0, 3))
+        if (!cancelled) setRecentRecords(data.items.slice(0, 1))
       })
       .catch(() => {
         if (!cancelled) setRecentError('최근 진단을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
@@ -296,6 +343,7 @@ export default function DiagnosisDetails({ onBack }) {
   }
 
   function applyDiagnosisResponse(result) {
+    setJournalError('')
     if (result.status === 'rejected_before_creation'
       && result.request_created === false && !result.requestId && !result.request_id) {
       clearPendingAttempt()
@@ -364,6 +412,30 @@ export default function DiagnosisDetails({ onBack }) {
     }
     // Unrecognized error payloads are not proof that no request was created.
     applyDiagnosisResponse({ ...result, status: 'unknown' })
+  }
+
+  async function saveCurrentDiagnosisToJournal() {
+    const requestId = flow.result?.requestId || flow.result?.request_id
+    if (!requestId || flow.result?.isDemo || journalSaving) {
+      if (!journalSaving) setJournalError('저장할 진단 이력을 확인할 수 없어요. 나의 진단 이력에서 결과를 확인해 주세요.')
+      return
+    }
+    setJournalSaving(true)
+    setJournalError('')
+    try {
+      const [record, me, gardenState] = await Promise.all([
+        api.diagnosisRequest(requestId),
+        api.me(),
+        api.gardenState().catch(() => null),
+      ])
+      if (record.status !== 'completed' || !record.result || record.isDemo) throw new Error('진단 결과를 확인할 수 없어요.')
+      recordDiagnosisInJournal({ userId: me.id, record, gardenState, localStore: localStorage, sessionStore: sessionStorage })
+      navigate('/journals')
+    } catch {
+      setJournalError('재배일지에 기록하지 못했어요. 다시 시도해 주세요.')
+    } finally {
+      setJournalSaving(false)
+    }
   }
 
   async function sendDiagnosis() {
@@ -690,9 +762,56 @@ export default function DiagnosisDetails({ onBack }) {
         result={result}
         cropName={selectedCrop?.cropName}
         onRetake={returnToForm}
+        onSaveJournal={saveCurrentDiagnosisToJournal}
+        journalSaving={journalSaving}
+        journalError={journalError}
       />
       {quotaNotice}
       </>
+    )
+  }
+
+  function renderPhotoSlot(slot) {
+    const photo = photos[slot.id]
+    return (
+      <section
+        key={slot.id}
+        className="diagnosis-detail-photo-card"
+        ref={slot.id === 'close' ? closePhotoSectionRef : undefined}
+      >
+        <div className="diagnosis-detail-photo-heading">
+          <div>
+            <h3>{slot.title}</h3>
+            <span className={slot.requirement === '필수' ? 'is-required' : ''}>{slot.requirement}</span>
+          </div>
+          <p>{slot.description}</p>
+        </div>
+        {photo ? (
+          <>
+            <div className="diagnosis-detail-photo-preview">
+              <img src={photo.url} alt={`${slot.title} 사진 미리보기`} />
+              <span>{photo.name}</span>
+            </div>
+            <div className="diagnosis-detail-photo-actions">
+              <label className="diagnosis-photo-action">
+                교체
+                <input type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={event => selectPhoto(event, slot.id)} />
+              </label>
+              <button type="button" className="diagnosis-photo-action is-remove" onClick={() => removePhoto(slot.id)}>삭제</button>
+            </div>
+          </>
+        ) : (
+          <label className="diagnosis-upload diagnosis-detail-upload">
+            <input type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={event => selectPhoto(event, slot.id)} />
+            <PhotoMark />
+            <strong>사진 촬영·선택</strong>
+            <span>눌러서 카메라를 열거나 사진을 선택해 주세요</span>
+          </label>
+        )}
+        {slot.id === 'close' && missingRequirement === 'photo' && (
+          <p className="diagnosis-required-note" role="alert">잎 가까이 사진을 등록해 주세요.</p>
+        )}
+      </section>
     )
   }
 
@@ -708,7 +827,6 @@ export default function DiagnosisDetails({ onBack }) {
 
       <section className="diagnosis-detail-card" ref={cropSectionRef}>
         <div className="diagnosis-detail-heading">
-          <span className="diagnosis-step-number">1</span>
           <h2>어떤 작물인가요?</h2>
         </div>
         {gardenLoading && <p className="diagnosis-detail-muted" role="status">내 농장 작물을 불러오는 중이에요.</p>}
@@ -730,8 +848,40 @@ export default function DiagnosisDetails({ onBack }) {
           </div>
         )}
         {!gardenLoading && !gardenError && crops.length > 0 && (
-          <div className="diagnosis-crop-options" role="group" aria-label="진단할 작물 선택">
-            {crops.map(crop => (
+          <div className="diagnosis-crop-options">
+            <div className="diagnosis-farm-select-label" id="diagnosis-farm-select-label">농장 선택</div>
+            <details className="diagnosis-farm-picker" ref={farmPickerRef}>
+              <summary aria-labelledby="diagnosis-farm-select-label diagnosis-farm-selected-value">
+                <span id="diagnosis-farm-selected-value">{visibleFarm?.name || '농장을 선택해 주세요'}</span>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </summary>
+              <div className="diagnosis-farm-picker-options" role="group" aria-label="농장 목록">
+                {cropGroups.map(group => <button
+                  key={group.id}
+                  type="button"
+                  className={visibleFarm?.id === group.id ? 'is-selected' : ''}
+                  aria-pressed={visibleFarm?.id === group.id}
+                  onClick={() => {
+                    setSelectedFarmId(group.id)
+                    if (selectedCrop && selectedCrop.farmClientId !== group.id) {
+                      setDiagnosisInput(current => ({ ...current, cropId: '' }))
+                      clearIdempotencyKey()
+                      setNotice('')
+                    }
+                    if (farmPickerRef.current) farmPickerRef.current.open = false
+                  }}
+                ><span>{group.name}</span><small>작물 {group.crops.length}개</small></button>)}
+              </div>
+            </details>
+            {visibleFarm && <>
+              <div className="diagnosis-farm-select-label" id="diagnosis-crop-select-label">작물 선택</div>
+              <details className="diagnosis-farm-picker diagnosis-crop-picker" ref={cropPickerRef}>
+                <summary aria-labelledby="diagnosis-crop-select-label diagnosis-crop-selected-value">
+                  <span id="diagnosis-crop-selected-value">{selectedCrop ? `${selectedCrop.cropName} · ${selectedCrop.plotNumber}번 칸` : '작물을 선택해 주세요'}</span>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+                </summary>
+                <div className="diagnosis-farm-picker-options diagnosis-crop-picker-options" role="group" aria-label={`${visibleFarm.name} 작물 목록`}>
+              {visibleFarm.crops.map(crop => (
               <button
                 key={crop.id}
                 type="button"
@@ -742,13 +892,16 @@ export default function DiagnosisDetails({ onBack }) {
                   if (missingRequirement === 'crop') setMissingRequirement('')
                   clearIdempotencyKey()
                   setNotice('')
+                  if (cropPickerRef.current) cropPickerRef.current.open = false
                 }}
               >
                 <span className="diagnosis-crop-option-name">{crop.cropName}</span>
-                <span>{crop.farmName} · {crop.plotNumber}번 칸</span>
-                {crop.farmRegion && <span>{crop.farmRegion}</span>}
+                <span>{crop.plotNumber}번 칸</span>
               </button>
-            ))}
+              ))}
+                </div>
+              </details>
+            </>}
           </div>
         )}
         {missingRequirement === 'crop' && (
@@ -758,7 +911,6 @@ export default function DiagnosisDetails({ onBack }) {
 
       <section className="diagnosis-detail-card" ref={symptomsSectionRef}>
         <div className="diagnosis-detail-heading">
-          <span className="diagnosis-step-number">2</span>
           <h2>어떤 증상이 있나요?</h2>
         </div>
         <div className="diagnosis-symptom-options">
@@ -804,56 +956,25 @@ export default function DiagnosisDetails({ onBack }) {
 
       <section className="diagnosis-detail-card">
         <div className="diagnosis-detail-heading">
-          <span className="diagnosis-step-number">3</span>
           <div>
             <h2>사진을 찍어주세요</h2>
             <p>잎 가까이 사진은 필수이며, 나머지는 선택 사항이에요. PNG/JPEG/WebP, 사진 한 장당 8MB 이하</p>
           </div>
         </div>
         <div className="diagnosis-detail-photo-list">
-          {PHOTO_SLOTS.map(slot => {
-            const photo = photos[slot.id]
-            return (
-              <section
-                key={slot.id}
-                className="diagnosis-detail-photo-card"
-                ref={slot.id === 'close' ? closePhotoSectionRef : undefined}
-              >
-                <div className="diagnosis-detail-photo-heading">
-                  <div>
-                    <h3>{slot.title}</h3>
-                    <span className={slot.requirement === '필수' ? 'is-required' : ''}>{slot.requirement}</span>
-                  </div>
-                  <p>{slot.description}</p>
-                </div>
-                {photo ? (
-                  <>
-                    <div className="diagnosis-detail-photo-preview">
-                      <img src={photo.url} alt={`${slot.title} 사진 미리보기`} />
-                      <span>{photo.name}</span>
-                    </div>
-                    <div className="diagnosis-detail-photo-actions">
-                      <label className="diagnosis-photo-action">
-                        교체
-                        <input type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={event => selectPhoto(event, slot.id)} />
-                      </label>
-                      <button type="button" className="diagnosis-photo-action is-remove" onClick={() => removePhoto(slot.id)}>삭제</button>
-                    </div>
-                  </>
-                ) : (
-                  <label className="diagnosis-upload diagnosis-detail-upload">
-                    <input type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={event => selectPhoto(event, slot.id)} />
-                    <PhotoMark />
-                    <strong>사진 촬영·선택</strong>
-                    <span>눌러서 카메라를 열거나 사진을 선택해 주세요</span>
-                  </label>
-                )}
-                {slot.id === 'close' && missingRequirement === 'photo' && (
-                  <p className="diagnosis-required-note" role="alert">잎 가까이 사진을 등록해 주세요.</p>
-                )}
-              </section>
-            )
-          })}
+          {renderPhotoSlot(PHOTO_SLOTS[0])}
+          <details className="diagnosis-optional-photos">
+            <summary>
+              <span>추가 사진 <small>전체 모습 · 잎 뒷면 (권장)</small></span>
+              <span className="diagnosis-optional-photos-count">
+                {PHOTO_SLOTS.slice(1).filter(slot => photos[slot.id]).length}/2장 추가됨
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg>
+              </span>
+            </summary>
+            <div className="diagnosis-optional-photos-list">
+              {PHOTO_SLOTS.slice(1).map(renderPhotoSlot)}
+            </div>
+          </details>
         </div>
         {photoError && <p className="diagnosis-error" role="alert">{photoError}</p>}
       </section>
@@ -884,14 +1005,19 @@ export default function DiagnosisDetails({ onBack }) {
               const dateValue = record.completed_at || record.created_at
               const date = new Date(dateValue)
               const dateLabel = !dateValue || Number.isNaN(date.getTime()) ? '기록 없음'
-                : date.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+                : new Intl.DateTimeFormat('ko-KR', {
+                  timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric',
+                }).format(date)
               return <li key={record.request_id}>
                 <Link className="diagnosis-recent-record" to={`/diagnosis/history/${encodeURIComponent(record.request_id)}`}>
                   <span className="diagnosis-status-pill">{record.outcome === 'uncertain' ? '판단 어려움' : '진단 완료'}</span>
-                  <p>작물명: {record.crop_name?.trim() || '기록 없음'}</p>
-                  <p>진단 일시: {dateLabel} (한국 시간)</p>
-                  <p>선택 증상: {record.symptoms?.length ? record.symptoms.join(', ') : '기록 없음'}</p>
-                  <p>결과 요약: {(record.outcome === 'uncertain' ? record.result?.reason : record.result?.disease_name) || '기록 없음'}</p>
+                  <dl className="diagnosis-recent-info">
+                    <div><dt>작물명</dt><dd>{record.crop_name?.trim() || '기록 없음'}</dd></div>
+                    <div><dt>진단일</dt><dd>{dateLabel}</dd></div>
+                    <div><dt>선택 증상</dt><dd>{record.symptoms?.length ? record.symptoms.join(', ') : '기록 없음'}</dd></div>
+                  </dl>
+                  <p className="diagnosis-recent-summary">{record.result?.disease_name || record.result?.reason || '결과 요약 기록 없음'}</p>
+                  <span className="diagnosis-recent-link">상세 결과 보기 ›</span>
                 </Link>
               </li>
             })}
