@@ -177,13 +177,17 @@ async function postJournal() {
   if (!p.plantingId) { toast('서버와 맞추는 중이에요. 잠시 후 다시 눌러 주세요.'); return; }
   const key = `${f.id}|${i}`, mine = plotTasks(f, i).filter(t => checked.has(t.id));
   const memo = (p.draftMemo || '').trim(), photos = p.draftPhotos || [], harvest = !!harvestMark[key];
-  if (!mine.length && !harvest && !memo && !photos.length) { toast('완료한 할 일을 체크하거나 메모·사진을 추가해 주세요.'); return; }
+  if (!mine.length && !harvest && !memo && !photos.length) {
+    toast('완료할 일을 체크하거나 메모·사진을 추가해 주세요.');
+    return;
+  }
+  const content = memo || (!mine.length && !harvest && photos.length ? '오늘의 작물 사진을 남겼어요.' : '');
   const before = p.stage;
   completing = true;
   p.draftMemo = ''; p.draftPhotos = [];
   save(); render();
   try {
-    const r = await hostApi('complete', { planting_id: p.plantingId, task_log_ids: mine.map(t => t.id), content: memo, photos, harvest });
+    const r = await hostApi('complete', { planting_id: p.plantingId, task_log_ids: mine.map(t => t.id), content, photos, harvest });
     mine.forEach(t => checked.delete(t.id));
     delete harvestMark[key];
     completing = false;

@@ -35,6 +35,22 @@ export class ApiError extends Error {
   }
 }
 
+function apiErrorMessage(detail) {
+  if (typeof detail === 'string' && detail.trim()) return detail
+  if (Array.isArray(detail)) {
+    const issue = detail.find(item => item && typeof item === 'object' && typeof item.msg === 'string')
+    if (issue) {
+      const field = Array.isArray(issue.loc) ? issue.loc.filter(part => part !== 'body').join(' · ') : ''
+      return `${field ? `${field}: ` : ''}${issue.msg}`
+    }
+  }
+  if (detail && typeof detail === 'object') {
+    if (typeof detail.message === 'string' && detail.message.trim()) return detail.message
+    if (typeof detail.msg === 'string' && detail.msg.trim()) return detail.msg
+  }
+  return '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
+}
+
 function normalizeDiagnosisResult(data = {}) {
   const quota = data.quota ?? data
   const status = data.status === 'limit_exceeded' ? 'limit' : data.status
@@ -89,7 +105,7 @@ export async function request(path, { method = 'GET', body, auth = true, redirec
     if (redirectOn401) {
       handleUnauthorized(res, token)
     }
-    throw new ApiError(res.status, data.detail || '요청에 실패했습니다.', data)
+    throw new ApiError(res.status, apiErrorMessage(data.detail), data)
   }
   return data
 }
