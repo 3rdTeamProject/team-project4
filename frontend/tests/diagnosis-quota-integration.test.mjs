@@ -10,6 +10,7 @@ import { createServer } from 'vite'
 test('diagnosis screen refresh wiring and quota error/retry UI', async () => {
   let slots = [], cursor = 0, effects = [], refreshes = [], historyCalls = 0
   const storage = new Map()
+  globalThis.document = { addEventListener() {}, removeEventListener() {} } // 화면의 바깥 클릭·Esc 처리가 쓰는 document 대역
   globalThis.sessionStorage = {
     getItem: key => storage.get(key) ?? null,
     setItem: (key, value) => storage.set(key, value),
@@ -111,5 +112,6 @@ test('diagnosis screen refresh wiring and quota error/retry UI', async () => {
     delete globalThis.quotaTestState
     delete globalThis.quotaTestScreen
     delete globalThis.sessionStorage
+    delete globalThis.document
   }
 })
