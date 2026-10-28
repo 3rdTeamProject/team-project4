@@ -29,7 +29,6 @@ export default function DiagnosisResult({
   cropName,
   showActions = true,
   onRetake,
-  onRestartObservation,
   onSaveJournal,
   journalSaving = false,
   journalError = '',
@@ -60,7 +59,7 @@ export default function DiagnosisResult({
           <>
             <span className="diagnosis-status-pill is-warning">외부 AI 이용 횟수 안내</span>
             <h2>AI 상세 진단 이용 횟수를 모두 사용했어요</h2>
-            <p>외부 AI 상세 진단 이용 가능 횟수가 남아 있지 않아요. 잎 관찰하기 기능은 횟수 제한 없이 이용할 수 있어요.</p>
+            <p>외부 AI 상세 진단 이용 가능 횟수가 남아 있지 않아요.</p>
             {Number.isFinite(result.remainingCount) && result.remainingCount >= 0 && (
               <p>남은 외부 AI 진단 횟수: {result.remainingCount}회</p>
             )}
@@ -69,8 +68,7 @@ export default function DiagnosisResult({
                 다음 무료 횟수 초기화: {new Date(result.nextAvailableAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)
               </p>
             )}
-            <button type="button" className="btn primary" onClick={onRestartObservation}>잎 관찰 다시 하기</button>
-            <Link className="btn secondary diagnosis-journal-link" to="/journals">재배일지 작성하기</Link>
+            <Link className="btn primary diagnosis-journal-link" to="/journals">재배일지 작성하기</Link>
             <ExpertGuidance />
           </>
         ) : result.status === 'uncertain' ? (
