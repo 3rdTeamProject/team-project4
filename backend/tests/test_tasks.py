@@ -269,6 +269,24 @@ class TaskTest(unittest.TestCase):
         self.save(farm())
         self.assertEqual(self.titles(), {})
 
+    def test_complete_reports_the_level_before_and_after_the_points(self):
+        self.plant('seed')  # 심을 때 5exp
+        self.goto(3)
+        small = self.complete('모종 물 주기')
+        self.assertEqual(small['level'], {'exp': 8, 'before': 1, 'after': 1, 'leveledUp': False})
+        self.goto(5)  # 다음 물 주기는 완료한 날 2일 뒤에 열린다
+        more = self.complete('모종 물 주기')
+        self.assertEqual(more['level'], {'exp': 11, 'before': 1, 'after': 1, 'leveledUp': False})
+
+    def test_complete_reports_a_level_up(self):
+        self.plant('seedling')  # 심을 때 10exp
+        harvest = self.complete(content='수확했어요', harvest=True)  # +120 → 130exp, 1레벨에서 2레벨로
+        self.assertEqual(harvest['level'], {'exp': 130, 'before': 1, 'after': 2, 'leveledUp': True})
+        self.assertEqual(self.user()['exp'], 130)
+        self.goto(1)
+        again = self.complete(content='또 수확', harvest=True)  # 보너스는 첫 수확에만
+        self.assertEqual(again['level'], {'exp': 130, 'before': 2, 'after': 2, 'leveledUp': False})
+
     def test_journal_without_text_gets_a_default_and_empty_request_is_rejected(self):
         self.plant('seedling')
         res = self.complete('심은 자리 물 주기', content='')

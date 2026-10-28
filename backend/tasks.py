@@ -16,6 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import and_, delete, insert, select, update
 
+from level import level_from_exp
+
 KST = timezone(timedelta(hours=9))
 MAX_STAGE_NO = 5  # 마지막 성장 단계(열매)
 TRANSPLANT_STAGE_NO = 3# 이 단계를 올리는 할 일이 '모종 옮겨심기'
@@ -264,6 +266,7 @@ def register_tasks(app, engine, get_current_user, t, full_state):
         moment, today = now_kst(), today_kst()
         with engine.begin() as conn:
             lock_user(conn, user['id'])
+            exp_before = conn.execute(select(t['users'].c.exp).where(t['users'].c.id == user['id'])).scalar_one()
             planting = conn.execute(
                 select(pl.c.id, pl.c.status, pl.c.crop_id, pl.c.planted_at)
                 .where(pl.c.id == body.planting_id, pl.c.user_id == user['id'])).mappings().first()
@@ -326,6 +329,10 @@ def register_tasks(app, engine, get_current_user, t, full_state):
                     bonus = FIRST_HARVEST_BONUS
                     grant_points(conn, t, user['id'], bonus, '첫 수확 보너스')
             result = full_state(conn, user['id'])
-        return {**result, 'earned': earned + bonus, 'taskPoints': earned, 'firstHarvest': first, 'bonus': bonus}
+            exp_after = exp_before + earned + bonus
+        # 레벨 전후를 같이 보내 화면이 레벨업 연출을 띄울 수 있게 한다
+        level = {'exp': exp_after, 'before': level_from_exp(exp_before), 'after': level_from_exp(exp_after)}
+        level['leveledUp'] = level['after'] > level['before']
+        return {**result, 'earned': earned + bonus, 'taskPoints': earned, 'firstHarvest': first, 'bonus': bonus, 'level': level}
 
     app.include_router(router)
