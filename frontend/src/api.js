@@ -48,6 +48,7 @@ function normalizeDiagnosisResult(data = {}) {
     remainingCount: quota.remaining_count ?? data.remainingCount,
     dailyLimit: quota.daily_limit ?? data.dailyLimit,
     usedCount: quota.used_count ?? data.usedCount,
+    creditCount: quota.credit_count ?? data.creditCount,
     nextAvailableAt: data.next_available_at ?? quota.reset_at ?? data.nextAvailableAt,
     requestId: data.request_id ?? data.requestId,
     statusUrl: data.status_url ?? data.statusUrl,

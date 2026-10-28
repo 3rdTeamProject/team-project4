@@ -19,6 +19,7 @@ test('P1 pending dates and definitive rejection regressions', async t => {
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } },
     useMemo: fn => fn(), useEffect: fn => effects.push(fn),
   }
+  globalThis.document = { addEventListener() {}, removeEventListener() {} } // 화면의 바깥 클릭·Esc 처리가 쓰는 document 대역
   globalThis.sessionStorage = {
     getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, v), removeItem: k => memory.delete(k),
   }
@@ -279,6 +280,6 @@ test('P1 pending dates and definitive rejection regressions', async t => {
     })
   } finally {
     await server.close(); Date.now = originalNow; globalThis.fetch = originalFetch
-    for (const name of ['p1Hooks', 'p1Api', 'p1Quota', 'p1Screen', 'sessionStorage', 'localStorage']) delete globalThis[name]
+    for (const name of ['p1Hooks', 'p1Api', 'p1Quota', 'p1Screen', 'sessionStorage', 'localStorage', 'document']) delete globalThis[name]
   }
 })

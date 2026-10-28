@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { storage } from '../api.js'
 import { ChevronRightIcon, CloseIcon, CoinIcon, DiagnosisIcon, JournalIcon, LevelIcon, SettingsIcon, ShopIcon } from '../components/Icons.jsx'
+import LevelBadge from '../components/LevelBadge.jsx'
 import { levelFromExp } from '../constants/level.js'
 import { useGoBack } from '../hooks/useGoBack.js'
 import { useMediaQuery } from '../hooks/useMediaQuery.js'
@@ -47,7 +48,7 @@ export default function Menu() {
             <span className="profile-more">내 정보<ChevronRightIcon /></span>
           </div>
           <div className="profile-stats">
-            <span className="profile-stat profile-stat-level"><LevelIcon size={20} /> Lv.{levelFromExp(me.exp)}</span>
+            <span className="profile-stat profile-stat-level"><LevelIcon size={20} /> Lv.{levelFromExp(me.exp)} <LevelBadge level={levelFromExp(me.exp)} /></span>
             <span className="profile-stats-divider" />
             <span className="profile-stat profile-stat-point"><CoinIcon size={22} /> {me.point.toLocaleString()}P</span>
           </div>

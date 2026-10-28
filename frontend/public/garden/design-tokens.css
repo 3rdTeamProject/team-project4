@@ -57,6 +57,16 @@
   --layout-max: 430px;
   --pc-left-w: 200px;               /* PC 레이아웃(1024px 이상): 왼쪽 메뉴 폭 */
   --pc-right-w: 400px;              /* PC 레이아웃: 오른쪽 패널 폭 */
+
+  /* 움직임·연출 (포인트 획득, 레벨업) */
+  --motion-fast: 200ms;
+  --motion-base: 400ms;
+  --motion-slow: 1200ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);   /* 살짝 튀어 오르는 느낌 */
+  --shadow-pop: 0 0.5rem 1.5rem color-mix(in srgb, var(--color-text) 25%, transparent);
+  --color-dim: color-mix(in srgb, var(--color-text) 55%, transparent);   /* 팝업 뒤를 어둡게 */
+  --z-overlay: 20;
 }
 
 /* 화면 기본 틀: 모든 화면이 같은 폭 규칙을 쓴다 */

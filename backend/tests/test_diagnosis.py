@@ -27,6 +27,7 @@ from sqlalchemy import (
     event,
     insert,
     select,
+    update,
 )
 from sqlalchemy.pool import NullPool
 from sqlalchemy.exc import SQLAlchemyError
@@ -101,7 +102,12 @@ class DiagnosisQuotaTest(unittest.TestCase):
             poolclass=NullPool,
         )
         self.metadata = MetaData()
-        self.users = Table("users", self.metadata, Column("id", Integer, primary_key=True))
+        self.users = Table(
+            "users",
+            self.metadata,
+            Column("id", Integer, primary_key=True),
+            Column("diag_credits", Integer, nullable=False, default=0),
+        )
         self.farms = Table(
             "farms",
             self.metadata,
@@ -231,6 +237,82 @@ class DiagnosisQuotaTest(unittest.TestCase):
         response = self.client.get("/diagnoses/quota", headers=self.headers(user_id))
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
+
+    def set_credits(self, count, user_id=1):
+        with self.engine.begin() as conn:
+            conn.execute(update(self.users).where(self.users.c.id == user_id).values(diag_credits=count))
+
+    def credits(self, user_id=1):
+        with self.engine.connect() as conn:
+            return conn.execute(select(self.users.c.diag_credits).where(self.users.c.id == user_id)).scalar_one()
+
+    def use_free_quota(self, prefix="free"):
+        for index in range(3):
+            self.assertEqual(self.post_diagnosis(f"{prefix}-{index:02d}-key").status_code, 200)
+
+    def test_free_quota_is_used_before_purchased_credits(self):
+        self.add_growing_plant()
+        self.set_credits(2)
+        self.assertEqual(self.quota()["credit_count"], 2)
+        self.assertEqual(self.post_diagnosis("free-first-0001").status_code, 200)
+        self.assertEqual(self.credits(), 2)
+        self.assertEqual(self.quota()["remaining_count"], 2)
+
+    def test_purchased_credits_allow_diagnosis_after_free_quota_and_run_out(self):
+        self.add_growing_plant()
+        self.set_credits(2)
+        self.use_free_quota()
+        self.assertEqual(self.quota()["remaining_count"], 0)
+        calls_before = self.analysis.calls
+        first = self.post_diagnosis("credit-use-0001")
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(first.json()["quota"]["credit_count"], 1)
+        self.assertEqual(self.post_diagnosis("credit-use-0002").status_code, 200)
+        self.assertEqual(self.analysis.calls, calls_before + 2)
+        self.assertEqual(self.credits(), 0)
+        # 충전한 횟수는 하루 무료 횟수 계산에 섞이지 않는다
+        self.assertEqual(self.quota()["used_count"], 3)
+        limited = self.post_diagnosis("credit-use-0003")
+        self.assertEqual(limited.status_code, 429)
+        self.assertEqual(limited.json()["credit_count"], 0)
+        self.assertEqual(self.analysis.calls, calls_before + 2)
+
+    def test_credit_is_refunded_when_analysis_never_started(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.use_free_quota()
+        self.analysis.failure = "before"
+        response = self.post_diagnosis("credit-before-0001")
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(self.credits(), 1)
+        request = self.client.get(response.json()["status_url"], headers=self.headers()).json()
+        self.assertFalse(request["quota_reserved"])
+        # 돌려받은 횟수로 다시 진단할 수 있다
+        self.assertEqual(self.post_diagnosis("credit-before-0002").status_code, 200)
+        self.assertEqual(self.credits(), 0)
+
+    def test_credit_stays_spent_when_analysis_started_but_result_is_unknown(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.use_free_quota()
+        self.analysis.failure = "after"
+        self.assertEqual(self.post_diagnosis("credit-after-00001").status_code, 502)
+        self.assertEqual(self.credits(), 0)
+
+    def test_credit_is_refunded_only_once_for_replayed_preanalysis_failure(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.use_free_quota()
+        self.analysis.failure = "before"
+        self.assertEqual(self.post_diagnosis("credit-replay-0001").status_code, 422)
+        self.assertEqual(self.post_diagnosis("credit-replay-0001").status_code, 422)
+        self.assertEqual(self.credits(), 1)
+
+    def test_credits_are_not_used_by_demo_requests(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.assertEqual(self.post_diagnosis("credit-demo-00001", path="/diagnoses/demo").status_code, 200)
+        self.assertEqual(self.credits(), 1)
 
     def test_read_only_key_lookup_recovers_saved_result_without_analysis_or_quota_change(self):
         self.add_growing_plant()

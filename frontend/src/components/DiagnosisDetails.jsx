@@ -488,7 +488,8 @@ export default function DiagnosisDetails({ onBack }) {
           })
           return
         }
-        if (currentQuota.remaining_count === 0) {
+        // 무료 횟수를 다 써도 충전한 횟수가 남아 있으면 요청을 보낸다(서버가 충전 횟수에서 차감한다)
+        if (currentQuota.remaining_count === 0 && !(currentQuota.credit_count > 0)) {
           applyDiagnosisResponse({
             status: 'limit',
             remainingCount: 0,
@@ -714,6 +715,7 @@ export default function DiagnosisDetails({ onBack }) {
       오늘 남은 무료 상세 진단: {quota.remaining_count}/{quota.daily_limit}회
       {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
     </p>}
+    {quota && Number.isFinite(quota.credit_count) && <p>충전한 진단 횟수: {quota.credit_count}회 (무료 횟수를 다 쓰면 차감돼요)</p>}
     {quotaLoading && <p role="status">남은 횟수를 확인하는 중이에요.</p>}
     {quotaError && <div role="alert">
       <p className="diagnosis-detail-error">{quotaError}</p>

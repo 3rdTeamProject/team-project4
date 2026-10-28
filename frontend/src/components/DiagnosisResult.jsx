@@ -68,7 +68,8 @@ export default function DiagnosisResult({
                 다음 무료 횟수 초기화: {new Date(result.nextAvailableAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)
               </p>
             )}
-            <Link className="btn primary diagnosis-journal-link" to="/journals">재배일지 작성하기</Link>
+            <Link className="btn primary diagnosis-journal-link" to="/pointshop">포인트샵에서 횟수 충전하기</Link>
+            <Link className="btn secondary diagnosis-journal-link" to="/journals">재배일지 작성하기</Link>
             <ExpertGuidance />
           </>
         ) : result.status === 'uncertain' ? (

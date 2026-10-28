@@ -19,6 +19,7 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } },
     useMemo: fn => fn(), useEffect: fn => effects.push(fn),
   }
+  globalThis.document = { addEventListener() {}, removeEventListener() {} } // 화면의 바깥 클릭·Esc 처리가 쓰는 document 대역
   globalThis.sessionStorage = {
     getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, v), removeItem: k => memory.delete(k),
   }
@@ -109,6 +110,6 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
     })
   } finally {
     await server.close(); Date.now = originalNow
-    for (const name of ['p2Hooks', 'p2Api', 'p2Quota', 'p2Screen', 'sessionStorage']) delete globalThis[name]
+    for (const name of ['p2Hooks', 'p2Api', 'p2Quota', 'p2Screen', 'sessionStorage', 'document']) delete globalThis[name]
   }
 })

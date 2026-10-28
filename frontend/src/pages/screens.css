@@ -136,6 +136,7 @@
 }
 
 .profile-stat-level {
+  flex-wrap: wrap;
   color: var(--color-green-dark);
 }
 
@@ -319,6 +320,13 @@ button.menu-item {
   height: 100%;
   border-radius: 4px;
   background: var(--primary);
+  transition: width var(--motion-slow) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-bar i {
+    transition: none;
+  }
 }
 
 .level-next {
