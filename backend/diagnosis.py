@@ -30,6 +30,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    false,
     insert,
     select,
     update,
@@ -77,13 +78,15 @@ def now_kst() -> datetime:
     return datetime.now(KST)
 
 
-def quota_snapshot(conn, requests: Table, user_id: int, current: datetime) -> dict:
+def quota_snapshot(conn, requests: Table, users: Table, user_id: int, current: datetime) -> dict:
     usage_date = current.astimezone(KST).date()
+    # 충전 횟수로 처리한 요청은 하루 무료 횟수에 세지 않는다
     rows = conn.execute(
         select(requests.c.quota_reserved, requests.c.quota_consumed).where(
             requests.c.user_id == user_id,
             requests.c.usage_date == usage_date,
             requests.c.is_demo.is_(False),
+            requests.c.credit_used.is_(False),
         )
     )
     reserved_count = 0
@@ -96,11 +99,13 @@ def quota_snapshot(conn, requests: Table, user_id: int, current: datetime) -> di
 
     used_count = reserved_count + consumed_count
     reset_at = datetime.combine(usage_date + timedelta(days=1), time.min, tzinfo=KST)
+    credit_count = conn.execute(select(users.c.diag_credits).where(users.c.id == user_id)).scalar_one_or_none() or 0
     return {
         "daily_limit": DAILY_LIMIT,
         "used_count": used_count,
         "remaining_count": max(0, DAILY_LIMIT - used_count),
         "reserved_count": reserved_count,
+        "credit_count": credit_count,  # 포인트샵에서 충전한 남은 횟수(무료 횟수를 다 쓴 뒤에 차감)
         "reset_at": reset_at.isoformat(),
     }
 
@@ -324,6 +329,7 @@ def register_diagnoses(
         Column("request_fingerprint", String(64), nullable=False),
         Column("quota_reserved", Boolean, nullable=False, default=True),
         Column("quota_consumed", Boolean, nullable=False, default=False),
+        Column("credit_used", Boolean, nullable=False, default=False, server_default=false()),  # 충전 횟수로 처리한 요청
         Column("is_demo", Boolean, nullable=False, default=False),
         Column("outcome", String(32), nullable=True),
         Column("result", JSON, nullable=True),
@@ -354,7 +360,7 @@ def register_diagnoses(
     @router.get("/quota")
     def read_quota(user=Depends(get_current_user)):
         with engine.connect() as conn:
-            return quota_snapshot(conn, requests, user["id"], now_kst())
+            return quota_snapshot(conn, requests, users, user["id"], now_kst())
 
     async def process_request(
         *,
@@ -473,9 +479,17 @@ def register_diagnoses(
                     "description": description,
                 }
 
-                quota = quota_snapshot(conn, requests, user["id"], current)
+                quota = quota_snapshot(conn, requests, users, user["id"], current)
+                use_credit = False
                 if not service.is_demo and quota["remaining_count"] == 0:
-                    return None, JSONResponse(status_code=429, content={"status": "limit_exceeded", **quota})
+                    # 무료 횟수를 다 썼으면 충전 횟수에서 1 차감한다(0 아래로 내려가지 않게 조건을 건다)
+                    use_credit = bool(conn.execute(
+                        update(users)
+                        .where(users.c.id == user["id"], users.c.diag_credits > 0)
+                        .values(diag_credits=users.c.diag_credits - 1)
+                    ).rowcount)
+                    if not use_credit:
+                        return None, JSONResponse(status_code=429, content={"status": "limit_exceeded", **quota})
 
                 conn.execute(insert(requests).values(
                     request_id=request_id,
@@ -488,6 +502,7 @@ def register_diagnoses(
                     request_fingerprint=fingerprint,
                     quota_reserved=not service.is_demo,
                     quota_consumed=False,
+                    credit_used=use_credit,
                     is_demo=service.is_demo,
                     result={"metadata": request_metadata},
                 ))
@@ -497,6 +512,16 @@ def register_diagnoses(
         if early_response is not None:
             return early_response
         crop_name = request_metadata["crop_name"]
+
+        def refund_credit(conn):
+            """분석을 시작하기 전에 끝난 요청이 충전 횟수를 썼다면 1 돌려준다(두 번 돌려주지 않게 표시를 먼저 내린다)."""
+            refunded = conn.execute(
+                update(requests)
+                .where(requests.c.request_id == request_id, requests.c.credit_used.is_(True))
+                .values(credit_used=False)
+            ).rowcount
+            if refunded:
+                conn.execute(update(users).where(users.c.id == user["id"]).values(diag_credits=users.c.diag_credits + 1))
 
         def mark_analysis_started_db():
             started = now_kst()
@@ -535,6 +560,8 @@ def register_diagnoses(
                             completed_at=completed,
                         )
                     )
+                    if not error.analysis_started:
+                        refund_credit(conn)
 
             await run_in_threadpool(record_service_failure)
             status_code = error.response_status or (502 if error.analysis_started else 422)
@@ -563,6 +590,8 @@ def register_diagnoses(
                             completed_at=completed,
                         )
                     )
+                    if not analysis_started:
+                        refund_credit(conn)
                 return analysis_started
 
             analysis_started = await run_in_threadpool(record_unexpected_failure)
@@ -601,7 +630,7 @@ def register_diagnoses(
                     if written.rowcount != 1:
                         unexpected_row_count = True
                         raise RuntimeError("Diagnosis result UPDATE did not affect exactly one row")
-                    quota = quota_snapshot(conn, requests, user["id"], completed)
+                    quota = quota_snapshot(conn, requests, users, user["id"], completed)
             except Exception:
                 # The transaction context has rolled back/closed. A lost commit
                 # acknowledgement is not proof of rollback; never reuse its failed
@@ -626,7 +655,7 @@ def register_diagnoses(
                                 if key in stored_result
                             })
                             if saved["outcome"] == validated.status and stored_result.get("is_demo") == service.is_demo:
-                                confirmed_quota = quota_snapshot(conn, requests, user["id"], now_kst())
+                                confirmed_quota = quota_snapshot(conn, requests, users, user["id"], now_kst())
                                 return {
                                     **stored_result,
                                     "request_id": request_id,
