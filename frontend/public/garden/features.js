@@ -12,8 +12,12 @@ let tasksBack='farms';  // '오늘 할 일 모아보기'를 연 곳(농장 목�
 const baseNavigate=navigate;
 navigate=function(next){
   if(next==='diagnosis'&&!journalEdit){
-    if(parent!==window)parent.postMessage({type:'garden:navigate',to:'/diagnosis?mode=detail'},location.origin);
-    else location.assign('/diagnosis?mode=detail');
+    const farm=typeof current==='function'?current():null;
+    const index=typeof plotIndex==='number'?plotIndex:-1;
+    const plant=farm?.plots[index];
+    const target=plant&&!plant.harvestedAt?{farmId:farm.id,plotNumber:index+1}:null;
+    if(parent!==window)parent.postMessage(target?{type:'garden:navigate',to:'/diagnosis',...target}:{type:'garden:navigate',to:'/diagnosis?mode=detail'},location.origin);
+    else location.assign(target?`/diagnosis?${new URLSearchParams({mode:'detail',farm:target.farmId,plot:String(target.plotNumber)})}`:'/diagnosis?mode=detail');
     return;
   }
   if(next==='tasks')tasksBack=view==='garden'?'garden':'farms';
