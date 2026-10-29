@@ -15,6 +15,7 @@ from typing import Literal
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator, model_validator
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -226,6 +227,13 @@ def register_garden(app, metadata, engine, get_current_user, users):
         # 심는 방식 제한: 직파 작물은 allow_seedling=false, 모종만 가능한 작물은 allow_seed=false
         Column('allow_seed', Boolean, nullable=False, default=True, server_default=text('true')),
         Column('allow_seedling', Boolean, nullable=False, default=True, server_default=text('true')),
+        # 작물 도감용 정보(Supabase에 SQL로 입력). 값이 없는 작물은 null
+        Column('sow_months', ARRAY(Integer).with_variant(JSON, 'sqlite'), nullable=True),  # 심는 달(1~12)
+        Column('harvest_months', ARRAY(Integer).with_variant(JSON, 'sqlite'), nullable=True),  # 거두는 달(1~12)
+        Column('germ_temp', Text, nullable=True),
+        Column('grow_temp', Text, nullable=True),
+        Column('soil', Text, nullable=True),
+        Column('summary', Text, nullable=True),
     )
     crop_tasks = Table(
         'crop_tasks', metadata,
@@ -659,6 +667,34 @@ def register_garden(app, metadata, engine, get_current_user, users):
         for row in all_rows:  # 그 밖의 작물은 할 일 데이터가 있는 것만 보여 준다(DB에 넣은 순서대로)
             if row['id'] not in used and row['id'] in tasked:
                 items.append(item_of(kind_of_crop(row['id'], row['name']), row['name'], row, 90))
+        return {'crops': items}
+
+    @router.get('/dex')
+    def read_dex(user=Depends(get_current_user)):
+        """작물 도감용(읽기 전용): 모든 작물의 도감 정보와 할 일·성장 단계. 날짜 계산은 화면이 한다."""
+        crop_tasks = t['crop_tasks']
+        with engine.connect() as conn:
+            items = [{
+                'id': r['id'], 'name': r['name'], 'totalDays': r['total_days'],
+                'allowSeed': bool(r['allow_seed']), 'allowSeedling': bool(r['allow_seedling']),
+                'sowMonths': list(r['sow_months'] or []), 'harvestMonths': list(r['harvest_months'] or []),
+                'germTemp': r['germ_temp'], 'growTemp': r['grow_temp'], 'soil': r['soil'], 'summary': r['summary'],
+                'tasks': [], 'stages': [],
+            } for r in conn.execute(select(
+                crops.c.id, crops.c.name, crops.c.total_days, crops.c.allow_seed, crops.c.allow_seedling, crops.c.sow_months,
+                crops.c.harvest_months, crops.c.germ_temp, crops.c.grow_temp, crops.c.soil, crops.c.summary).order_by(crops.c.id)).mappings()]
+            by_id = {item['id']: item for item in items}
+            for r in conn.execute(select(crop_tasks).order_by(crop_tasks.c.id)).mappings():
+                if r['crop_id'] in by_id:
+                    by_id[r['crop_id']]['tasks'].append({
+                        'id': r['id'], 'title': r['title'], 'tip': r['tip'], 'howTo': r['how_to'], 'anchor': r['anchor'],
+                        'startDay': r['start_day'], 'endDay': r['end_day'], 'repeatMinDays': r['repeat_min_days'],
+                        'repeatMaxDays': r['repeat_max_days'], 'afterTaskId': r['after_task_id'], 'seedOnly': bool(r['seed_only']),
+                        'infoOnly': bool(r['info_only']), 'plantTask': bool(r['plant_task']),
+                    })
+            for r in conn.execute(select(crop_stages).order_by(crop_stages.c.crop_id, crop_stages.c.stage_no)).mappings():
+                if r['crop_id'] in by_id:
+                    by_id[r['crop_id']]['stages'].append({'stageNo': r['stage_no'], 'name': r['name'], 'triggerTaskId': r['trigger_task_id']})
         return {'crops': items}
 
     @router.get('/places')

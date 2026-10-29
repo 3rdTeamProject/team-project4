@@ -18,6 +18,8 @@ import ShippingAddress from './pages/ShippingAddress.jsx'
 import Intro from './pages/Intro.jsx'
 import Diagnosis from './pages/Diagnosis.jsx'
 import DiagnosisHistory from './pages/DiagnosisHistory.jsx'
+import Dex from './pages/Dex.jsx'
+import DexDetail from './pages/DexDetail.jsx'
 import { GardenHostProvider } from './components/GardenHost.jsx'
 import PcShell from './components/PcShell.jsx'
 
@@ -33,6 +35,8 @@ export default function App() {
         <Route element={<GardenHostProvider><PcShell /></GardenHostProvider>}>
           <Route path="/home" element={<Home key="farms" />} />
           <Route path="/journals" element={<Home key="journals" gardenView="journal" />} />
+          <Route path="/dex" element={<Dex />} />
+          <Route path="/dex/:cropKey" element={<DexDetail />} />
           <Route path="/diagnosis" element={<Diagnosis />} />
           <Route path="/diagnosis/history" element={<DiagnosisHistory />} />
           <Route path="/diagnosis/history/:requestId" element={<DiagnosisHistory />} />

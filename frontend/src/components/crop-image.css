@@ -1,0 +1,30 @@
+/* 작물 그림: 부모가 정한 크기 안에 비율을 지켜 담는다 */
+.crop-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.crop-image-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  border-radius: var(--radius-small);
+}
+
+.crop-image-empty svg {
+  width: 50%;
+  height: 50%;
+}
+
+/* 씨앗 단계: 다른 단계 그림처럼 배경 없이 칸을 채운다 */
+.crop-image-seed {
+  background: none;
+}
+
+.crop-image-seed svg {
+  width: 100%;
+  height: 100%;
+}

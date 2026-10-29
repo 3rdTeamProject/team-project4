@@ -43,7 +43,7 @@ function PhotoMark() {
 function getGrowingCrops(farms, cropNames) {
   if (!Array.isArray(farms)) return []
   return farms.flatMap(farm => (farm.plots ?? []).flatMap((plant, index) => (
-    plant
+    plant && !plant.harvestedAt
       ? [{
           id: `${farm.id}:${index + 1}`,
           farmClientId: farm.id,
@@ -712,18 +712,11 @@ export default function DiagnosisDetails({ onBack }) {
 
   const quotaNotice = <section className="diagnosis-detail-card diagnosis-quota-card" aria-live="polite">
     <h2>오늘의 AI 상세 진단</h2>
-    <p>AI 상세 진단은 하루 무료 3회를 먼저 사용하고, 소진 후 구매한 횟수를 사용해요. 무료 횟수는 한국 시간 00시에 초기화돼요.</p>
-    {quota && <p>
-      오늘 무료 진단: {quota.remaining_count}/{quota.daily_limit}회
-      {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
-    </p>}
-    {quota && Number.isFinite(quota.purchased_balance) && <p>구매한 진단 잔액: {quota.purchased_balance}회</p>}
-    {quota && Number.isFinite(quota.purchased_available) && <p>구매 진단 사용 가능: {quota.purchased_available}회</p>}
+    {quota && <p>무료 진단 남은 횟수: {quota.remaining_count}/{quota.daily_limit}회</p>}
+    <p>매일 자정(한국 시간)에 초기화됩니다.</p>
+    {quota && Number.isFinite(quota.purchased_available) && <p>추가 진단권: {quota.purchased_available}회</p>}
     {quota && quota.purchased_reserved > 0 && <p>
       구매 진단 예약 중: {quota.purchased_reserved}회 · 처리 결과 확인 전까지 사용할 수 없어요.
-    </p>}
-    {quota && Number.isFinite(quota.purchased_available) && <p>
-      총 이용 가능: {quota.remaining_count + quota.purchased_available}회
     </p>}
     {quotaLoading && <p role="status">남은 횟수를 확인하는 중이에요.</p>}
     {quotaError && <div role="alert">
@@ -920,6 +913,42 @@ export default function DiagnosisDetails({ onBack }) {
         )}
       </section>
 
+      <section className="diagnosis-detail-card">
+        <div className="diagnosis-detail-heading">
+          <div>
+            <h2>사진을 찍어주세요</h2>
+            <p>잎 가까이 사진은 필수이며, 나머지는 선택 사항이에요. 정지 PNG/JPEG/WebP, 사진 한 장당 8MB 이하, 한 변 12,000px·총 67,108,864픽셀 이하입니다. 사진은 자동 축소하지 않습니다.</p>
+          </div>
+        </div>
+        <div className="diagnosis-detail-photo-list">
+          {renderPhotoSlot(PHOTO_SLOTS[0])}
+          <details className="diagnosis-optional-photos">
+            <summary>
+              <span>추가 사진 <small>전체 모습 · 잎 뒷면 (권장)</small></span>
+              <span className="diagnosis-optional-photos-count">
+                {PHOTO_SLOTS.slice(1).filter(slot => photos[slot.id]).length}/2장 추가됨
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg>
+              </span>
+            </summary>
+            <div className="diagnosis-optional-photos-list">
+              {PHOTO_SLOTS.slice(1).map(renderPhotoSlot)}
+            </div>
+          </details>
+        </div>
+        {photoError && <p className="diagnosis-error" role="alert">{photoError}</p>}
+      </section>
+
+      <aside className="diagnosis-photo-guide">
+        <strong>이렇게 찍으면 더 정확해요</strong>
+        <p>아래 방법은 사진 품질을 높이기 위한 권장 사항이며, 분석 정확도를 보장하지 않습니다.</p>
+        <ul>
+          <li>밝은 곳에서 흔들리지 않게 촬영해 주세요.</li>
+          <li>증상이 있는 부분에 초점을 맞춰 주세요.</li>
+          <li>잎 앞면과 뒷면을 함께 촬영하면 분석에 도움이 됩니다.</li>
+          <li>가능하면 작물 전체 모습도 함께 올려 주세요.</li>
+        </ul>
+      </aside>
+
       <section className="diagnosis-detail-card" ref={symptomsSectionRef}>
         <div className="diagnosis-detail-heading">
           <h2>어떤 증상이 있나요?</h2>
@@ -964,42 +993,6 @@ export default function DiagnosisDetails({ onBack }) {
         />
         <span className="diagnosis-character-count">{diagnosisInput.description.length}/1000</span>
       </section>
-
-      <section className="diagnosis-detail-card">
-        <div className="diagnosis-detail-heading">
-          <div>
-            <h2>사진을 찍어주세요</h2>
-            <p>잎 가까이 사진은 필수이며, 나머지는 선택 사항이에요. 정지 PNG/JPEG/WebP, 사진 한 장당 8MB 이하, 한 변 12,000px·총 67,108,864픽셀 이하입니다. 사진은 자동 축소하지 않습니다.</p>
-          </div>
-        </div>
-        <div className="diagnosis-detail-photo-list">
-          {renderPhotoSlot(PHOTO_SLOTS[0])}
-          <details className="diagnosis-optional-photos">
-            <summary>
-              <span>추가 사진 <small>전체 모습 · 잎 뒷면 (권장)</small></span>
-              <span className="diagnosis-optional-photos-count">
-                {PHOTO_SLOTS.slice(1).filter(slot => photos[slot.id]).length}/2장 추가됨
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg>
-              </span>
-            </summary>
-            <div className="diagnosis-optional-photos-list">
-              {PHOTO_SLOTS.slice(1).map(renderPhotoSlot)}
-            </div>
-          </details>
-        </div>
-        {photoError && <p className="diagnosis-error" role="alert">{photoError}</p>}
-      </section>
-
-      <aside className="diagnosis-photo-guide">
-        <strong>이렇게 찍으면 더 정확해요</strong>
-        <p>아래 방법은 사진 품질을 높이기 위한 권장 사항이며, 분석 정확도를 보장하지 않습니다.</p>
-        <ul>
-          <li>밝은 곳에서 흔들리지 않게 촬영해 주세요.</li>
-          <li>증상이 있는 부분에 초점을 맞춰 주세요.</li>
-          <li>잎 앞면과 뒷면을 함께 촬영하면 분석에 도움이 됩니다.</li>
-          <li>가능하면 작물 전체 모습도 함께 올려 주세요.</li>
-        </ul>
-      </aside>
 
       <section className="diagnosis-recent-section">
         <h2>최근 진단</h2>
