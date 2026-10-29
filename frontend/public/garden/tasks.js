@@ -171,9 +171,9 @@ tasksPage = function () {
 
 // ---------- 일지 올리기: 체크한 할 일(과 수확)을 완료하고 일지·포인트를 서버에서 한 번에 처리
 // 포인트·레벨업 연출은 바깥(React)이 그린다. 농장 화면(iframe)은 내용만큼 길어서 안에서 그리면 위치가 어긋난다
-function showReward(r) {
-  if (window.parent === window || !(r.earned > 0)) return;
-  window.parent.postMessage({ type: 'garden:reward', earned: r.earned, bonus: r.bonus || 0, firstHarvest: !!r.firstHarvest, level: r.level || null, motion: state.settings?.motion !== false }, window.location.origin);
+function showReward(r, grownTo) {
+  if (window.parent === window) return;
+  window.parent.postMessage({ type: 'garden:reward', earned: r.earned || 0, bonus: r.bonus || 0, firstHarvest: !!r.firstHarvest, grownTo: grownTo || null, level: r.level || null, motion: state.settings?.motion !== false }, window.location.origin);
 }
 
 async function postJournal() {
@@ -196,8 +196,7 @@ async function postJournal() {
     applyServerState(r.state);
     if (typeof journalCaptureTasks === 'function') journalCaptureTasks(f, p, mine.map(t => t.title));
     const after = state.farms.find(x => x.id === f.id)?.plots[i]?.stage;
-    toast(`일지를 올렸어요!${r.firstHarvest ? ' · 첫 수확을 축하해요 🧺' : after > before ? ` · ${after}단계로 자랐어요 🌱` : ''}`);
-    showReward(r);
+    showReward(r, after > before ? after : null);
     await loadTasks(true);
   } catch (e) {
     completing = false;

@@ -249,7 +249,7 @@ export function GardenHostProvider({ children }) {
       flush()
     } else if (message?.type === 'garden:toast' && typeof message.message === 'string') {
       setGardenToast({ text: message.message, key: Date.now() }) // 농장 화면(iframe)은 내용만큼 길어서 안의 안내 문구는 화면 밖에 가려진다. 바깥에서 대신 보여 준다
-    } else if (message?.type === 'garden:reward' && Number.isFinite(message.earned) && message.earned > 0) {
+    } else if (message?.type === 'garden:reward' && Number.isFinite(message.earned) && message.earned >= 0) {
       const level = message.level
       const validLevel = level && [level.exp, level.before, level.after].every(Number.isFinite) && typeof level.leveledUp === 'boolean'
       setReward({
@@ -257,6 +257,7 @@ export function GardenHostProvider({ children }) {
         earned: message.earned,
         bonus: Number.isFinite(message.bonus) ? message.bonus : 0,
         firstHarvest: message.firstHarvest === true,
+        grownTo: Number.isFinite(message.grownTo) ? message.grownTo : null,
         level: validLevel ? { exp: level.exp, before: level.before, after: level.after, leveledUp: level.leveledUp } : null,
         motion: message.motion !== false,
       })

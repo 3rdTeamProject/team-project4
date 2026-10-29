@@ -13,22 +13,23 @@ test('reward effect and level-up modal render points, level and title', async ()
     const noop = () => {}
     const render = (component, props) => renderToStaticMarkup(React.createElement(component, props))
 
-    // 40exp(+10 받은 뒤): 받기 전 30exp는 1레벨 절반(50%)에서 시작해 40exp(67%)로 차오른다
+    // 80exp(+20 받은 뒤): 받기 전 60exp는 1레벨(0~120) 절반(50%)에서 시작해 80exp(67%)로 차오른다
     const normal = render(RewardEffect, {
-      reward: { earned: 10, bonus: 0, firstHarvest: false, motion: true, level: { exp: 40, before: 1, after: 1, leveledUp: false } },
+      reward: { earned: 20, bonus: 0, firstHarvest: false, motion: true, level: { exp: 80, before: 1, after: 1, leveledUp: false } },
       onDone: noop,
     })
-    assert.match(normal, /\+10P/)
+    assert.match(normal, /\+20P/)
+    assert.match(normal, /일지를 올렸어요/)
     assert.match(normal, /Lv\.1/)
     assert.match(normal, /견습 농부/)
-    assert.match(normal, /\+10 EXP/)
+    assert.match(normal, /\+20 EXP/)
     assert.match(normal, /data-motion="on"/)
     assert.match(normal, /width:50%/)
     assert.doesNotMatch(normal, /첫 수확 보너스/)
 
     // 움직임을 끄면 처음부터 채운 상태로 보여 준다
     const still = render(RewardEffect, {
-      reward: { earned: 10, bonus: 0, firstHarvest: false, motion: false, level: { exp: 40, before: 1, after: 1, leveledUp: false } },
+      reward: { earned: 20, bonus: 0, firstHarvest: false, motion: false, level: { exp: 80, before: 1, after: 1, leveledUp: false } },
       onDone: noop,
     })
     assert.match(still, /data-motion="off"/)
@@ -42,6 +43,7 @@ test('reward effect and level-up modal render points, level and title', async ()
     assert.match(bonus, /\+130P/)
     assert.match(bonus, /첫 수확 보너스 \+120P 포함/)
     assert.match(bonus, /width:100%/)
+    assert.match(bonus, /첫 수확을 축하해요/)
 
     // 레벨 정보가 없어도(구버전 응답) 포인트 카드는 그려진다
     const noLevel = render(RewardEffect, {
@@ -50,6 +52,15 @@ test('reward effect and level-up modal render points, level and title', async ()
     })
     assert.match(noLevel, /\+10P/)
     assert.doesNotMatch(noLevel, /EXP/)
+
+    // 단계가 오르면 문구가 나오고, 포인트가 0이면 +P와 경험치 막대 없이 문구만 나온다
+    const grown = render(RewardEffect, {
+      reward: { earned: 0, bonus: 0, firstHarvest: false, grownTo: 3, motion: true, level: { exp: 80, before: 1, after: 1, leveledUp: false } },
+      onDone: noop,
+    })
+    assert.match(grown, /일지를 올렸어요/)
+    assert.match(grown, /3단계로 자랐어요/)
+    assert.doesNotMatch(grown, /\+0P|EXP/)
 
     // 별칭이 바뀌는 레벨업(2→3): 새 별칭 안내가 나온다
     const titleUp = render(LevelUpModal, { from: 2, to: 3, motion: true, onClose: noop })
