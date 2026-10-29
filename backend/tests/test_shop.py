@@ -11,8 +11,17 @@ os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(_temp.name) / 'shop.db')
 os.environ['JWT_SECRET'] = 'integration-tests-only-32-character-secret'
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from main import app, engine
+
+# Initialize the old orders layout BEFORE application startup/create_all. This
+# prevents the suite from masking missing-column regressions with a fresh model.
+assert engine.dialect.name == 'sqlite'
+assert Path(engine.url.database).resolve().is_relative_to(Path(_temp.name).resolve())
+with engine.begin() as conn:
+    for statement in (Path(__file__).parent / 'fixtures/orders_legacy.sql').read_text(encoding='utf-8').split(';'):
+        if statement.strip():
+            conn.exec_driver_sql(statement)
 
 ADDRESS = {'recipient': ' 홍길동 ', 'phone': '010-1234-5678', 'zip': '12345', 'address': '서울시 어딘가 12', 'address_detail': '101동 202호'}
 
@@ -37,6 +46,84 @@ class ShopTest(unittest.TestCase):
 
     def tearDown(self):
         self._ctx.__exit__(None, None, None)
+
+    def test_orders_use_existing_schema_without_purchase_keys(self):
+        names = {c['name'] for c in inspect(engine).get_columns('orders')}
+        self.assertEqual(len(names), 16)
+        self.assertFalse({'idempotency_key', 'request_fingerprint', 'exchange_response'} & names)
+        h, uid = self.member()
+        rid = self.reward_id('AI진단 1회 충전')
+        response = self.client.post('/exchanges', headers=h, json={'items': [{'reward_id': rid}]})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.client.get('/me/orders', headers=h).status_code, 200)
+        self.assertEqual(self.client.get(f"/me/orders/{response.json()['order_id']}", headers=h).status_code, 200)
+        quota = self.client.get('/diagnoses/quota', headers=h).json()
+        self.assertEqual(quota['purchased_balance'], 1)
+        self.assertEqual(quota['purchased_available'], 1)
+
+    def test_existing_order_survives_new_purchase(self):
+        h, uid = self.member()
+        with engine.begin() as conn:
+            conn.execute(text("INSERT INTO orders (user_id,order_no,status,total_points) VALUES (:u,'legacy-kept','completed',100)"), {'u': uid})
+        previous = rows("SELECT * FROM orders WHERE order_no='legacy-kept'")[0]
+        self.exchange(h, 'AI진단 1회 충전')
+        self.assertEqual(rows("SELECT * FROM orders WHERE order_no='legacy-kept'")[0], previous)
+        detail = self.client.get(f"/me/orders/{previous['id']}", headers=h)
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertEqual(len(self.client.get('/me/orders', headers=h).json()), 2)
+
+    def test_credit_and_point_changes_rollback_when_order_creation_fails(self):
+        h, uid = self.member()
+        rid = self.reward_id('AI진단 1회 충전')
+        with patch('shop.next_order_no', side_effect=RuntimeError('mock order failure')):
+            with self.assertRaises(RuntimeError):
+                self.client.post('/exchanges', headers=h, json={'items': [{'reward_id': rid}]})
+        self.assertEqual(rows('SELECT point,diag_credits FROM users WHERE id=:u', u=uid)[0], {'point':1250,'diag_credits':0})
+        self.assertEqual(rows('SELECT * FROM orders WHERE user_id=:u', u=uid), [])
+        self.assertEqual(rows('SELECT * FROM point_logs WHERE user_id=:u', u=uid), [])
+
+    def test_server_catalog_controls_price_and_credit_grant(self):
+        h, uid = self.member()
+        rid = self.reward_id('AI진단 1회 충전')
+        with engine.begin() as conn:
+            conn.execute(text('UPDATE rewards SET price=150,grant_count=2 WHERE id=:r'), {'r':rid})
+        response = self.client.post('/exchanges',headers=h,json={
+            'items':[{'reward_id':rid,'quantity':1}], 'price':1, 'grant_count':999,
+        })
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual(response.json()['total'],150)
+        self.assertEqual(rows('SELECT point,diag_credits FROM users WHERE id=:u',u=uid)[0], {'point':1100,'diag_credits':2})
+
+    def test_purchase_and_paid_diagnosis_work_together_on_existing_schema(self):
+        from datetime import date
+        from sqlalchemy import insert
+        from main import metadata
+        from test_diagnosis import FakeDiagnosisService, PNG
+        h, uid = self.member()
+        with engine.begin() as conn:
+            crops, farms, plots, plantings = [metadata.tables[n] for n in ('crops','farms','plots','plantings')]
+            cid = conn.execute(insert(crops).values(name=f'audit-{uid}').returning(crops.c.id)).scalar_one()
+            fid = conn.execute(insert(farms).values(user_id=uid,name='audit',client_id='legacy-flow').returning(farms.c.id)).scalar_one()
+            pid = conn.execute(insert(plots).values(farm_id=fid,position=1).returning(plots.c.id)).scalar_one()
+            conn.execute(insert(plantings).values(user_id=uid,plot_id=pid,crop_id=cid,planted_at=date.today(),status='growing'))
+        fake = FakeDiagnosisService()
+        service = app.state.diagnosis_service
+        def diagnose(key):
+            return self.client.post('/diagnoses', headers={**h,'Idempotency-Key':key},
+                data={'farm_client_id':'legacy-flow','plot_number':'1','symptoms':'기타'},
+                files={'close_photo':('leaf.png',PNG,'image/png')})
+        with patch.object(service,'prepare',fake.prepare), patch.object(service,'analyze',fake.analyze):
+            for i in range(3):
+                self.assertEqual(diagnose(f'free-legacy-flow-{i}').status_code,200)
+            self.exchange(h,'AI진단 1회 충전',quantity=2)
+            quota = self.client.get('/diagnoses/quota',headers=h).json()
+            self.assertEqual((quota['remaining_count'],quota['purchased_available'],quota['can_request']),(0,2,True))
+            paid = diagnose('paid-legacy-flow-key')
+            self.assertEqual(paid.status_code,200,paid.text)
+            self.assertEqual(diagnose('paid-legacy-flow-key').status_code,200)
+            self.assertEqual(fake.calls,4)
+            self.assertEqual(self.client.get('/diagnoses/quota',headers=h).json()['purchased_balance'],1)
+            self.assertEqual(self.client.get('/diagnoses/history',headers=h).json()['total'],4)
 
     def guest(self):
         data = self.client.post('/auth/guest', json={}).json()

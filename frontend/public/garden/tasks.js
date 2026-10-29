@@ -114,7 +114,7 @@ const infoSection = list => list.length
   : '';
 const trashButton = '<button class="icon-btn" data-feature="delete-crop" aria-label="작물 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v7m4-7v7"/></svg></button>';
 const memoBox = p => `<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="오늘 텃밭 상태를 적어보세요 (선택)">${esc(p.draftMemo || '')}</textarea></div>`;
-const journalFooter = label => footer(`<button class="secondary diagnosis-button" data-feature="diagnosis">AI진단</button><button class="primary" data-tk="post-journal" ${completing ? 'disabled' : ''}>${completing ? '올리는 중…' : label}</button>`);
+const journalFooter = label => footer(`<button class="secondary diagnosis-button" data-feature="diagnosis">AI 상세 진단</button><button class="primary" data-tk="post-journal" ${completing ? 'disabled' : ''}>${completing ? '올리는 중…' : label}</button>`);
 function harvestBanner(f, i, p) {
   const done = !!p.harvestedAt, ready = p.stage >= 5 || taskData.harvestDue.includes(`${f.id}|${i}`);
   if (!done && !ready) return '';

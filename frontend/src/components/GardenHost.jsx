@@ -209,6 +209,9 @@ export function GardenHostProvider({ children }) {
       live.current.cloud.open()
     } else if (message?.type === 'garden:scroll-top') {
       if (!opts.role) window.scrollTo({top: 0, behavior: 'instant'})
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis?mode=detail') {
+      destination.current = '/diagnosis?mode=detail'
+      flush()
     } else if (message?.type === 'garden:navigate' && message.to === '/menu') {
       // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
       destination.current = opts.gardenView === 'farms' ? '/menu' : 'back'

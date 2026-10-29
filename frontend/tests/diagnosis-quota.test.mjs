@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createDiagnosisQuota, kstDate, nextKstMidnight, watchDiagnosisQuota } from '../src/components/diagnosisQuota.js'
+import { createDiagnosisQuota, kstDate, nextKstMidnight, watchDiagnosisQuota, DIAGNOSIS_QUOTA_CHANGED } from '../src/components/diagnosisQuota.js'
 
 const tick = () => new Promise(resolve => setImmediate(resolve))
 function deferred() {
@@ -197,4 +197,41 @@ test('tab return coalesces events; midnight timer and sleep recovery check KST d
 test('next midnight uses KST rather than the machine timezone', () => {
   const now = Date.parse('2026-10-23T14:59:59Z')
   assert.equal(nextKstMidnight(now), Date.parse('2026-10-23T15:00:00Z'))
+})
+
+test('purchase notification supersedes old reads and keeps server reservation values', async () => {
+  const env = setup()
+  const window = { ...events(), setTimeout() {}, clearTimeout() {}, setInterval() {}, clearInterval() {} }
+  const document = { ...events(), visibilityState: 'visible' }
+  const stop = watchDiagnosisQuota(env.controller, { window, document, now: env.now })
+  try {
+    const old = env.controller.refresh()
+    await tick()
+    window.fire(DIAGNOSIS_QUOTA_CHANGED)
+    await tick()
+    const current = { ...quota(0), purchased_balance: 3, purchased_reserved: 2, purchased_available: 1, can_request: true }
+    env.requests[1].resolve(current)
+    await tick()
+    env.requests[0].resolve({ ...quota(0), purchased_balance: 0, purchased_reserved: 0, purchased_available: 0, can_request: false })
+    assert.equal(await old, null)
+    assert.deepEqual(env.controller.getState().quota, current)
+  } finally { stop() }
+  assert.equal(window.listeners.size, 0)
+})
+
+test('midnight re-queries free quota without resetting purchased balance or reservations locally', async () => {
+  const env = setup()
+  const paid = { purchased_balance: 5, purchased_reserved: 2, purchased_available: 3, can_request: true }
+  const initial = env.controller.refresh()
+  await tick()
+  env.requests[0].resolve({ ...quota(0), ...paid })
+  await initial
+  env.advance(1000)
+  env.controller.checkDate()
+  assert.equal(env.controller.getState().quota, null, 'do not invent new free or paid values')
+  await tick()
+  const refreshed = { ...quota(3), ...paid, reset_at: '2026-10-25T00:00:00+09:00' }
+  env.requests[1].resolve(refreshed)
+  await tick()
+  assert.deepEqual(env.controller.getState().quota, refreshed)
 })

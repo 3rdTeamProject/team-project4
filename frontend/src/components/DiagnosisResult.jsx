@@ -29,7 +29,6 @@ export default function DiagnosisResult({
   cropName,
   showActions = true,
   onRetake,
-  onRestartObservation,
 }) {
   if (!result) {
     return (
@@ -57,7 +56,7 @@ export default function DiagnosisResult({
           <>
             <span className="diagnosis-status-pill is-warning">외부 AI 이용 횟수 안내</span>
             <h2>AI 상세 진단 이용 횟수를 모두 사용했어요</h2>
-            <p>외부 AI 상세 진단 이용 가능 횟수가 남아 있지 않아요. 잎 관찰하기 기능은 횟수 제한 없이 이용할 수 있어요.</p>
+            <p>AI 상세 진단 이용 가능 횟수가 남아 있지 않아요. 다음 무료 횟수 초기화 후 다시 이용해 주세요.</p>
             {Number.isFinite(result.remainingCount) && result.remainingCount >= 0 && (
               <p>남은 외부 AI 진단 횟수: {result.remainingCount}회</p>
             )}
@@ -66,7 +65,7 @@ export default function DiagnosisResult({
                 다음 무료 횟수 초기화: {new Date(result.nextAvailableAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)
               </p>
             )}
-            <button type="button" className="btn primary" onClick={onRestartObservation}>잎 관찰 다시 하기</button>
+            <Link className="btn primary" to="/home">메인으로 돌아가기</Link>
             <Link className="btn secondary diagnosis-journal-link" to="/journals">재배일지 작성하기</Link>
             <ExpertGuidance />
           </>
@@ -84,7 +83,7 @@ export default function DiagnosisResult({
         ) : (
           <>
             <span className="diagnosis-status-pill">AI 분석 결과 · 의심</span>
-            <p className="diagnosis-result-caution">AI가 제시한 의심 결과이며 확정 진단이 아닙니다.</p>
+            <p className="diagnosis-result-caution">AI가 제시한 의심 병해충 또는 환경적 원인이며 확정 진단이 아닙니다.</p>
             {cropName && <p className="diagnosis-result-crop">선택 작물: {cropName}</p>}
             <h2>{result.diseaseName}</h2>
             <ResultList title="AI 판단 근거" items={result.evidence} />

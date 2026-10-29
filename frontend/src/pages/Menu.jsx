@@ -14,7 +14,6 @@ const MENU_ITEMS = [
     label: 'AI진단',
     Icon: DiagnosisIcon,
     children: [
-      { label: '잎 관찰', to: '/diagnosis?mode=leaf' },
       { label: 'AI 상세 진단', to: '/diagnosis?mode=detail' },
       { label: '나의 진단 이력', to: '/diagnosis/history' },
     ],

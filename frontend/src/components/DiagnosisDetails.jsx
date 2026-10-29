@@ -104,7 +104,7 @@ async function fingerprintDiagnosis(input, crop, photos) {
     .join('')
 }
 
-export default function DiagnosisDetails({ onBack, onRestartObservation }) {
+export default function DiagnosisDetails({ onBack }) {
   const [diagnosisInput, setDiagnosisInput] = useState({ cropId: '', symptoms: [], description: '' })
   const [photos, setPhotos] = useState({})
   const [farms, setFarms] = useState([])
@@ -630,7 +630,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   const quotaNotice = <section className="diagnosis-detail-card" aria-live="polite">
     <h2>오늘의 AI 상세 진단</h2>
-    <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있어요. AI 상세 진단은 무료 횟수를 먼저 사용하고, 소진 후 구매한 횟수를 사용해요.</p>
+    <p>AI 상세 진단은 하루 무료 3회를 먼저 사용하고, 소진 후 구매한 횟수를 사용해요. 무료 횟수는 한국 시간 00시에 초기화돼요.</p>
     {quota && <p>
       오늘 무료 진단: {quota.remaining_count}/{quota.daily_limit}회
       {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
@@ -691,7 +691,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         result={result}
         cropName={selectedCrop?.cropName}
         onRetake={returnToForm}
-        onRestartObservation={onRestartObservation}
       />
       {quotaNotice}
       </>
@@ -809,7 +808,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
           <span className="diagnosis-step-number">3</span>
           <div>
             <h2>사진을 찍어주세요</h2>
-            <p>잎 가까이 사진은 필수이며, 나머지는 선택 사항이에요. PNG/JPEG/WebP, 사진 한 장당 8MB 이하</p>
+            <p>잎 가까이 사진은 필수이며, 나머지는 선택 사항이에요. 정지 PNG/JPEG/WebP, 사진 한 장당 8MB 이하, 한 변 12,000px·총 67,108,864픽셀 이하입니다. 사진은 자동 축소하지 않습니다.</p>
           </div>
         </div>
         <div className="diagnosis-detail-photo-list">
