@@ -3,7 +3,7 @@
 // features.js 화면 위에 덧붙인다. 서버에 할 일 데이터(crop_tasks)가 있는 작물(오이 등)만 이 화면을 쓰고,
 // 데이터가 아직 없는 작물은 기존 화면이 그대로 동작한다.
 //
-// 흐름: 작물 선택 → 심기 전 준비(밭 준비 안내) → 심었어요(작물 생성) → 칸은 포트·0단계 →
+// 흐름: 작물 선택 → 심기 전 준비(밭 준비 안내) → 심었어요(작물 생성) → 칸은 1단계(씨앗은 포트 그림) →
 //       칸 상세에서 할 일을 체크하고 '일지 올리기'로 완료(포인트) → 모종 옮겨심기를 마치면 3단계.
 // 수확하기는 표시만 하고, 일지를 올릴 때 수확 기록과 첫 수확 보너스가 생긴다.
 
@@ -52,18 +52,18 @@ async function refreshFromServer() {
 let cropInfo = {};
 const isTaskKind = kind => !!cropInfo[kind]?.hasTasks;
 function isTaskPlant(p) { return isTaskKind(p.kind); }
-// 씨앗으로 심고 아직 밭에 옮겨심기 전(0단계, 포트)
+// 씨앗으로 심고 아직 밭에 옮겨심기 전(1단계는 포트 그림, 2단계부터는 다른 작물과 같은 그림)
 // (직파 작물은 옮겨심기가 없어서 포트 단계가 없다)
 const isPrep = p => isTaskPlant(p) && p.method === 'seed' && p.stage < 3 && !!cropInfo[p.kind]?.hasTransplant;
 categories.cucumber_spring = 'fruit';
 categories.cucumber_summer = 'fruit';
 
-// ---------- 그림·단계: 오이는 한 종류 그림을 쓰고, 0단계는 포트, 단계는 서버가 정한다
+// ---------- 그림·단계: 오이는 한 종류 그림을 쓰고, 옮겨심기 전 씨앗은 포트 그림, 단계는 서버가 정한다
 const potArt = () => '<svg class="plant-art pot-art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><ellipse cx="50" cy="94" rx="31" ry="5" fill="var(--color-text)" opacity=".18"/><path d="M21 46h58l-6 44a6 6 0 0 1-6 5H33a6 6 0 0 1-6-5z" fill="var(--color-soil)"/><rect x="15" y="35" width="70" height="15" rx="6" fill="var(--color-soil)"/><ellipse cx="50" cy="37" rx="31" ry="6" fill="var(--color-text)" opacity=".6"/><circle cx="39" cy="37" r="2.4" fill="var(--color-point-chip)"/><circle cx="52" cy="39" r="2.4" fill="var(--color-point-chip)"/><circle cx="63" cy="36" r="2.4" fill="var(--color-point-chip)"/></svg>';
 const baseCropSvg = CropArt.svg;
 CropArt.svg = (kind, stage = 5, preview = false) => stage === 0 ? potArt() : baseCropSvg(kind, stage, preview);
 const basePlant = plant;
-plant = function (p) { return isTaskPlant(p) && isPrep(p) ? potArt() : basePlant(p); };
+plant = function (p) { return isTaskPlant(p) && isPrep(p) && p.stage < 2 ? potArt() : basePlant(p); };
 const baseGrowthStage = GardenGrowth.stage;
 GardenGrowth.stage = function (p, total, today) { return isTaskPlant(p) ? p.stage : baseGrowthStage.call(this, p, total, today); };
 
@@ -134,7 +134,7 @@ function harvestBanner(f, i, p) {
 function plotPage(f, i, p) {
   const all = plotTasks(f, i, true), info = all.filter(t => t.infoOnly), mine = all.filter(t => !t.infoOnly);
   const picked = mine.filter(t => checked.has(t.id)).length, days = GardenGrowth.elapsed(p.plantedAt, day());
-  const stageText = p.harvestedAt ? '수확 중' : `${isPrep(p) ? 0 : p.stage}/5단계`;
+  const stageText = p.harvestedAt ? '수확 중' : `${p.stage}/5단계`;
   return `<main class="page">${head(meta(p).name, 'garden')}<div class="detail-subhead"><small>${esc(f.name)} · 심은 지 ${days + 1}일</small><span class="pill">${stageText}</span>${trashButton}</div>${harvestBanner(f, i, p)}${infoSection(info)}<div class="field-label tk-sub-title">오늘 할 일 <span class="count">${taskData.status === 'ready' ? `완료 ${picked} / ${mine.length}` : ''}</span></div>${statusNote()}${mine.length ? mine.map(taskCard).join('') : taskData.status === 'ready' ? '<div class="tk-empty-task"><span class="tk-empty-icon" aria-hidden="true">🌱</span><div><strong>오늘 할 일 끝!</strong><p>지금 할 일은 모두 마쳤어요.</p></div></div>' : ''}${photoSection(p.draftPhotos)}${memoBox(p)}<p class="help">체크한 할 일은 일지를 올려야 완료돼요.</p></main>${journalFooter('일지 올리기')}`;
 }
 const baseDetailPage = detailPage;

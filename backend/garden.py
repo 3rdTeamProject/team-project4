@@ -428,7 +428,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
                        or_(crop_stages.c.stage_no == 3, crop_tasks.c.start_day.is_not(None)))  # 시작일이 정해지지 않은 할 일은 날짜로 쓰지 않는다
                 .group_by(task_logs.c.planting_id, crop_stages.c.stage_no)):
                 stage_dates.setdefault(r[0], {})[r[1]] = (r[2], r[3])
-        # 옮겨심기(모종 옮겨심기 같은 씨앗 전용 할 일)가 3단계를 올리는 작물만 씨앗 단계에서 포트(0단계)로 보인다. 직파 작물은 해당 없음
+        # 옮겨심기(모종 옮겨심기 같은 씨앗 전용 할 일)가 3단계를 올리는 작물만 씨앗 단계에서 포트 그림으로 보인다. 직파 작물은 해당 없음
         transplant_crops = {r[0] for r in conn.execute(
             select(crop_stages.c.crop_id).join(crop_tasks, crop_tasks.c.id == crop_stages.c.trigger_task_id)
             .where(crop_stages.c.stage_no == TRANSPLANT_STAGE_NO, crop_tasks.c.seed_only.is_(True)))}
@@ -456,11 +456,10 @@ def register_garden(app, metadata, engine, get_current_user, users):
             return 5
         if start4 and today >= start4:
             return 4
-        if direct:
-            if start3 and today >= start3:
-                return 3
-            if stage2_day is not None and today >= row['planted_at'] + timedelta(days=stage2_day):
-                return 2
+        if direct and start3 and today >= start3:
+            return 3
+        if stage2_day is not None and today >= row['planted_at'] + timedelta(days=stage2_day):
+            return 2  # 포트에서 키우는 작물도 심은 날부터 날짜로 2단계가 된다(3단계는 옮겨심기가 올린다)
         return 0
 
     def build_state(rows: dict) -> dict:
@@ -485,12 +484,10 @@ def register_garden(app, metadata, engine, get_current_user, users):
             if row['id'] in rows['first_harvest']:  # 첫 수확일은 서버(harvests)가 정한다
                 plant['harvestedAt'] = rows['first_harvest'][row['id']]
                 plant['lastHarvestedAt'] = rows['last_harvest'][row['id']]  # 마지막 수확일: 같은 날 또 수확하지 못하게 화면이 쓴다
-            # 씨앗으로 심고 아직 옮겨심기 전인 칸은 싹이 없는 0단계(포트)로 보여준다(DB에는 1단계로 저장)
-            # 직파 작물(옮겨심기 없음)은 포트 단계가 없고, 심은 날부터 날짜로 단계가 오른다
+            # 씨앗으로 심고 아직 옮겨심기 전인 칸도 다른 작물처럼 1단계에서 날짜로 2단계가 된다(1단계 그림만 포트)
+            # 직파 작물(옮겨심기 없음)은 3단계도 날짜로 오른다
             direct = row['crop_id'] not in rows['transplant_crops']
-            if row['crop_id'] in rows['tasked'] and plant.get('method') == 'seed' and row['stage'] < 3 and not direct:
-                plant['stage'] = 0
-            elif row['crop_id'] in rows['tasked'] and (row['stage'] >= 3 or direct):
+            if row['crop_id'] in rows['tasked']:
                 plant['stage'] = max(plant['stage'], stage_by_date(
                     row, rows['stage_dates'].get(row['id'], {}), rows['today'], direct, rows['stage2_days'].get(row['crop_id'])))
             return plant
