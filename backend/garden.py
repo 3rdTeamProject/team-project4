@@ -5,15 +5,21 @@
 화면에는 있지만 공통 설계에 없는 값은 설계 테이블에 컬럼을 덧붙여 저장한다(아래 '설계 밖 컬럼' 참고).
 """
 import hashlib
+import io
 import json
 import math
 import os
 import re
 from datetime import date, timedelta
 from typing import Literal
+from uuid import uuid4
+from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import Response
+from PIL import Image, UnidentifiedImageError
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import (
@@ -42,6 +48,7 @@ from sqlalchemy import (
 )
 
 from tasks import TRANSPLANT_STAGE_NO, crops_with_tasks, method_of, register_tasks, start_planting, today_kst
+from journal_storage import download_original, remove_originals, upload_original
 
 # 홈 화면의 작물 종류(kind) ↔ crops 테이블의 이름. 오이는 봄/여름 두 작물로 나뉜다.
 # 작물별 단계·할 일은 crops / crop_stages / crop_tasks 행(Supabase에 SQL로 입력)이 정한다.
@@ -154,6 +161,11 @@ class Record(BaseModel):
     text: str = Field(max_length=500)
     date: str = Field(max_length=80)
     photos: list[str] = Field(default_factory=list, max_length=4)
+    journalId: int | None = Field(default=None, ge=1)
+    plantingId: int | None = Field(default=None, ge=1)
+    event: Literal['planting', 'journal'] | None = None
+    plantingMethod: Literal['seed', 'seedling'] | None = None
+    plotRef: str | None = Field(default=None, max_length=80)
 
     @field_validator('photos')
     @classmethod
@@ -304,6 +316,29 @@ def register_garden(app, metadata, engine, get_current_user, users):
         Column('crop_name', String(20), nullable=True),
         Column('date_label', String(80), nullable=True),
     )
+    journal_meta = Table(
+        'garden_journal_meta', metadata,
+        Column('journal_id', Integer, ForeignKey('journals.id', ondelete='CASCADE'), primary_key=True),
+        Column('record_type', String(16), nullable=False, server_default='journal'),
+        Column('planting_method', String(16), nullable=True),
+        Column('plot_ref', String(80), nullable=True),
+    )
+    original_photos = Table(
+        'garden_original_photos', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True),
+        Column('journal_id', Integer, ForeignKey('journals.id', ondelete='SET NULL'), nullable=True, index=True),
+        Column('preview_hash', String(64), nullable=False),
+        Column('storage_path', Text, nullable=False),
+        Column('filename', String(255), nullable=False),
+        Column('content_type', String(32), nullable=False),
+        UniqueConstraint('user_id', 'preview_hash', name='garden_original_photos_owner_preview_uq'),
+    )
+    storage_cleanup = Table(
+        'garden_storage_cleanup', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('storage_path', Text, nullable=False, unique=True),
+    )
 
     care = Table(
         'garden_plant_care', metadata,
@@ -371,7 +406,10 @@ def register_garden(app, metadata, engine, get_current_user, users):
             .where(plantings.c.user_id == user_id, plantings.c.status != 'ended', plantings.c.plot_id.is_not(None))
         ).mappings()]
         journal_rows = [dict(r) for r in conn.execute(
-            select(journals.c.farm_name, journals.c.crop_name, journals.c.content, journals.c.date_label, journals.c.photo_url)
+            select(journals.c.id, journals.c.planting_id, journals.c.farm_name, journals.c.crop_name,
+                   journals.c.content, journals.c.date_label, journals.c.photo_url,
+                   journal_meta.c.record_type, journal_meta.c.planting_method, journal_meta.c.plot_ref)
+            .outerjoin(journal_meta, journal_meta.c.journal_id == journals.c.id)
             .where(journals.c.user_id == user_id).order_by(journals.c.id)).mappings()]
         motion = conn.execute(select(users.c.motion_effects).where(users.c.id == user_id)).scalar_one()
         care_rows = {r['planting_id']: r['details'] for r in conn.execute(select(care).join(plantings, care.c.planting_id == plantings.c.id).where(plantings.c.user_id == user_id)).mappings()}
@@ -470,7 +508,12 @@ def register_garden(app, metadata, engine, get_current_user, users):
         return {
             'farms': farm_docs,
             'records': [
-                {'farm': j['farm_name'] or '', 'crop': j['crop_name'] or '', 'text': j['content'], 'date': j['date_label'] or '', **({'photos': json.loads(j['photo_url'])} if j['photo_url'] else {})}
+                {'journalId': j['id'], 'plantingId': j['planting_id'], 'farm': j['farm_name'] or '',
+                 'crop': j['crop_name'] or '', 'text': j['content'], 'date': j['date_label'] or '',
+                 **({'photos': json.loads(j['photo_url'])} if j['photo_url'] else {}),
+                 **({'event': j['record_type']} if j['record_type'] else {}),
+                 **({'plantingMethod': j['planting_method']} if j['planting_method'] else {}),
+                 **({'plotRef': j['plot_ref']} if j['plot_ref'] else {})}
                 for j in rows['journals']
             ],
             'settings': {'motion': rows['motion']},
@@ -582,33 +625,82 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 if details:
                     conn.execute(insert(care).values(planting_id=planting_id, details=details))
 
-        incoming = [(r['farm'], r['crop'], r['text'], r['date'], json.dumps(r['photos']) if r.get('photos') else None) for r in new['records']]
-        saved = [(j['farm_name'] or '', j['crop_name'] or '', j['content'], j['date_label'] or '', j['photo_url']) for j in rows['journals']]
-        if incoming[:len(saved)] != saved:
-            conn.execute(delete(journals).where(journals.c.user_id == user_id))
-            saved = []
-        fresh = incoming[len(saved):]
-        if fresh:
-            # 기록에 연결할 재배: 그 농장에서 가장 최근에 심은 같은 이름의 작물(수확해서 끝난 것 포함). 한 번에 조회한다.
-            latest = {}
-            for planting_id, farm_id, crop_name in conn.execute(
-                select(plantings.c.id, plots.c.farm_id, crops.c.name)
-                .join(plots, plantings.c.plot_id == plots.c.id)
-                .join(crops, plantings.c.crop_id == crops.c.id)
-                .where(plantings.c.user_id == user_id).order_by(plantings.c.id)
-            ):
-                latest[(farm_id, crop_name)] = planting_id
-            pks_by_name: dict[str, list[int]] = {}
-            for f in new['farms']:
-                pks_by_name.setdefault(f['name'], []).append(farm_pk_by_client[f['id']])
-            batch = []
-            for farm_name, crop_name, content, date_label, photo_url in fresh:
-                found = [latest[(pk, crop_name)] for pk in pks_by_name.get(farm_name, []) if (pk, crop_name) in latest]
-                batch.append({
-                    'user_id': user_id, 'planting_id': max(found) if found else None,
-                    'photo_url': photo_url, 'content': content, 'farm_name': farm_name, 'crop_name': crop_name, 'date_label': date_label,
-                })
-            conn.execute(insert(journals), batch)
+        saved_by_id = {j['id']: j for j in rows['journals']}
+        saved_by_position = rows['journals']
+        used_ids = set()
+        planting_owner = {r[0] for r in conn.execute(select(plantings.c.id).where(plantings.c.user_id == user_id))}
+        plot_planting = {}
+        for farm_doc in new['farms']:
+            farm_pk = farm_pk_by_client[farm_doc['id']]
+            for position, plot_pk in conn.execute(select(plots.c.position, plots.c.id).where(plots.c.farm_id == farm_pk)):
+                if plot_pk in active_now:
+                    plot_planting[f"{farm_doc['id']}:{position}"] = active_now[plot_pk]
+        planting_candidates = {}
+        for planting_pk, farm_name, crop_name in conn.execute(
+            select(plantings.c.id, farms.c.name, crops.c.name)
+            .join(plots, plots.c.id == plantings.c.plot_id)
+            .join(farms, farms.c.id == plots.c.farm_id)
+            .join(crops, crops.c.id == plantings.c.crop_id)
+            .where(plantings.c.user_id == user_id)
+        ):
+            planting_candidates.setdefault((farm_name, crop_name), []).append(planting_pk)
+
+        def record_values(record):
+            return {
+                'farm_name': record['farm'], 'crop_name': record['crop'], 'content': record['text'],
+                'date_label': record['date'], 'photo_url': json.dumps(record['photos']) if record.get('photos') else None,
+            }
+
+        def same_content(row, values):
+            return all(row[key] == value for key, value in values.items())
+
+        for index, record in enumerate(new['records']):
+            values = record_values(record)
+            journal_id = record.get('journalId')
+            if journal_id is not None and journal_id not in saved_by_id:
+                raise HTTPException(409, '다른 화면에서 일지가 변경되었습니다. 새로고침 후 다시 시도해 주세요.')
+            if journal_id is None and index < len(saved_by_position):
+                candidate = saved_by_position[index]
+                if candidate['id'] not in used_ids and same_content(candidate, values):
+                    journal_id = candidate['id']
+            if journal_id in used_ids:
+                raise HTTPException(422, '중복된 일지 ID가 있습니다.')
+            planting_id = record.get('plantingId') or plot_planting.get(record.get('plotRef'))
+            if planting_id is None:
+                candidates = planting_candidates.get((record['farm'], record['crop']), [])
+                if len(candidates) == 1:
+                    planting_id = candidates[0]
+            if planting_id is not None and planting_id not in planting_owner:
+                raise HTTPException(422, '이 재배에 일지를 연결할 수 없습니다.')
+            if journal_id is None:
+                journal_id = conn.execute(insert(journals).values(user_id=user_id, planting_id=planting_id, **values)).inserted_primary_key[0]
+            else:
+                old = saved_by_id[journal_id]
+                changes = {key: value for key, value in values.items() if old[key] != value}
+                if planting_id is not None and old['planting_id'] != planting_id:
+                    changes['planting_id'] = planting_id
+                if changes:
+                    conn.execute(update(journals).where(journals.c.id == journal_id).values(**changes))
+            used_ids.add(journal_id)
+            meta_values = {
+                'record_type': record.get('event') or (saved_by_id.get(journal_id) or {}).get('record_type') or 'journal',
+                'planting_method': record.get('plantingMethod'),
+                'plot_ref': record.get('plotRef'),
+            }
+            old_meta = saved_by_id.get(journal_id)
+            if old_meta and old_meta['record_type'] is not None:
+                changes = {key: value for key, value in meta_values.items() if old_meta[key] != value and value is not None}
+                if changes:
+                    conn.execute(update(journal_meta).where(journal_meta.c.journal_id == journal_id).values(**changes))
+            elif any(value is not None for key, value in meta_values.items() if key != 'record_type') or record.get('event'):
+                conn.execute(insert(journal_meta).values(journal_id=journal_id, **meta_values))
+            for preview in record.get('photos') or []:
+                digest = hashlib.sha256(preview.encode('utf-8')).hexdigest()
+                conn.execute(update(original_photos).where(original_photos.c.user_id == user_id,
+                    original_photos.c.preview_hash == digest).values(journal_id=journal_id))
+        removed_ids = set(saved_by_id) - used_ids
+        if removed_ids:
+            conn.execute(delete(journals).where(journals.c.user_id == user_id, journals.c.id.in_(removed_ids)))
 
         if rows['motion'] != new['settings']['motion']:
             conn.execute(update(users).where(users.c.id == user_id).values(motion_effects=new['settings']['motion']))
@@ -741,6 +833,93 @@ def register_garden(app, metadata, engine, get_current_user, users):
     def read_state(user=Depends(get_current_user)):
         with engine.begin() as conn:
             return full_state(conn, user['id'])
+
+    @router.post('/photos/original')
+    async def save_original_photo(preview: str = Form(...), photo: UploadFile = File(...), user=Depends(get_current_user)):
+        if not preview.startswith('data:image/jpeg;base64,') or len(preview) > 2_000_000:
+            raise HTTPException(422, '일지 미리보기 사진을 확인해 주세요.')
+        digest = hashlib.sha256(preview.encode('utf-8')).hexdigest()
+        with engine.begin() as conn:
+            existing_photo = conn.execute(select(original_photos.c.id).where(
+                original_photos.c.user_id == user['id'], original_photos.c.preview_hash == digest)).first()
+        if existing_photo:
+            return {'previewHash': digest}
+        content = await photo.read(10 * 1024 * 1024 + 1)
+        if len(content) > 10 * 1024 * 1024 or not content:
+            raise HTTPException(422, '원본 사진은 10MB 이하만 올릴 수 있어요.')
+        kinds = {'JPEG': ('image/jpeg', 'jpg'), 'PNG': ('image/png', 'png'), 'WEBP': ('image/webp', 'webp')}
+        try:
+            with Image.open(io.BytesIO(content)) as image:
+                kind = kinds.get(image.format)
+                image.verify()
+        except (UnidentifiedImageError, OSError, ValueError) as error:
+            raise HTTPException(422, '사진 파일을 읽을 수 없어요.') from error
+        if not kind or photo.content_type != kind[0]:
+            raise HTTPException(422, 'JPG, PNG, WEBP 원본 사진만 올릴 수 있어요.')
+        filename = (photo.filename or f'photo.{kind[1]}').split('/')[-1].split('\\')[-1][:255]
+        path = f"journal/{user['id']}/{uuid4().hex}.{kind[1]}"
+        await run_in_threadpool(upload_original, path, content, kind[0])
+        try:
+            with engine.begin() as conn:
+                conn.execute(insert(original_photos).values(
+                    user_id=user['id'], preview_hash=digest, storage_path=path,
+                    filename=filename, content_type=kind[0]))
+        except Exception:
+            remove_originals([path])
+            raise
+        return {'previewHash': digest}
+
+    @router.get('/photos/original/{preview_hash}')
+    def read_original_photo(preview_hash: str, download: bool = False, user=Depends(get_current_user)):
+        if not re.fullmatch(r'[a-f0-9]{64}', preview_hash):
+            raise HTTPException(404, '원본 사진을 찾을 수 없어요.')
+        with engine.begin() as conn:
+            photo = conn.execute(select(original_photos).where(
+                original_photos.c.user_id == user['id'], original_photos.c.preview_hash == preview_hash)).mappings().first()
+        if not photo:
+            raise HTTPException(404, '원본 사진을 찾을 수 없어요.')
+        content = download_original(photo['storage_path'])
+        disposition = 'attachment' if download else 'inline'
+        safe_name = re.sub(r'[^A-Za-z0-9._-]', '_', photo['filename']) or 'journal-photo'
+        return Response(content, media_type=photo['content_type'], headers={
+            'Content-Disposition': f"{disposition}; filename=\"{safe_name}\"; filename*=UTF-8''{quote(photo['filename'])}",
+            'Cache-Control': 'private, no-store',
+        })
+
+    @router.delete('/history/{planting_id}')
+    def delete_past_cultivation(planting_id: int, user=Depends(get_current_user)):
+        photos = []
+        with engine.begin() as conn:
+            planting = conn.execute(select(plantings.c.id, plantings.c.status).where(
+                plantings.c.id == planting_id, plantings.c.user_id == user['id']).with_for_update()).mappings().first()
+            if not planting:
+                raise HTTPException(404, '재배 이력을 찾을 수 없어요.')
+            if planting['status'] not in ('ended', 'harvested'):
+                raise HTTPException(409, '진행 중인 재배는 지난 재배에서 삭제할 수 없어요.')
+            journal_ids = list(conn.execute(select(journals.c.id).where(
+                journals.c.user_id == user['id'], journals.c.planting_id == planting_id)).scalars())
+            if journal_ids:
+                photos = list(conn.execute(select(original_photos.c.storage_path).where(
+                    original_photos.c.user_id == user['id'], original_photos.c.journal_id.in_(journal_ids))).scalars())
+                for path in photos:
+                    conn.execute(insert(storage_cleanup).values(storage_path=path))
+                conn.execute(delete(original_photos).where(original_photos.c.user_id == user['id'],
+                    original_photos.c.journal_id.in_(journal_ids)))
+                conn.execute(delete(journals).where(journals.c.user_id == user['id'], journals.c.id.in_(journal_ids)))
+            conn.execute(delete(plantings).where(plantings.c.id == planting_id, plantings.c.user_id == user['id']))
+            result = full_state(conn, user['id'])
+        # Storage and PostgreSQL cannot share a transaction. Keep failed removals queued for retry.
+        with engine.begin() as conn:
+            queued_paths = list(conn.execute(select(storage_cleanup.c.storage_path).limit(1000)).scalars())
+        cleanup_pending = False
+        if queued_paths:
+            try:
+                remove_originals(queued_paths)
+                with engine.begin() as conn:
+                    conn.execute(delete(storage_cleanup).where(storage_cleanup.c.storage_path.in_(queued_paths)))
+            except HTTPException:
+                cleanup_pending = True
+        return {**result, 'photoCleanupPending': cleanup_pending, 'deletedJournalCount': len(journal_ids)}
 
     @router.put('/state')
     def save_state(body: SaveGarden, user=Depends(get_current_user)):

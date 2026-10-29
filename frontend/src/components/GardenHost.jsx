@@ -190,6 +190,9 @@ export function GardenHostProvider({ children }) {
     devdayset: body => api.setGardenDevDay(body.offset),
     refresh: async () => { await settle(); return remember(await api.gardenState()) },
     complete: async body => { await settle(); return remember(await api.completeGardenTasks(body)) },
+    deleteHistory: async body => { await settle(); return remember(await api.deleteGardenHistory(body.plantingId)) },
+    uploadOriginal: body => api.uploadGardenOriginal(body.preview, body.file),
+    loadOriginal: body => api.gardenOriginal(body.previewHash),
   }
 
   // PC: 오른쪽 패널에 농장 화면(오늘 할 일·전체 농장·칸 상세 등)을 연다. 패널이 없는 화면(메뉴 등)에 있으면 먼저 /home으로 간다
@@ -226,7 +229,7 @@ export function GardenHostProvider({ children }) {
       gardenOps[message.op](message.payload).then(data => {
         reply({ type: 'garden:api-result', id: message.id, ok: true, data })
         // 할 일 완료·날짜 이동은 서버를 바로 바꾸므로 다른 쪽 농장 화면도 맞춘다
-        if (message.op === 'complete' || message.op === 'devdayset') tellOthers(from, { type: 'garden:pc-refresh' })
+        if (message.op === 'complete' || message.op === 'devdayset' || message.op === 'deleteHistory') tellOthers(from, { type: 'garden:pc-refresh' })
       }, e => reply({ type: 'garden:api-result', id: message.id, ok: false, error: e.message, status: e.status }))
     } else if (message?.type === 'garden:footer' && Array.isArray(message.buttons)) {
       if (opts.role === 'scene') return // PC에서는 오른쪽 패널의 버튼만 아래 막대로 보여 준다

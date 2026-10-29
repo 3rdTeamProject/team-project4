@@ -42,6 +42,29 @@ test('same plot and day remain separate across removed and new plantings', () =>
   assert.equal(groupRecords(records).length, 2)
 })
 
+test('server planting IDs keep same-day records from different crops apart', () => {
+  const records = [
+    { id: 'old', date: '2026-10-29', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', plantingId: 10, text: 'old' },
+    { id: 'new', date: '2026-10-29', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', plantingId: 11, text: 'new' },
+  ]
+  assert.equal(groupRecords(records).length, 2)
+})
+
+test('old planting stays in past cultivation after same-day replant', () => {
+  const declaration = source.split('\n').find(line => line.startsWith('function journalArchived('))
+  const plant = { plantingId: 11, plantedAt: '2026-10-29' }
+  const context = {
+    state: { farms: [{ id: 'farm-1', name: 'farm', plots: [plant] }] },
+    journalPlotRef: record => record.plotRef,
+    journalDayKey: date => date,
+    meta: () => ({ name: 'lettuce' }),
+  }
+  const archived = runInNewContext(`(${declaration})`, context)
+  const record = { farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', date: '2026-10-29' }
+  assert.equal(archived({ ...record, plantingId: 10 }), true)
+  assert.equal(archived({ ...record, plantingId: 11 }), false)
+})
+
 test('a planting record still appears after its crop was removed', () => {
   const declaration = source.slice(source.indexOf('function journalPlantingRecord('), source.indexOf('function journalEntries('))
   const context = {
@@ -146,4 +169,27 @@ test('past-cultivation crop delete leaves other crops and plots intact', async (
   assert.equal(context.journalLocal.overrides['base-2'], undefined)
   assert.equal(context.journalLocal.overrides['base-3'], undefined)
   assert.equal(context.journalLocal.overrides['base-4'], undefined)
+})
+
+test('past cultivation with a server planting ID uses the delete API', async () => {
+  const declaration = source.slice(source.indexOf('function journalDeleteArchiveCrop('), source.indexOf("app.addEventListener('click',e=>{const b=e.target.closest('[data-jr=\"farm-fold\"]')"))
+  const entry = { id: 'base-0', farm: 'farm', crop: 'lettuce', plantingId: 11, journalId: 20, key: 'farm|lettuce|11' }
+  const journalLocal = { entries: [], overrides: {} }
+  let requestedId = null
+  let applied = null
+  const context = {
+    journalEntries: () => [entry], journalArchived: () => true,
+    journalArchiveCropKey: record => record.key, journalPlotLabel: () => '1',
+    journalLocal, askConfirm: () => Promise.resolve(true),
+    hostApi: async (_, payload) => { requestedId = payload.plantingId; return { state: { records: [] } } },
+    journalRebaseBaseRecords: () => {}, journalPersist: () => true,
+    journalOpen: new Set(), journalMenu: null,
+    applyServerState: state => { applied = state },
+    window: { parent: {} }, render: () => {}, toast: () => {},
+  }
+  runInNewContext(`(${declaration})`, context)(entry.key)
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(requestedId, 11)
+  assert.equal(applied.records.length, 0)
+  assert.equal(journalLocal.overrides['base-0'], undefined)
 })

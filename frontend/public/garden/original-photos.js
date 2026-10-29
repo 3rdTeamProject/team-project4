@@ -13,15 +13,22 @@ function openOriginalPhotoDb() {
   });
 }
 
-async function originalPhotoKey(preview) {
+async function originalPhotoHash(preview) {
   const bytes = new TextEncoder().encode(preview);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
-  const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
-  return `${window.GARDEN_STORAGE_KEY}|${hash}`;
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function originalPhotoKey(preview) {
+  return `${window.GARDEN_STORAGE_KEY}|${await originalPhotoHash(preview)}`;
 }
 
 async function saveOriginalPhoto(preview, file) {
-  const db = await openOriginalPhotoDb();
+  // Storage 설정 전이나 네트워크 오류 때도 현재 브라우저에서는 원본을 볼 수 있게 둔다.
+  let uploaded = false;
+  try { await hostApi('uploadOriginal', { preview, file }); uploaded = true; } catch {}
+  let db;
+  try { db = await openOriginalPhotoDb(); } catch (error) { if (!uploaded) throw error; return; }
   try {
     const key = await originalPhotoKey(preview);
     await new Promise((resolve, reject) => {
@@ -31,10 +38,14 @@ async function saveOriginalPhoto(preview, file) {
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);
     });
-  } finally { db.close(); }
+  } catch (error) { if (!uploaded) throw error; } finally { db.close(); }
 }
 
 async function loadOriginalPhoto(preview) {
+  try {
+    const original = await hostApi('loadOriginal', { previewHash: await originalPhotoHash(preview) });
+    if (original?.blob instanceof Blob) return { blob: original.blob, name: original.name, type: original.blob.type };
+  } catch {}
   const db = await openOriginalPhotoDb();
   try {
     const key = await originalPhotoKey(preview);
