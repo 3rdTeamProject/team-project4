@@ -9,6 +9,25 @@ export function SproutIcon({ size = 24 }) {
   )
 }
 
+// 씨앗 단계(작은 씨앗 두 알). 다른 단계 그림처럼 바닥에 붙는다. 색은 앱 토큰에서 섞어 쓴다
+export function SeedIcon({ size = 24 }) {
+  const body = 'color-mix(in srgb, var(--color-soil) 55%, var(--color-point-chip))'
+  const edge = 'color-mix(in srgb, var(--color-soil) 70%, var(--color-text))'
+  const seed = (
+    <>
+      <path d="M0-11C8-7 11 3 6 10C1 13-5 8-5 1C-5-4-3-9 0-11Z" style={{ fill: body, stroke: edge }} strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M0-7C3-3 4 3 2 8" fill="none" style={{ stroke: edge }} strokeWidth="1" strokeLinecap="round" opacity="0.5" />
+      <ellipse cx="-1.5" cy="-1" rx="1.3" ry="3" transform="rotate(12 -1.5 -1)" style={{ fill: 'var(--color-card)' }} opacity="0.6" />
+    </>
+  )
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      <g transform="translate(24 50) rotate(-18)">{seed}</g>
+      <g transform="translate(42 54) rotate(24) scale(0.75)">{seed}</g>
+    </svg>
+  )
+}
+
 export function CoinIcon({ size = 24 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
@@ -46,6 +65,10 @@ function LineIcon({ size, strokeWidth = 2.2, children }) {
 
 export function JournalIcon({ size = 24 }) {
   return <LineIcon size={size}><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3" /></LineIcon>
+}
+
+export function DexIcon({ size = 24 }) {
+  return <LineIcon size={size}><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M12 6.5c0 2-1.5 3-3.5 3 0-2 1.5-3 3.5-3z" /></LineIcon>
 }
 
 export function DiagnosisIcon({ size = 24 }) {

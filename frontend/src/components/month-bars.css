@@ -1,0 +1,79 @@
+/* 1~12월 막대: 심는 달은 초록, 거두는 달은 주황. 막대 아래에 월 숫자와 범례 */
+.month-bars {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 2);
+}
+
+.month-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 3);
+}
+
+.month-scale,
+.month-track {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: calc(var(--space-gap) / 4);
+}
+
+.month-scale {
+  font-family: var(--font-num);
+  font-size: var(--fs-sub);
+  color: var(--color-text-sub);
+  text-align: center;
+}
+
+.month-scale .is-now {
+  color: var(--color-green-dark);
+  text-decoration: underline;
+}
+
+.month-cell {
+  height: 1.6em;
+  font-size: var(--fs-body);
+  border-radius: calc(var(--radius-small) / 3);
+  background: var(--color-bg);
+}
+
+.month-cell[data-on='true'] {
+  background: var(--color-green-main);
+}
+
+.month-track[data-kind='harvest'] .month-cell[data-on='true'] {
+  background: var(--color-harvest);
+}
+
+.month-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--space-gap) / 2) var(--space-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sub);
+  color: var(--color-text-sub);
+}
+
+.month-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.month-legend b {
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.month-legend i {
+  width: 1em;
+  height: 1em;
+  border-radius: calc(var(--radius-small) / 4);
+  background: var(--color-green-main);
+}
+
+.month-legend i[data-kind='harvest'] {
+  background: var(--color-harvest);
+}

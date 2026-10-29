@@ -24,6 +24,7 @@
   --color-info-text: #1D4E73;
   --color-done-bg: #E4F3D6;       /* '완료' 칩 */
   --color-done-text: #1F5E24;
+  --color-harvest: #F28C38;       /* 작물 도감 '거두는 달' 막대 */
 
   /* 글꼴 */
   --font-title: 'Jua', sans-serif;               /* 제목 */
