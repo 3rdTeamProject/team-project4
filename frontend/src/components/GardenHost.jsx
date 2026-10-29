@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { useCloudTransition } from '../hooks/useCloudTransition.js'
@@ -56,7 +57,17 @@ export function GardenHostProvider({ children }) {
   const [dev, setDev] = useState(null)
   const [gardenToast, setGardenToast] = useState(null) // 농장 화면이 보낸 안내 문구 { text, key }
   const [reward, setReward] = useState(null) // 일지를 올려 받은 포인트·레벨업 연출 { key, earned, bonus, firstHarvest, level, motion }
+  const [photoPreview, setPhotoPreview] = useState(null)
   const closeReward = useCallback(() => setReward(null), [])
+  useEffect(() => {
+    if (!photoPreview) return
+    const onEscape = event => { if (event.key === 'Escape') setPhotoPreview(null) }
+    window.addEventListener('keydown', onEscape)
+    return () => {
+      window.removeEventListener('keydown', onEscape)
+      if (photoPreview.objectUrl) URL.revokeObjectURL(photoPreview.url)
+    }
+  }, [photoPreview])
   useEffect(() => {
     if (!gardenToast) return
     const timer = setTimeout(() => setGardenToast(null), 2700)
@@ -249,6 +260,11 @@ export function GardenHostProvider({ children }) {
       flush()
     } else if (message?.type === 'garden:toast' && typeof message.message === 'string') {
       setGardenToast({ text: message.message, key: Date.now() }) // 농장 화면(iframe)은 내용만큼 길어서 안의 안내 문구는 화면 밖에 가려진다. 바깥에서 대신 보여 준다
+    } else if (message?.type === 'garden:photo-open') {
+      const blob = message.blob instanceof Blob && /^image\/(jpeg|png|webp)$/.test(message.blob.type) && message.blob.size <= 15 * 1024 * 1024 ? message.blob : null
+      const preview = typeof message.preview === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(message.preview) ? message.preview : null
+      if (!blob && !preview) return
+      setPhotoPreview({ url: blob ? URL.createObjectURL(blob) : preview, objectUrl: Boolean(blob), name: typeof message.name === 'string' && message.name ? message.name : '재배일지-사진.jpg' })
     } else if (message?.type === 'garden:reward' && Number.isFinite(message.earned) && message.earned >= 0) {
       const level = message.level
       const validLevel = level && [level.exp, level.before, level.after].every(Number.isFinite) && typeof level.leveledUp === 'boolean'
@@ -295,6 +311,15 @@ export function GardenHostProvider({ children }) {
     <span className="garden-save-status" role="status" aria-live="polite">{saving ? '저장 중…' : ''}</span>
     {gardenToast && <div key={gardenToast.key} className={`toast garden-toast${loaded && footerButtons.length ? ' has-footer' : ''}`} role="status">{gardenToast.text}</div>}
     {reward && <RewardEffect key={reward.key} reward={reward} onDone={closeReward} />}
+    {photoPreview && createPortal(<div className="garden-photo-backdrop" onClick={() => setPhotoPreview(null)}>
+      <section className="garden-photo-viewer" role="dialog" aria-modal="true" aria-label="재배일지 사진" onClick={event => event.stopPropagation()}>
+        <div className="garden-photo-actions">
+          <a href={photoPreview.url} download={photoPreview.name}>사진 다운로드</a>
+          <button type="button" className="garden-photo-close" onClick={() => setPhotoPreview(null)} aria-label="사진 닫기">×</button>
+        </div>
+        <img src={photoPreview.url} alt="재배일지 사진" />
+      </section>
+    </div>, document.body)}
   </GardenHostContext.Provider>
 }
 
