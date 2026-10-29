@@ -25,7 +25,7 @@ test('records a diagnosis for the matching farm and does not duplicate it', () =
   const sessionStore = store()
   const args = {
     userId: 7, record: diagnosis, localStore, sessionStore,
-    gardenState: { state: { farms: [{ name: '우리 텃밭', plots: [{ plantingId: 42 }] }] } },
+    gardenState: { state: { farms: [{ id: 'farm-1', name: '우리 텃밭', plots: [{ plantingId: 41 }, { plantingId: 42 }] }] } },
   }
   assert.equal(recordDiagnosisInJournal(args).alreadySaved, false)
   assert.equal(recordDiagnosisInJournal(args).alreadySaved, true)
@@ -33,6 +33,7 @@ test('records a diagnosis for the matching farm and does not duplicate it', () =
   assert.equal(saved.entries.length, 1)
   assert.equal(saved.entries[0].farm, '우리 텃밭')
   assert.equal(saved.entries[0].diagnosisRequestId, 'request-1')
+  assert.equal(saved.entries[0].plotRef, 'farm-1:2')
   assert.match(saved.entries[0].diagnosis, /잎곰팡이병/)
   assert.doesNotMatch(saved.entries[0].diagnosis, /권장 관리 방법/)
   assert.equal(JSON.parse(sessionStore.getItem('woori-garden-user-7-journal-preview-focus')).archived, false)
