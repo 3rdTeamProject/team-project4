@@ -37,6 +37,25 @@ export class ApiError extends Error {
   }
 }
 
+async function gardenPhotoRequest(path, { method = 'GET', file, preview } = {}) {
+  const token = storage.token
+  const body = file ? new FormData() : undefined
+  if (body) { body.append('preview', preview); body.append('photo', file) }
+  const response = await fetch(`${API_URL}${path}`, {
+    method, headers: token ? { Authorization: `Bearer ${token}` } : {}, body,
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new ApiError(response.status, data.detail || '원본 사진 요청에 실패했습니다.')
+  }
+  if (file) return response.json()
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1]
+  const name = encodedName ? decodeURIComponent(encodedName) : /filename="([^"]+)"/.exec(disposition)?.[1] || '재배일지-원본사진'
+  return { blob, name }
+}
+
 function normalizeDiagnosisResult(data = {}) {
   const quota = data.quota ?? data
   const status = data.status === 'limit_exceeded' ? 'limit' : data.status
@@ -171,6 +190,9 @@ export const api = {
   // body: { code } 또는 { link_ticket, choice }
   linkKakao: (body) => request('/auth/link-kakao', { method: 'POST', body, redirectOn401: false }),
   gardenState: () => request('/garden/state'),
+  deleteGardenHistory: (plantingId) => request(`/garden/history/${encodeURIComponent(plantingId)}`, { method: 'DELETE' }),
+  uploadGardenOriginal: (preview, file) => gardenPhotoRequest('/garden/photos/original', { method: 'POST', preview, file }),
+  gardenOriginal: (previewHash) => gardenPhotoRequest(`/garden/photos/original/${encodeURIComponent(previewHash)}`),
   saveGarden: (revision, state) => request('/garden/state', {method: 'PUT', body: {revision, state}}),
   gardenTasks: () => request('/garden/tasks'),
   gardenCrops: () => request('/garden/crops'),
