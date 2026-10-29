@@ -179,7 +179,11 @@ class TaskTest(unittest.TestCase):
 
     def test_transplant_starts_the_rest_and_stages_only_go_up(self):
         self.plant('seed')
-        self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 0)  # 옮겨심기 전에는 싹 없는 0단계(포트)
+        self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 1)  # 옮겨심기 전에도 1단계(그림만 포트)
+        self.goto(4)
+        self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 1)
+        self.goto(5)
+        self.assertEqual(self.load()['state']['farms'][0]['plots'][0]['stage'], 2)  # 포트에서도 날짜로 2단계
         self.goto(29)
         self.assertNotIn('모종 물 주기', self.titles())  # 옮겨심을 때가 되면 포트 물 주기는 더 보이지 않는다
         self.complete('모종 옮겨심기')
