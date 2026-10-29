@@ -1,0 +1,504 @@
+/* 작물 도감 목록·상세. 색·크기·간격은 design-tokens.css 변수만 쓴다 */
+.dex {
+  padding-bottom: var(--space-card);
+}
+
+/* ---------- 목록 ---------- */
+.dex-search {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--size-touch);
+  padding: 0 var(--space-card);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-card-title);
+}
+
+.dex-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--space-gap) / 2);
+}
+
+.dex-chip {
+  min-height: var(--size-touch);
+  padding: 0 var(--space-card);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-chip);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+
+.dex-chip[aria-pressed='true'] {
+  border-color: var(--color-green-btn);
+  background: var(--color-green-btn);
+  color: var(--color-on-btn);
+}
+
+/* 심을 달로 찾기: 전체 · 이번 달 · 다른 달 선택창 */
+.dex-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--space-gap) / 2);
+}
+
+.dex-select {
+  position: relative;
+  display: inline-flex;
+}
+
+.dex-select select {
+  min-height: var(--size-touch);
+  padding: 0 calc(var(--space-card) * 2) 0 var(--space-card);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-chip);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  appearance: none;
+  cursor: pointer;
+}
+
+.dex-select[data-active='true'] select {
+  border-color: var(--color-green-btn);
+  background: var(--color-green-btn);
+  color: var(--color-on-btn);
+}
+
+/* 아래 화살표 */
+.dex-select::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: var(--space-card);
+  width: 0.45em;
+  height: 0.45em;
+  border-right: 0.12em solid currentColor;
+  border-bottom: 0.12em solid currentColor;
+  color: var(--color-text-sub);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.dex-select[data-active='true']::after {
+  color: var(--color-on-btn);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.dex-count {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--color-text-sub);
+}
+
+.dex-empty,
+.dex-note {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--color-text-sub);
+}
+
+.dex-empty {
+  padding: var(--space-card) 0;
+  text-align: center;
+}
+
+.dex-note,
+.dex-when {
+  word-break: keep-all;
+}
+
+.dex-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dex-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-gap);
+  padding: var(--space-card);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-card);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.dex-thumb {
+  flex: none;
+  width: calc(var(--size-button) * 1.3);
+  height: calc(var(--size-button) * 1.3);
+}
+
+.dex-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 3);
+}
+
+.dex-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--space-gap) / 2);
+}
+
+.dex-card-name {
+  font-size: var(--fs-card-title);
+  font-weight: bold;
+}
+
+.dex-card-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-sub);
+  color: var(--color-text-sub);
+}
+
+.dex-card-arrow {
+  flex: none;
+  color: var(--color-text-sub);
+}
+
+.dex-badge {
+  padding: 0.15em 0.7em;
+  border-radius: var(--radius-chip);
+  background: var(--color-done-bg);
+  color: var(--color-done-text);
+  font-size: var(--fs-sub);
+  white-space: nowrap;
+}
+
+/* ---------- 상세 ---------- */
+.dex-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--space-gap) / 2);
+  padding: var(--space-card);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-card);
+  text-align: center;
+}
+
+.dex-hero-art {
+  width: calc(var(--size-button) * 3);
+  height: calc(var(--size-button) * 3);
+}
+
+.dex-hero-name {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: normal;
+  font-size: var(--fs-screen-title);
+}
+
+.dex-hero-summary {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--color-text-sub);
+  word-break: keep-all;
+}
+
+.dex-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-gap);
+  padding: var(--space-card);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-card);
+}
+
+.dex-section-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: normal;
+  font-size: var(--fs-section-title);
+}
+
+.dex-info {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-body);
+}
+
+.dex-info li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-gap);
+  padding: calc(var(--space-gap) * 0.7) 0;
+  border-bottom: thin solid var(--color-border);
+}
+
+.dex-info li:last-child {
+  border-bottom: 0;
+}
+
+.dex-info span {
+  flex: none;
+  color: var(--color-text-sub);
+}
+
+.dex-info b {
+  font-weight: normal;
+  text-align: right;
+  word-break: keep-all;
+}
+
+.dex-tag {
+  padding: 0.1em 0.6em;
+  border-radius: var(--radius-chip);
+  background: var(--color-bg);
+  color: var(--color-green-dark);
+  font-size: var(--fs-sub);
+  white-space: nowrap;
+}
+
+/* ---------- 할 일 캘린더 ---------- */
+.dex-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-gap);
+}
+
+.dex-field {
+  flex: 1 1 calc(var(--size-button) * 3);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 3);
+  font-size: var(--fs-sub);
+  color: var(--color-text-sub);
+}
+
+.dex-field input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--size-touch);
+  padding: 0 calc(var(--space-card) / 2);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+
+.dex-prep {
+  border-radius: var(--radius-small);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  font-size: var(--fs-body);
+}
+
+.dex-prep summary {
+  padding: calc(var(--space-card) * 0.75) var(--space-card);
+  cursor: pointer;
+}
+
+.dex-prep ul {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 2);
+  margin: 0;
+  padding: 0 var(--space-card) var(--space-card);
+  list-style: none;
+}
+
+.dex-prep li {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 4);
+}
+
+/* 세로 타임라인: 달 제목 아래에 할 일이 위에서 아래로 이어진다 */
+.dex-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-card);
+}
+
+.dex-tl-month {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 2);
+}
+
+.dex-tl-title {
+  align-self: flex-start;
+  margin: 0;
+  padding: 0.1em 0.9em;
+  border-radius: var(--radius-chip);
+  background: var(--color-green-btn);
+  color: var(--color-on-btn);
+  font-family: var(--font-num);
+  font-weight: normal;
+  font-size: var(--fs-card-title);
+}
+
+.dex-tl-steps {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 2);
+  margin: 0 0 0 calc(var(--space-gap) / 2);
+  padding: 0 0 0 var(--space-card);
+  border-left: thick solid var(--color-border);
+  list-style: none;
+}
+
+.dex-task {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 4);
+  padding: calc(var(--space-card) * 0.75) var(--space-card);
+  border-radius: var(--radius-small);
+  background: var(--color-bg);
+  font-size: var(--fs-body);
+}
+
+.dex-task-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--space-gap) / 3);
+}
+
+.dex-task::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--space-card) * -1 - 0.5em);
+  top: 1.1em;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: var(--radius-chip);
+  background: var(--color-green-main);
+  box-shadow: 0 0 0 0.2em var(--color-bg);
+}
+
+.dex-task[data-harvest='true'] {
+  background: var(--color-warn-bg);
+}
+
+.dex-task[data-harvest='true']::before {
+  background: var(--color-harvest);
+}
+
+.dex-task .dex-tag {
+  background: var(--color-card);
+}
+
+.dex-task .dex-tag-harvest {
+  background: var(--color-harvest);
+  color: var(--color-on-btn);
+}
+
+.dex-task-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--space-gap) / 3) calc(var(--space-gap) / 2);
+}
+
+.dex-when {
+  padding: 0.1em 0.7em;
+  border-radius: var(--radius-chip);
+  background: var(--color-done-bg);
+  color: var(--color-done-text);
+  font-size: var(--fs-sub);
+  font-weight: bold;
+}
+
+.dex-task[data-harvest='true'] .dex-when {
+  background: var(--color-card);
+  color: var(--color-warn-text);
+}
+
+.dex-since {
+  font-size: var(--fs-sub);
+  color: var(--color-text-sub);
+}
+
+.dex-task-tip {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-sub);
+  color: var(--color-text-sub);
+}
+
+.dex-howto summary {
+  font-size: var(--fs-sub);
+  color: var(--color-green-dark);
+  cursor: pointer;
+}
+
+.dex-howto p {
+  margin: calc(var(--space-gap) / 3) 0 0;
+  font-size: var(--fs-body);
+  white-space: pre-line;
+  word-break: keep-all;
+}
+
+/* ---------- 성장 단계 ---------- */
+.dex-stages {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: calc(var(--space-gap) / 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dex-stages li {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--space-gap) / 4);
+  text-align: center;
+}
+
+.dex-stage-art {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.dex-stage-no {
+  font-family: var(--font-num);
+  font-size: var(--fs-sub);
+  color: var(--color-green-dark);
+}
+
+.dex-stage-name {
+  font-size: var(--fs-sub);
+  word-break: keep-all;
+}

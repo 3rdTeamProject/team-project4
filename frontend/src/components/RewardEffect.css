@@ -24,6 +24,15 @@
   animation: reward-rise calc(var(--motion-slow) * 1.5) var(--ease-pop) both;
 }
 
+.reward-done {
+  padding: 0.2em 0.9em;
+  border-radius: var(--radius-chip);
+  background: var(--color-card);
+  color: var(--color-green-dark);
+  font-size: var(--fs-body);
+  box-shadow: var(--shadow-pop);
+}
+
 .reward-plus {
   padding: 0.05em 0.6em;
   border-radius: var(--radius-chip);

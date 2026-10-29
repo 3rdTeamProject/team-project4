@@ -7,8 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from level import LEVEL_MIN_EXP, level_from_exp
 
 # (exp, 레벨): 구간 경계 바로 아래와 위
-CASES = [(0, 1), (59, 1), (60, 2), (159, 2), (160, 3), (299, 3), (300, 4), (499, 4), (500, 5),
-         (799, 5), (800, 6), (1199, 6), (1200, 7), (1699, 7), (1700, 8), (2299, 8), (2300, 9), (2999, 9), (3000, 10), (99999, 10)]
+CASES = [(0, 1), (119, 1), (120, 2), (319, 2), (320, 3), (599, 3), (600, 4), (999, 4), (1000, 5),
+         (1599, 5), (1600, 6), (2399, 6), (2400, 7), (3399, 7), (3400, 8), (4599, 8), (4600, 9), (5999, 9), (6000, 10), (99999, 10)]
 
 
 class LevelTest(unittest.TestCase):
@@ -20,7 +20,7 @@ class LevelTest(unittest.TestCase):
         self.assertEqual(len(LEVEL_MIN_EXP), 10)
         gaps = [b - a for a, b in zip(LEVEL_MIN_EXP, LEVEL_MIN_EXP[1:])]
         self.assertEqual(gaps, sorted(gaps))  # 올라갈수록 필요한 경험치가 늘어난다
-        self.assertEqual(gaps[0], 60)  # 첫 레벨업은 할 일 6번 정도면 된다
+        self.assertEqual(gaps[0], 120)  # 첫 레벨업은 할 일 12번 정도면 된다
 
 
 if __name__ == '__main__':

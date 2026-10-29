@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { storage } from '../api.js'
-import { ChevronRightIcon, CloseIcon, CoinIcon, DiagnosisIcon, JournalIcon, LevelIcon, SettingsIcon, ShopIcon } from '../components/Icons.jsx'
+import { ChevronRightIcon, CloseIcon, CoinIcon, DexIcon, DiagnosisIcon, JournalIcon, LevelIcon, SettingsIcon, ShopIcon } from '../components/Icons.jsx'
 import LevelBadge from '../components/LevelBadge.jsx'
 import { levelFromExp } from '../constants/level.js'
 import { useGoBack } from '../hooks/useGoBack.js'
@@ -11,6 +11,7 @@ import './screens.css'
 
 const MENU_ITEMS = [
   { label: '재배일지', to: '/journals', Icon: JournalIcon },
+  { label: '작물 도감', to: '/dex', Icon: DexIcon },
   {
     label: 'AI진단',
     Icon: DiagnosisIcon,

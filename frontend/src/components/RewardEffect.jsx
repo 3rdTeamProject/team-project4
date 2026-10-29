@@ -17,9 +17,9 @@ const SPARKS = [
 ]
 
 /**
- * 일지를 올려 포인트를 받은 순간의 연출. +P가 떠오르고, 경험치 막대가 차오른다.
- * 레벨이 올랐다면 카드가 끝난 뒤 레벨업 팝업을 이어서 보여 준다.
- * reward: { earned, bonus, firstHarvest, level: { exp, before, after, leveledUp } | null, motion }
+ * 일지를 올린 순간의 연출. "일지를 올렸어요"와 함께 +P가 떠오르고, 경험치 막대가 차오른다.
+ * 포인트가 0이면 문구만 보여 준다. 레벨이 올랐다면 카드가 끝난 뒤 레벨업 팝업을 이어서 보여 준다.
+ * reward: { earned, bonus, firstHarvest, grownTo(단계가 오른 경우 새 단계), level: { exp, before, after, leveledUp } | null, motion }
  */
 export default function RewardEffect({ reward, onDone }) {
   const [phase, setPhase] = useState('points')
@@ -59,9 +59,15 @@ export default function RewardEffect({ reward, onDone }) {
       aria-live="polite"
     >
       <div className="reward-points">
-        <span className="reward-plus">+{reward.earned}P</span>
+        <span className="reward-done">일지를 올렸어요 ✓</span>
+        {reward.earned > 0 && <span className="reward-plus">+{reward.earned}P</span>}
         {reward.firstHarvest && reward.bonus > 0 && (
           <span className="reward-bonus">첫 수확 보너스 +{reward.bonus}P 포함</span>
+        )}
+        {reward.firstHarvest ? (
+          <span className="reward-bonus">첫 수확을 축하해요 🧺</span>
+        ) : (
+          reward.grownTo && <span className="reward-bonus">{reward.grownTo}단계로 자랐어요 🌱</span>
         )}
         {SPARKS.map((spark, index) => (
           <span
@@ -74,7 +80,7 @@ export default function RewardEffect({ reward, onDone }) {
           </span>
         ))}
       </div>
-      {level && (
+      {level && reward.earned > 0 && (
         <div className="reward-exp">
           <div className="reward-exp-head">
             <b className="reward-level">Lv.{before.level}</b>
