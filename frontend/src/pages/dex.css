@@ -448,11 +448,9 @@
 }
 
 .dex-task-tip {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   font-size: var(--fs-sub);
   color: var(--color-text-sub);
+  word-break: keep-all;
 }
 
 .dex-howto summary {
