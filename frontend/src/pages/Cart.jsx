@@ -81,9 +81,11 @@ export default function Cart() {
 
   return (
     <div className="screen ex-screen">
-      <header className="screen-header shop-header">
-        <button type="button" className="icon-btn" onClick={goBack} aria-label="돌아가기">‹</button>
-        <h1 className="screen-title shop-title">장바구니</h1>
+      <header className="screen-header journal-aligned-header shop-header">
+        <div className="journal-aligned-title">
+          <button type="button" className="icon-btn journal-aligned-back" onClick={goBack} aria-label="돌아가기" />
+          <h1 className="screen-title shop-title">장바구니</h1>
+        </div>
         {me && (
           <span className="shop-points">
             <CoinIcon size={28} />

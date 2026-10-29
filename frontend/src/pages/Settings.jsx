@@ -87,10 +87,11 @@ export default function Settings() {
 
   return (
     <div className="screen">
-      <header className="screen-header">
-        <button type="button" className="icon-btn" onClick={goBack} aria-label="뒤로가기">‹</button>
-        <h1 className="screen-title">환경설정</h1>
-        <span className="icon-btn-spacer" />
+      <header className="screen-header journal-aligned-header">
+        <div className="journal-aligned-title">
+          <button type="button" className="icon-btn journal-aligned-back" onClick={goBack} aria-label="뒤로가기" />
+          <h1 className="screen-title">환경설정</h1>
+        </div>
       </header>
 
       {error && <p className="error">{error}</p>}
@@ -180,6 +181,10 @@ export default function Settings() {
           <section className="set-group">
             <h2 className="set-label">도움</h2>
             <div className="set-card">
+              <Link className="set-row set-link" to="/intro?reset">
+                <span className="set-title">앱 소개 다시 보기</span>
+                <Chevron />
+              </Link>
               <button type="button" className="set-row set-link" onClick={comingSoon}>
                 <span className="set-title">문의·피드백</span>
                 <Chevron />

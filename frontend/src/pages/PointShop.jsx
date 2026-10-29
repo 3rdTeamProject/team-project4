@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, ReceiptIcon } from '../components/Icons.jsx'
@@ -31,6 +31,7 @@ export default function PointShop() {
   const [cartCount, setCartCount] = useState(0)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState('전체')
+  const tabsRef = useRef(null)
   const [query, setQuery] = useState('')
   const state = useLocation().state
   // 교환을 마치고 오면 '교환했어요', 카카오 연동에 실패하고 오면 환경설정과 같은 안내
@@ -54,6 +55,21 @@ export default function PointShop() {
     api.orders().then(setOrders).catch(() => {})
   }, [isMember])
 
+  useEffect(() => {
+    const strip = tabsRef.current
+    if (!strip) return
+    const onWheel = (event) => {
+      if (strip.scrollWidth <= strip.clientWidth) return
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+      const next = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, strip.scrollLeft + delta))
+      if (next === strip.scrollLeft) return
+      event.preventDefault()
+      strip.scrollLeft = next
+    }
+    strip.addEventListener('wheel', onWheel, { passive: false })
+    return () => strip.removeEventListener('wheel', onWheel)
+  }, [])
+
   if (!storage.token) return <Navigate to="/" replace />
 
   const q = query.trim().toLowerCase()
@@ -73,19 +89,23 @@ export default function PointShop() {
 
   return (
     <div className="screen">
-      <header className="screen-header shop-header">
-        <button type="button" className="icon-btn" onClick={goBack} aria-label="돌아가기">‹</button>
-        <h1 className="screen-title shop-title">포인트샵</h1>
-        <Link className="icon-btn shop-cart" to="/cart" aria-label="장바구니">
-          <CartIcon size={26} />
-          {cartCount > 0 && <span className="shop-badge">{cartCount}</span>}
-        </Link>
-        {me && (
-          <span className="shop-points">
-            <CoinIcon size={28} />
-            {me.point.toLocaleString()}P
-          </span>
-        )}
+      <header className="screen-header journal-aligned-header shop-header">
+        <div className="journal-aligned-title">
+          <button type="button" className="icon-btn journal-aligned-back" onClick={goBack} aria-label="돌아가기" />
+          <h1 className="screen-title shop-title">포인트샵</h1>
+        </div>
+        <div className="journal-aligned-actions">
+          <Link className="icon-btn shop-cart" to="/cart" aria-label="장바구니">
+            <CartIcon size={26} />
+            {cartCount > 0 && <span className="shop-badge">{cartCount}</span>}
+          </Link>
+          {me && (
+            <span className="shop-points">
+              <CoinIcon size={28} />
+              {me.point.toLocaleString()}P
+            </span>
+          )}
+        </div>
       </header>
       {state?.purchaseUncertain && <section className="ex-card" role="alert">
         <p>교환 결과를 확인하지 못했어요. 중복 구매를 피하려면 다시 구매하기 전에 주문 내역과 포인트 잔액을 확인해 주세요.</p>
@@ -134,7 +154,7 @@ export default function PointShop() {
         )}
       </div>
 
-      <div className="shop-tabs" role="group" aria-label="상품 종류">
+      <div ref={tabsRef} className="shop-tabs" role="group" aria-label="상품 종류">
         {TABS.map((name) => (
           <button key={name} type="button" className="shop-tab" aria-pressed={tab === name} onClick={() => setTab(name)}>
             {name}

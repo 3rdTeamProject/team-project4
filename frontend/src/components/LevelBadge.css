@@ -1,0 +1,32 @@
+/* 별칭이 올라갈수록 초록이 짙어지고, 마지막 '농사 달인'은 포인트 금색 */
+.level-badge {
+  display: inline-block;
+  padding: 0.1em 0.8em;
+  border-radius: var(--radius-chip);
+  font-family: var(--font-title);
+  font-size: var(--fs-sub);
+  line-height: 1.7;
+  white-space: nowrap;
+  background: var(--color-done-bg);
+  color: var(--color-done-text);
+}
+
+.level-badge.tier-2 {
+  background: var(--color-green-leaf);
+  color: var(--color-green-dark);
+}
+
+.level-badge.tier-3 {
+  background: var(--color-green-main);
+  color: var(--color-text);
+}
+
+.level-badge.tier-4 {
+  background: var(--color-green-btn);
+  color: var(--color-on-btn);
+}
+
+.level-badge.tier-5 {
+  background: var(--color-point-chip);
+  color: var(--color-point-text);
+}

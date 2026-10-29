@@ -16,9 +16,12 @@
   let lastView = '';
   function afterRender() {
     app.dataset.view = view;
-    if (role === 'panel' && lastView !== view) {
-      lastView = view;
-      post({ type: 'garden:pc-view', view });
+    const snapshot = role === 'scene' ? JSON.stringify({ view, selected, plotIndex, pendingPlot }) : view;
+    if (lastView !== snapshot) {
+      lastView = snapshot;
+      post(role === 'scene'
+        ? { type: 'garden:pc-view', view, selected, plotIndex, pendingPlot }
+        : { type: 'garden:pc-view', view });
     }
   }
 

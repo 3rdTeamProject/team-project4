@@ -50,7 +50,7 @@ test('default, old leaf and detail URLs all render the existing AI form', async 
       assert.doesNotMatch(html, /잎 관찰|YOLO|모델 미연결/)
     }
     const limit = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Result, { result: { status: 'limit' } })))
-    assert.match(limit, /href="\/home"/)
+    assert.match(limit, /href="\/pointshop"/)
     assert.doesNotMatch(limit, /잎 관찰/)
     const environment = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Result, {
       result: { status: 'diagnosed', diseaseName: '수분 부족 의심', evidence: ['잎 처짐'], management: ['흙 수분 확인'], additionalChecks: [] },

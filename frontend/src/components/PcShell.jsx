@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery.js'
 import CloudTransition from './CloudTransition.jsx'
@@ -11,6 +12,16 @@ import '../pages/pc-layout.css'
  */
 export default function PcShell() {
   const wide = useMediaQuery('(min-width: 1024px)')
+  const host = useGardenHost()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const wasWide = useRef(wide)
+  useEffect(() => {
+    if (wasWide.current && !wide && pathname === '/menu') {
+      navigate('/home', { replace: true, state: { scene: host.sceneState } })
+    }
+    wasWide.current = wide
+  }, [wide, pathname, navigate, host.sceneState])
   return wide ? <PcLayout /> : <Outlet />
 }
 
@@ -26,7 +37,7 @@ function PcLayout() {
 
   return <div className="pc-shell">
     <div className="pc-scene">
-      {!host.loaded && !host.error && <p className="muted">내 농장을 불러오는 중…</p>}
+      {!host.loaded && !host.error && <p className="muted garden-loading">내 농장을 불러오는 중…</p>}
       <GardenFrame name="main" role="scene" view="garden" title="우리텃밭 농장 관리" allow="geolocation 'self'" style={{display: host.loaded ? 'block' : 'none'}} />
     </div>
     <div className="pc-cloud-area"><CloudTransition phase={host.cloud.phase} timing={host.cloud.timing} /></div>

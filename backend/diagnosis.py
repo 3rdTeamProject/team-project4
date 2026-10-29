@@ -33,6 +33,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    false,
     insert,
     or_,
     select,
@@ -106,7 +107,9 @@ def now_kst() -> datetime:
 
 
 def funding_source(row) -> str:
-    """Legacy requests without billing metadata always used the daily quota."""
+    """Read metadata reservations and legacy main-branch prepaid requests."""
+    if row.get("credit_used"):
+        return "purchased"
     result = row["result"] if isinstance(row["result"], dict) else {}
     metadata = result.get("metadata")
     return "purchased" if isinstance(metadata, dict) and metadata.get("quota_source") == "purchased" else "daily_free"
@@ -114,11 +117,13 @@ def funding_source(row) -> str:
 
 def quota_snapshot(conn, requests: Table, user_id: int, current: datetime, users: Table) -> dict:
     usage_date = current.astimezone(KST).date()
+    # 충전 횟수로 처리한 요청은 하루 무료 횟수에 세지 않는다
     rows = conn.execute(
         select(requests.c.quota_reserved, requests.c.quota_consumed, requests.c.usage_date, requests.c.result).where(
             requests.c.user_id == user_id,
             or_(requests.c.usage_date == usage_date, requests.c.quota_reserved.is_(True)),
             requests.c.is_demo.is_(False),
+            requests.c.credit_used.is_(False),
         )
     )
     reserved_count = 0
@@ -148,6 +153,7 @@ def quota_snapshot(conn, requests: Table, user_id: int, current: datetime, users
         "used_count": used_count,
         "remaining_count": remaining_count,
         "reserved_count": reserved_count,
+        "credit_count": purchased_available,  # 포인트샵에서 충전한 남은 횟수(무료 횟수를 다 쓴 뒤에 차감)
         "reset_at": reset_at.isoformat(),
         "purchased_balance": purchased_balance,
         "purchased_reserved": purchased_reserved,
@@ -433,6 +439,7 @@ def register_diagnoses(
         Column("request_fingerprint", String(64), nullable=False),
         Column("quota_reserved", Boolean, nullable=False, default=True),
         Column("quota_consumed", Boolean, nullable=False, default=False),
+        Column("credit_used", Boolean, nullable=False, default=False, server_default=false()),  # 충전 횟수로 처리한 요청
         Column("is_demo", Boolean, nullable=False, default=False),
         Column("outcome", String(32), nullable=True),
         Column("result", JSON, nullable=True),
@@ -603,6 +610,7 @@ def register_diagnoses(
                     request_fingerprint=fingerprint,
                     quota_reserved=not service.is_demo,
                     quota_consumed=False,
+                    credit_used=False,
                     is_demo=service.is_demo,
                     result={"metadata": request_metadata},
                 ))
@@ -710,6 +718,7 @@ def register_diagnoses(
                         .values(
                             status="completed",
                             outcome=result["status"],
+                            credit_used=request_metadata["quota_source"] == "purchased",
                             result=result,
                             quota_reserved=False,
                             quota_consumed=not service.is_demo,

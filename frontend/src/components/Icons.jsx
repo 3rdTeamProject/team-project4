@@ -57,7 +57,10 @@ export function ShopIcon({ size = 24 }) {
 }
 
 export function SettingsIcon({ size = 24 }) {
-  return <LineIcon size={size}><path d="M12 15a3 3 0 100-6 3 3 0 000 6zM19 12l2-1-2-4-2 1-2-1V5h-4v2l-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1v2h4v-2l2-1 2 1 2-4-2-1z" /></LineIcon>
+  return <LineIcon size={size} strokeWidth={1.8}>
+    <path d="M10 2h4l.4 2.1c.6.2 1.2.4 1.7.7l1.8-1.2 2.5 2.5-1.2 1.8c.3.5.5 1.1.7 1.7L22 10v4l-2.1.4c-.2.6-.4 1.2-.7 1.7l1.2 1.8-2.5 2.5-1.8-1.2c-.5.3-1.1.5-1.7.7L14 22h-4l-.4-2.1c-.6-.2-1.2-.4-1.7-.7l-1.8 1.2-2.5-2.5 1.2-1.8c-.3-.5-.5-1.1-.7-1.7L2 14v-4l2.1-.4c.2-.6.4-1.2.7-1.7L3.6 6.1l2.5-2.5 1.8 1.2c.5-.3 1.1-.5 1.7-.7Z" strokeLinejoin="round" />
+    <circle cx="12" cy="12" r="3" />
+  </LineIcon>
 }
 
 // 메뉴 프로필의 레벨 표시: 초록 선 새싹

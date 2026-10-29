@@ -5,17 +5,24 @@ import { useGoBack } from '../hooks/useGoBack.js'
 import './diagnosis.css'
 
 export default function Diagnosis() {
-  const close = useGoBack('/home')
+  const close = useGoBack('/menu')
 
   if (!storage.token) return <Navigate to="/" replace />
 
   return (
     <main className="screen diagnosis-screen">
-      <header className="screen-header">
-        <button type="button" className="icon-btn diagnosis-back" onClick={close} aria-label="이전 화면으로 돌아가기">‹</button>
-        <h1 className="screen-title">AI 상세 진단</h1>
-        <span className="icon-btn-spacer" aria-hidden="true" />
+      <header className="screen-header journal-aligned-header">
+        <div className="journal-aligned-title">
+          <button
+            type="button"
+            className="icon-btn journal-aligned-back"
+            onClick={close}
+            aria-label="메뉴로 돌아가기"
+          />
+          <h1 className="screen-title">AI 진단</h1>
+        </div>
       </header>
+
       <DiagnosisDetails onBack={close} />
     </main>
   )

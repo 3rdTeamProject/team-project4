@@ -16,11 +16,6 @@
 .leaf-result-card{padding:var(--space-card);background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-card)}
 .leaf-result-card b{color:var(--green);overflow-wrap:anywhere}.leaf-result-card p{color:var(--muted);font-size:var(--fs-sub);line-height:1.6}
 .leaf-result-page+.footer{flex-wrap:wrap}.leaf-result-page+.footer .primary{flex-basis:100%}.leaf-result-page+.footer .secondary{flex:1}
-.diagnosis-crops{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-gap);margin:var(--space-gap) 0 var(--space-card)}
-.diagnosis-crop{min-height:var(--size-touch);padding:var(--space-gap);border:1px solid var(--color-border);border-radius:var(--radius-small);background:var(--color-card);color:var(--ink);text-align:left}
-.diagnosis-crop.active{border-color:var(--green);background:var(--color-done-bg);color:var(--green);font-weight:700}
-.diagnosis-page .field-label{margin-top:var(--space-card)}.diagnosis-page .photo-strip{margin-bottom:var(--space-card)}
-.diagnosis-page+.footer .primary:disabled{opacity:.65;cursor:not-allowed}
 .seed-sign{font-synthesis:weight}
 .seed-sign b{display:block;font-size:30px;font-weight:700;line-height:1.15}
 .seed-sign small{font-size:13px;font-weight:700;line-height:1.35;margin-top:8px}
@@ -37,7 +32,9 @@
 .jr-archive{background:#fff;border:1px solid #dce7d2;border-radius:16px;padding:14px;margin:10px 0}.jr-archive>div:first-child{display:flex;align-items:center;justify-content:space-between}.jr-archive b{font-size:16px}.jr-archive>div>span{background:#ffd36b;border-radius:12px;padding:4px 8px;font-size:10px;font-weight:700}.jr-archive>small{display:block;color:#758270;margin-top:6px;font-size:11px}.jr-archive>p{font-size:11px;margin:11px 0}.jr-archive>button{background:transparent;color:#2f7d32;font-size:11px;font-weight:800;padding:0}.jr-archive .jr-card{box-shadow:none}.jr-empty{text-align:center;padding:42px 12px;color:#5e7057}.jr-empty p{font-size:12px}
 .jr-planting{display:flex;align-items:center;gap:8px;margin:8px 0;padding:10px 12px;border-radius:10px;background:#eaf5e3;color:#245b2a}.jr-planting span{font-size:19px}.jr-planting b{font-size:12px}.jr-planting small{margin-left:auto;font-size:10px;color:#577250}
 .jr-memo-label{display:block;margin:8px 0 3px;color:#6c7c65;font-size:10px;font-weight:700}
-.jr-write-page #jr-planting-method{width:100%;height:42px;padding:0 12px;border:1px solid #d9e5d0;border-radius:10px;background:#fff;color:#203022}
+.jr-write-page .jr-planting-picker{margin:8px 0 0}
+.jr-write-page .jr-planting-picker summary{min-height:48px;font-size:14px;font-weight:500}
+.jr-write-page .jr-planting-picker .jr-farm-options button{font-size:14px}
 .jr-write-page{position:relative}.jr-write-page .page-head{margin-bottom:20px}.jr-write-page time{position:absolute;right:25px;top:38px;color:#63745b;font-size:11px}.jr-write-page h3{font-size:15px;margin:0 0 12px}.jr-choices{display:grid;gap:7px;margin-bottom:20px}.jr-choice{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #d9e5d0;border-radius:12px;background:#fff;padding:12px;color:#203022}.jr-choice.active{border:2px solid #2f7d32;background:#e7f3df;padding:11px}.jr-choice i{width:17px;height:17px;border:1.5px solid #c4d6ba;border-radius:50%;flex:none}.jr-choice.active i{background:#2f7d32;border-color:#2f7d32}.jr-choice b,.jr-choice small{display:block}.jr-choice b{font-size:12px}.jr-choice small{font-size:10px;color:#74816d;margin-top:3px}.jr-write-page .field{margin-bottom:18px}.jr-write-page .field-label{display:flex;justify-content:space-between;align-items:center;font-size:15px}.jr-write-page .count{background:#e7f3df;color:#2f7d32;border-radius:12px;padding:4px 7px;font-size:10px}.jr-uploads{display:flex;flex-wrap:wrap;gap:7px}.jr-uploads label,.jr-uploads button{width:69px;height:69px;border:1px dashed #a7c99c;border-radius:10px;background:#f8fbf5;color:#2f7d32;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;font-size:20px;cursor:pointer}.jr-uploads small{font-size:11px;font-weight:700}.jr-uploads button{padding:0;overflow:hidden}.jr-uploads img{width:100%;height:100%;object-fit:cover}.jr-uploads button span{position:absolute;right:2px;top:1px;color:#fff;background:#355c38;border-radius:50%;padding:0 5px}.jr-write-page textarea{min-height:88px;width:100%;resize:vertical}.jr-footer{width:100%;display:grid;gap:8px;text-align:center}.jr-footer .primary:disabled{opacity:.55;cursor:not-allowed}.jr-footer small{color:#7c8876;font-size:10px}
 .jr-task-list{margin:8px 0}.jr-task-list>b{display:block;font-size:11px;margin-bottom:5px}.jr-group-count{font-style:normal;flex:none;border-radius:10px;background:#e7f3df;color:#236a31;padding:3px 6px;font-size:10px;font-weight:700}
 .jr-note{display:block;position:static;width:auto;height:auto;transform:none;padding:10px 11px;border:1px solid transparent;border-radius:10px}.jr-note b{font-size:11px;line-height:1.4}.jr-note small{font-size:10px;line-height:1.45}.jr-note-leaf{border-color:#edc56d}.jr-note-ai{border-color:#c8dfef}.jr-note+.jr-note{margin-top:7px}
@@ -60,7 +57,8 @@
 
 /* 바깥 페이지가 하단 고정 막대로 보여 주는 푸터는 이 안에서 숨긴다(글자·입력이 섞인 푸터는 data-own으로 남긴다) */
 html.hosted .footer:not([data-own]){display:none}
-.jr-write-page #jr-memo{min-height:160px;field-sizing:content;resize:vertical}
+.jr-write-page #jr-memo{height:160px;min-height:160px;field-sizing:fixed;resize:none;overflow-y:auto}
+#feature-memo,#jr-demo-detail,#jr-demo-result{resize:none;overflow-y:auto}
 
 /* Journal navigation and record readability */
 .jr-page .back-title,.jr-write-page .back-title{gap:4px}
@@ -70,6 +68,7 @@ html.hosted .footer:not([data-own]){display:none}
 .crop-selection-page .back-title .icon-btn{width:44px;height:44px;margin-left:-12px;padding:0;font-size:0}
 .crop-selection-page .back-title .icon-btn::before{content:"";width:10px;height:10px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:translate(2px,-1px) rotate(45deg)}
 .crop-selection-page .selection-card.active{background:var(--color-card);border:1px solid var(--green);box-shadow:0 0 0 1px var(--green)}
+.crop-selection-page .selection-grid{gap:22px 18px}
 .jr-page .jr-card{padding:19px 16px;margin:14px 0}
 .jr-page .jr-card-head{gap:9px;margin-bottom:16px;line-height:1.5}
 .jr-page .jr-card-head small,.jr-page .jr-planting small,.jr-page .jr-note small,.jr-page .jr-memo-label{font-size:13px}
@@ -83,3 +82,26 @@ html.hosted .footer:not([data-own]){display:none}
 .jr-page .jr-group-menu-row small{margin-bottom:3px}
 .jr-page .jr-group-menu-row button{padding:7px 8px}
 .jr-archive-farm{margin-bottom:12px}.jr-archive-farm>h3{margin:0 0 10px;font-size:15px}.jr-archive-farm>h3 button{display:flex;align-items:center;gap:8px;width:100%;min-height:var(--size-touch);padding:0 4px;border:0;background:none;color:var(--color-text);font:inherit;text-align:left;cursor:pointer}.jr-archive-farm>h3 b{font-size:15px}.jr-archive-farm>h3 span{padding:2px 8px;border:1px solid var(--color-border);border-radius:var(--radius-chip);background:var(--color-bg);color:var(--color-text-sub);font-size:11px;font-weight:600}.jr-archive-farm>h3 em{margin-left:auto;color:var(--color-text-sub);font-size:12px;font-style:normal;font-weight:400}.jr-archive-farm>h3 svg{flex:none;width:16px;height:16px}
+.jr-page .jr-group-menu-row button[data-jr="diagnosis-result"]{white-space:nowrap}
+.jr-diagnosis-result .jr-diagnosis-card{margin:16px 0;padding:18px;border:1px solid var(--color-border,#dce7d2);border-radius:14px;background:var(--color-card,#fff)}
+.jr-diagnosis-result .jr-diagnosis-card h2{margin:0 0 10px;font-size:16px}
+.jr-diagnosis-result .jr-diagnosis-card p{margin:0;line-height:1.6}
+.jr-diagnosis-result .jr-diagnosis-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.jr-diagnosis-result .jr-diagnosis-card small{display:block;margin-top:12px;color:var(--color-text-muted,#63745b)}
+.jr-diagnosis-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.jr-diagnosis-photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}
+.jr-write-page .jr-uploads label,.jr-write-page .jr-uploads button{width:88px;height:88px}
+.jr-write-page .jr-uploads label{gap:4px;font-size:28px;line-height:1}
+.jr-write-page .jr-photo-add-icon{font-size:25px;line-height:1}
+.jr-write-page .jr-uploads label small{font-size:14px;line-height:1.3}
+.jr-archive-farm>h3{display:flex;align-items:center;gap:8px;min-height:44px;font-size:18px}
+.jr-archive-farm>h3>b{min-width:0;font-size:18px;overflow-wrap:anywhere}
+.jr-archive-farm>h3>span{font-size:12px}
+.jr-archive-farm>h3 button{display:inline-grid;grid-template-columns:max-content 18px;align-items:center;justify-content:center;flex:none;width:auto;margin-left:auto;min-height:44px;padding:0 4px 0 8px;column-gap:8px;line-height:20px}
+.jr-archive-farm>h3 button em{display:block;margin-left:0;color:var(--color-text);font-family:var(--font-body);font-size:16px;font-style:normal;font-weight:700;line-height:20px;white-space:nowrap}
+.jr-archive-farm>h3 button svg{display:block;width:18px;height:18px;stroke-width:2.2}
+.jr-filters{max-width:100%;overscroll-behavior-x:contain}
+.jr-filters::-webkit-scrollbar{display:none}
+.jr-note-ai .jr-diagnosis-link{display:block;margin-top:8px;padding:2px 0;border:0;background:none;color:#225578;font-size:13px;font-weight:700;text-align:left;text-decoration:underline;cursor:pointer}
+.jr-note-ai b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.jr-note-ai .jr-diagnosis-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}

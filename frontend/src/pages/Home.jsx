@@ -9,7 +9,9 @@ import './garden-host.css'
 export default function Home({ gardenView = 'farms' }) {
   const host = useGardenHost()
   const wide = useMediaQuery('(min-width: 1024px)')
-  const show = useLocation().state?.show // PC: 가운데 장면이나 왼쪽 메뉴에서 열라고 한 화면(없으면 오늘 할 일)
+  const location = useLocation()
+  const show = location.state?.show // PC: 가운데 장면이나 왼쪽 메뉴에서 열라고 한 화면(없으면 오늘 할 일)
+  const mobileScene = location.state?.scene ?? host.sceneState
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -31,10 +33,10 @@ export default function Home({ gardenView = 'farms' }) {
 
   return <section className="garden-host">
     <GardenSaveError />
-    {!host.loaded && !host.error && <p className="muted">내 농장을 불러오는 중…</p>}
+    {!host.loaded && !host.error && <p className="muted garden-loading">내 농장을 불러오는 중…</p>}
     {/* 농장 카드를 눌러 작물 6칸 화면으로 들어갈 때 쓰는 구름 전환(농장 화면 iframe이 덮기/열기를 요청한다) */}
     <div className="garden-zoom" data-cloud={host.cloud.phase} style={host.cloud.timing}>
-      <GardenFrame name="main" view={gardenView} gardenView={gardenView} title="우리텃밭 농장 관리" allow="geolocation 'self'" style={{height: host.height, display: host.loaded ? 'block' : 'none'}} />
+      <GardenFrame name="main" view={gardenView === 'farms' ? mobileScene?.view || gardenView : gardenView} gardenView={gardenView} show={mobileScene} title="우리텃밭 농장 관리" allow="geolocation 'self'" style={{height: host.height, display: host.loaded ? 'block' : 'none'}} />
     </div>
     <CloudTransition phase={host.cloud.phase} timing={host.cloud.timing} />
     <GardenFooterBar />

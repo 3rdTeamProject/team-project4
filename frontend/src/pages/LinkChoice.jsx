@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, SproutIcon } from '../components/Icons.jsx'
+import LevelBadge from '../components/LevelBadge.jsx'
 import { levelProgress } from '../constants/level.js'
 import './link-choice.css'
 
@@ -39,6 +40,7 @@ function RecordCard({ value, checked, onChange, kind, label, summary }) {
             <div className="choice-level-row">
               <SproutIcon size={28} />
               <span className="choice-level-label">Lv.{progress.level}</span>
+              <LevelBadge level={progress.level} />
             </div>
             <div className="choice-bar" aria-hidden="true">
               <i style={{ width: `${Math.round(progress.ratio * 100)}%` }} />

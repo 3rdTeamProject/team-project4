@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { useCloudTransition } from '../hooks/useCloudTransition.js'
 import { useGoBack } from '../hooks/useGoBack.js'
+import RewardEffect from './RewardEffect.jsx'
 import '../pages/garden-host.css'
 
 /**
@@ -40,6 +41,7 @@ export function GardenHostProvider({ children }) {
   const latest = useRef(null)
   const busy = useRef(false)
   const destination = useRef(null)
+  const destinationState = useRef(null) // destination으로 이동할 때 함께 넘길 state(뒤로가기가 돌아올 곳 등)
   const lastSaver = useRef('main')
   const footerFrame = useRef(null)
   const [loaded, setLoaded] = useState(false)
@@ -50,7 +52,16 @@ export function GardenHostProvider({ children }) {
   const [footerButtons, setFooterButtons] = useState([])
   // PC: 오른쪽 패널의 농장 화면이 지금 어느 화면인지(왼쪽 메뉴 강조용), 개발용 날짜·날씨 값
   const [panelView, setPanelView] = useState(null)
+  const [sceneState, setSceneState] = useState(null)
   const [dev, setDev] = useState(null)
+  const [gardenToast, setGardenToast] = useState(null) // 농장 화면이 보낸 안내 문구 { text, key }
+  const [reward, setReward] = useState(null) // 일지를 올려 받은 포인트·레벨업 연출 { key, earned, bonus, firstHarvest, level, motion }
+  const closeReward = useCallback(() => setReward(null), [])
+  useEffect(() => {
+    if (!gardenToast) return
+    const timer = setTimeout(() => setGardenToast(null), 2700)
+    return () => clearTimeout(timer)
+  }, [gardenToast])
 
   const tell = (name, body) => frames.current[name]?.el?.contentWindow?.postMessage(body, ORIGIN)
   const tellOthers = (from, body) => Object.keys(frames.current).forEach(name => { if (name !== from) tell(name, body) })
@@ -94,6 +105,7 @@ export function GardenHostProvider({ children }) {
     setError('')
     setFooterButtons([])
     setPanelView(null)
+    setSceneState(null)
     setDev(null)
   }
 
@@ -105,7 +117,10 @@ export function GardenHostProvider({ children }) {
       delete frames.current[name]
       if (footerFrame.current === name) { footerFrame.current = null; setFooterButtons([]) }
       if (name === 'panel') setPanelView(null)
-      if (!Object.keys(frames.current).length) reset()
+      // 화면 폭 변경으로 iframe이 교체되는 동안에는 새 화면의 등록을 기다린다.
+      if (!Object.keys(frames.current).length) queueMicrotask(() => {
+        if (!Object.keys(frames.current).length) reset()
+      })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -124,8 +139,13 @@ export function GardenHostProvider({ children }) {
       }
       // PC: 저장이 끝나면 저장하지 않은 쪽 농장 화면도 서버 내용으로 맞춘다
       tellOthers(lastSaver.current, { type: 'garden:pc-refresh' })
-      if (destination.current === 'back') live.current.goBack()
-      else if (destination.current) live.current.navigate(destination.current)
+      // 이동할 곳은 한 번 쓰면 비운다. 안 비우면 나중에 일지 올리기 같은 저장이 끝날 때마다 그곳(메뉴 등)으로 다시 이동한다
+      const to = destination.current
+      const state = destinationState.current
+      destination.current = null
+      destinationState.current = null
+      if (to === 'back') live.current.goBack()
+      else if (to) live.current.navigate(to, state ? { state } : undefined)
     } catch (e) {
       setError(e.status === 409 ? e.message : '농장을 서버에 저장하지 못했어요. 화면을 닫기 전에 다시 저장해 주세요.')
       destination.current = null
@@ -216,12 +236,38 @@ export function GardenHostProvider({ children }) {
       // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
       destination.current = opts.gardenView === 'farms' ? '/menu' : 'back'
       flush()
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis/history' && typeof message.requestId === 'string') {
+      destination.current = `/diagnosis/history/${encodeURIComponent(message.requestId)}?${new URLSearchParams({ ...(message.cropName ? { crop_name: message.cropName } : {}), from: 'journal' })}`
+      flush()
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis/history' && typeof message.cropName === 'string') {
+      destination.current = `/diagnosis/history?${new URLSearchParams({ crop_name: message.cropName, from: 'journal' })}`
+      flush()
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis' && typeof message.farmId === 'string' && Number.isInteger(message.plotNumber)) {
+      // 작물 상세의 AI진단: 진단 화면으로 가면서 그 농장·칸의 작물을 미리 골라 둔다. 닫으면 지금 화면으로 돌아온다
+      destination.current = `/diagnosis?${new URLSearchParams({ mode: 'detail', farm: message.farmId, plot: String(message.plotNumber) })}`
+      destinationState.current = { from: live.current.pathname }
+      flush()
+    } else if (message?.type === 'garden:toast' && typeof message.message === 'string') {
+      setGardenToast({ text: message.message, key: Date.now() }) // 농장 화면(iframe)은 내용만큼 길어서 안의 안내 문구는 화면 밖에 가려진다. 바깥에서 대신 보여 준다
+    } else if (message?.type === 'garden:reward' && Number.isFinite(message.earned) && message.earned > 0) {
+      const level = message.level
+      const validLevel = level && [level.exp, level.before, level.after].every(Number.isFinite) && typeof level.leveledUp === 'boolean'
+      setReward({
+        key: Date.now(),
+        earned: message.earned,
+        bonus: Number.isFinite(message.bonus) ? message.bonus : 0,
+        firstHarvest: message.firstHarvest === true,
+        level: validLevel ? { exp: level.exp, before: level.before, after: level.after, leveledUp: level.leveledUp } : null,
+        motion: message.motion !== false,
+      })
     } else if (message?.type === 'garden:pc-open' && from === 'main') {
       openPanel(message) // 가운데 장면에서 누른 칸·농장 수정 같은 요청은 오른쪽 패널에 연다
     } else if (message?.type === 'garden:pc-select' && from === 'panel') {
       tell('main', message)
     } else if (message?.type === 'garden:pc-view' && from === 'panel') {
       setPanelView(message.view)
+    } else if (message?.type === 'garden:pc-view' && from === 'main' && opts.role === 'scene') {
+      setSceneState({ view: message.view, selected: message.selected, plotIndex: message.plotIndex, pendingPlot: message.pendingPlot })
     } else if (message?.type === 'garden:pc-changed' && from === 'main') {
       tell('panel', { type: 'garden:pc-refresh' })
     } else if (message?.type === 'garden:dev' && from === 'main') {
@@ -242,10 +288,12 @@ export function GardenHostProvider({ children }) {
     }
   }, [])
 
-  const value = { loaded, error, saving, height, footerButtons, panelView, dev, cloud, registerFrame, openPanel, sendDev, clickFooter, retrySave }
+  const value = { loaded, error, saving, height, footerButtons, panelView, sceneState, dev, cloud, registerFrame, openPanel, sendDev, clickFooter, retrySave }
   return <GardenHostContext.Provider value={value}>
     {children}
     <span className="garden-save-status" role="status" aria-live="polite">{saving ? '저장 중…' : ''}</span>
+    {gardenToast && <div key={gardenToast.key} className={`toast garden-toast${loaded && footerButtons.length ? ' has-footer' : ''}`} role="status">{gardenToast.text}</div>}
+    {reward && <RewardEffect key={reward.key} reward={reward} onDone={closeReward} />}
   </GardenHostContext.Provider>
 }
 

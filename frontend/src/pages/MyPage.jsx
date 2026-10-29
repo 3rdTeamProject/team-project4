@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, ReceiptIcon, SproutIcon } from '../components/Icons.jsx'
+import LevelBadge from '../components/LevelBadge.jsx'
 import NicknameSheet from '../components/NicknameSheet.jsx'
 import PointLogList from '../components/PointLogList.jsx'
 import { levelProgress } from '../constants/level.js'
@@ -39,16 +40,25 @@ export default function MyPage() {
     api.orders('ing').then((list) => setIngOrders(list.length)).catch(() => {})
   }, [isKakao])
 
+  // 경험치 막대는 0에서 현재 값까지 차오르게 한다(한 프레임 뒤에 값을 바꿔야 움직임이 보인다)
+  const ratio = me ? levelProgress(me.exp).ratio : 0
+  const [shownRatio, setShownRatio] = useState(0)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setShownRatio(ratio))
+    return () => cancelAnimationFrame(frame)
+  }, [ratio])
+
   if (!storage.token) return <Navigate to="/" replace />
 
   const progress = me ? levelProgress(me.exp) : null
 
   return (
     <div className="screen">
-      <header className="screen-header">
-        <button type="button" className="icon-btn" onClick={goBack} aria-label="뒤로가기">‹</button>
-        <h1 className="screen-title">마이페이지</h1>
-        <span className="icon-btn-spacer" />
+      <header className="screen-header journal-aligned-header">
+        <div className="journal-aligned-title">
+          <button type="button" className="icon-btn journal-aligned-back" onClick={goBack} aria-label="뒤로가기" />
+          <h1 className="screen-title">마이페이지</h1>
+        </div>
       </header>
 
       {(error || summaryError) && <p className="error">{error || summaryError}</p>}
@@ -68,6 +78,7 @@ export default function MyPage() {
             <div className="level-side">
               <SproutIcon size={28} />
               <span className="level-label">Lv.{progress.level}</span>
+              <LevelBadge level={progress.level} />
               <div
                 className="level-bar"
                 role="progressbar"
@@ -76,7 +87,7 @@ export default function MyPage() {
                 aria-valuenow={Math.round(progress.ratio * 100)}
                 aria-label="다음 레벨까지 진행도"
               >
-                <i style={{ width: `${Math.round(progress.ratio * 100)}%` }} />
+                <i style={{ width: `${Math.round(shownRatio * 100)}%` }} />
               </div>
               <span className="level-next">
                 {progress.next === null ? '최고 레벨이에요' : `다음 레벨까지 ${progress.remaining.toLocaleString()} EXP`}
@@ -136,7 +147,7 @@ export default function MyPage() {
                 {summary.journals > 0 ? `지금까지 ${summary.journals}개` : '아직 쓴 일지가 없어요'}
               </span>
             </Link>
-            <Link className="shortcut" to="/diagnosis">
+            <Link className="shortcut" to="/diagnosis/history">
               <span className="shortcut-title">진단 기록</span>
               <span className="shortcut-sub">
                 {summary.diagnoses > 0 ? `${summary.diagnoses}번 진단했어요` : '아직 진단한 적이 없어요'}

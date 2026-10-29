@@ -50,6 +50,7 @@ function normalizeDiagnosisResult(data = {}) {
     remainingCount: quota.remaining_count ?? data.remainingCount,
     dailyLimit: quota.daily_limit ?? data.dailyLimit,
     usedCount: quota.used_count ?? data.usedCount,
+    creditCount: quota.credit_count ?? data.creditCount,
     nextAvailableAt: data.next_available_at ?? quota.reset_at ?? data.nextAvailableAt,
     requestId: data.request_id ?? data.requestId,
     statusUrl: data.status_url ?? data.statusUrl,
@@ -214,7 +215,7 @@ export const api = {
   pointLogs: (offset = 0, limit = 20) => request(`/me/point-logs?offset=${offset}&limit=${limit}`),
   updateNickname: (nickname) => request('/me/nickname', { method: 'PATCH', body: { nickname } }),
   diagnosisQuota: () => request('/diagnoses/quota'),
-  diagnosisHistory: (page = 1, plantingId = '') => request(`/diagnoses/history?${new URLSearchParams({ page, page_size: 10, ...(plantingId ? { planting_id: plantingId } : {}) })}`),
+  diagnosisHistory: (page = 1, plantingId = '', pageSize = 10) => request(`/diagnoses/history?${new URLSearchParams({ page, page_size: pageSize, ...(plantingId ? { planting_id: plantingId } : {}) })}`),
   createDiagnosis: (formData, idempotencyKey) =>
     diagnosisRequest('/diagnoses', {
       method: 'POST',
