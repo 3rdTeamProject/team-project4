@@ -19,6 +19,7 @@ import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from PIL import Image, UnidentifiedImageError
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import (
@@ -857,7 +858,7 @@ def register_garden(app, metadata, engine, get_current_user, users):
             raise HTTPException(422, 'JPG, PNG, WEBP 원본 사진만 올릴 수 있어요.')
         filename = (photo.filename or f'photo.{kind[1]}').split('/')[-1].split('\\')[-1][:255]
         path = f"journal/{user['id']}/{uuid4().hex}.{kind[1]}"
-        upload_original(path, content, kind[0])
+        await run_in_threadpool(upload_original, path, content, kind[0])
         try:
             with engine.begin() as conn:
                 conn.execute(insert(original_photos).values(
