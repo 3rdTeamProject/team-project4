@@ -1,5 +1,6 @@
 """Integration checks use a temporary SQLite database, never the uploaded .env DB."""
 import os
+import io
 import sys
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(_temp.name) / 'garden.db')
 os.environ['JWT_SECRET'] = 'integration-tests-only-32-character-secret'
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import text
 from main import app, engine
 
@@ -218,6 +220,78 @@ class GardenIntegrationTest(unittest.TestCase):
         active = rows("SELECT COUNT(*) AS n FROM plantings WHERE status <> 'ended'")[0]['n']
         self.assertGreaterEqual(active, 1)
         self.assertEqual(self.load(ah)['state']['farms'][0]['plots'][0]['kind'], 'tomato')
+
+    def test_same_day_replant_keeps_distinct_journal_ids_and_history_delete(self):
+        _, headers = self.guest()
+        first = {**record(''), 'event': 'planting', 'plantingMethod': 'seed', 'plotRef': 'garden-1:1'}
+        self.save(headers, self.load(headers)['revision'], {
+            'farms': [farm(plots=[plant(method='seed')] + [None] * 5)], 'records': [first]})
+        loaded = self.load(headers)
+        old = loaded['state']['records'][0]
+        self.assertEqual(old['event'], 'planting')
+        self.assertEqual(old['plantingMethod'], 'seed')
+        self.assertIsInstance(old['journalId'], int)
+        self.assertIsInstance(old['plantingId'], int)
+        self.save(headers, loaded['revision'], {'farms': [farm()], 'records': loaded['state']['records']})
+        removed = self.load(headers)
+        second = {**record(''), 'event': 'planting', 'plantingMethod': 'seed', 'plotRef': 'garden-1:1'}
+        self.save(headers, removed['revision'], {
+            'farms': [farm(plots=[plant(method='seed')] + [None] * 5)],
+            'records': [*removed['state']['records'], second]})
+        current = self.load(headers)
+        records = current['state']['records']
+        self.assertEqual(len(records), 2)
+        self.assertNotEqual(records[0]['plantingId'], records[1]['plantingId'])
+        self.assertNotEqual(records[0]['journalId'], records[1]['journalId'])
+        self.assertEqual(self.client.delete(f"/garden/history/{records[1]['plantingId']}", headers=headers).status_code, 409)
+        _, other_headers = self.guest()
+        self.assertEqual(self.client.delete(f"/garden/history/{records[0]['plantingId']}", headers=other_headers).status_code, 404)
+        user_id = self.client.get('/me', headers=headers).json()['id']
+        with engine.begin() as conn:
+            conn.execute(text('UPDATE users SET point = 123 WHERE id = :id'), {'id': user_id})
+        deleted = self.client.delete(f"/garden/history/{records[0]['plantingId']}", headers=headers)
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertEqual(deleted.json()['deletedJournalCount'], 1)
+        self.assertEqual(deleted.json()['state']['points'], 123)
+        self.assertEqual([r['journalId'] for r in deleted.json()['state']['records']], [records[1]['journalId']])
+        self.assertEqual(self.client.get('/me', headers=headers).json()['point'], 123)
+
+    def test_original_photo_is_private_and_linked_to_its_journal(self):
+        _, headers = self.guest()
+        _, stranger = self.guest()
+        preview = 'data:image/jpeg;base64,/9j/2Q=='
+        image = io.BytesIO()
+        Image.new('RGB', (20, 20), 'green').save(image, format='JPEG')
+        original = image.getvalue()
+        with patch('garden.upload_original') as upload, patch('garden.download_original', return_value=original):
+            res = self.client.post('/garden/photos/original', headers=headers,
+                data={'preview': preview}, files={'photo': ('leaf.jpg', original, 'image/jpeg')})
+            self.assertEqual(res.status_code, 200, res.text)
+            upload.assert_called_once()
+            digest = res.json()['previewHash']
+            self.assertEqual(self.client.get(f'/garden/photos/original/{digest}', headers=stranger).status_code, 404)
+            download = self.client.get(f'/garden/photos/original/{digest}?download=true', headers=headers)
+            self.assertEqual(download.status_code, 200, download.text)
+            self.assertEqual(download.content, original)
+            self.assertIn('attachment', download.headers['content-disposition'])
+        planting = plant(method='seed')
+        state = {'farms': [farm(plots=[planting] + [None] * 5)],
+                 'records': [{**record('잎 사진'), 'photos': [preview], 'plotRef': 'garden-1:1'}]}
+        self.save(headers, self.load(headers)['revision'], state)
+        linked = rows('SELECT journal_id FROM garden_original_photos WHERE preview_hash = :hash', hash=digest)[0]
+        self.assertIsNotNone(linked['journal_id'])
+
+    def test_original_photo_upload_waits_for_private_bucket_configuration(self):
+        _, headers = self.guest()
+        before = rows('SELECT COUNT(*) AS n FROM garden_original_photos')[0]['n']
+        image = io.BytesIO()
+        Image.new('RGB', (20, 20), 'green').save(image, format='JPEG')
+        with patch.dict(os.environ, {'SUPABASE_URL': '', 'SUPABASE_SERVICE_ROLE_KEY': '', 'GARDEN_PHOTO_BUCKET': ''}):
+            response = self.client.post('/garden/photos/original', headers=headers,
+                data={'preview': 'data:image/jpeg;base64,/9j/2Q=='},
+                files={'photo': ('leaf.jpg', image.getvalue(), 'image/jpeg')})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(rows('SELECT COUNT(*) AS n FROM garden_original_photos')[0]['n'], before)
 
     def test_farm_delete_ends_plantings_but_keeps_journals(self):
         _, ah = self.guest()
