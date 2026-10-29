@@ -13,7 +13,6 @@ body,button,input,select,textarea{font-family:"Pretendard",system-ui,sans-serif}
 .farm-select{display:flex;align-items:center;gap:13px;min-height:38px;padding:8px 14px;border:0;border-radius:22px;background:#fffffff2;font-size:14px;font-weight:700;letter-spacing:-.25px;line-height:1.5;cursor:pointer;list-style:none}
 .farm-select::-webkit-details-marker{display:none}.farm-select>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.farm-select svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}.farm-picker[open] .farm-select svg{rotate:180deg}
 .farm-options{position:absolute;top:calc(100% + 7px);left:0;width:220px;max-width:calc(100vw - 52px);padding:6px;border:1px solid #e1e8da;border-radius:15px;background:#fffef8;box-shadow:0 8px 26px #34482c26;overflow:hidden}
-.farm-options{display:grid;gap:6px}
 .farm-options button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:10px 12px;min-height:41px;text-align:left;font-family:inherit;font-size:13px;font-weight:500;line-height:1.5;color:#30472e;background:transparent;border-radius:9px}.farm-options button:hover,.farm-options button:focus-visible{background:#edf3e6}.farm-options button[aria-current]{background:#e6efdd;font-weight:700}
 .garden-nav .icon-btn{width:38px;height:38px;background:#ffffffb3;font-size:19px;color:#476c55;border-radius:50%}
 .garden-nav .menu-button{margin-left:auto}

@@ -19,7 +19,7 @@ export function recordDiagnosisInJournal({ userId, record, gardenState, localSto
   const alreadySaved = Boolean(existingEntry)
 
   const farms = gardenState?.state?.farms || []
-  const match = farms.flatMap(farm => (farm.plots || []).map((plant, index) => ({ farm, plant, index })))
+  const match = farms.flatMap(farm => (farm.plots || []).map(plant => ({ farm, plant })))
     .find(({ plant }) => plant && String(plant.plantingId) === String(record.planting_id))
   const farmName = existingEntry?.farm || match?.farm.name || '진단 기록'
   const archived = !match || Boolean(match.plant.harvestedAt) || farmName !== match.farm.name
@@ -31,7 +31,6 @@ export function recordDiagnosisInJournal({ userId, record, gardenState, localSto
       date: record.completed_at || record.created_at || new Date().toISOString(),
       farm: farmName,
       crop: record.crop_name,
-      plotRef: match ? `${match.farm.id}:${match.index + 1}` : '',
       text: '',
       diagnosis: diagnosisText(record),
       diagnosisSymptoms: Array.isArray(record.symptoms) ? record.symptoms : [],
