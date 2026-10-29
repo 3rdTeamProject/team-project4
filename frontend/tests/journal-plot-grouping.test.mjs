@@ -34,6 +34,58 @@ test('same crop in different plots remains in separate journal cards', () => {
   assert.doesNotMatch(cards[0].text, /2번 칸/)
 })
 
+test('same plot and day remain separate across removed and new plantings', () => {
+  const records = [
+    { id: 'old', date: '2026-10-29', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', archiveCycleId: 'removed-1', text: 'old' },
+    { id: 'new', date: '2026-10-29', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', text: 'new' },
+  ]
+  assert.equal(groupRecords(records).length, 2)
+})
+
+test('a planting record still appears after its crop was removed', () => {
+  const declaration = source.slice(source.indexOf('function journalPlantingRecord('), source.indexOf('function journalEntries('))
+  const context = {
+    journalLocal: { overrides: {} }, journalBasePlotRef: record => record.plotRef,
+    journalPlotRef: record => record.plotRef, journalDayKey: date => date,
+    journalPlotCandidates: () => [], state: { records: [] },
+  }
+  const plantingRecord = runInNewContext(`(${declaration})`, context)
+  const record = { date: '2026-10-29', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', text: '', photos: [] }
+  assert.equal(plantingRecord(record, 0).event, 'planting')
+})
+
+test('an archived planting does not hide a new planting on the same day and plot', () => {
+  const declaration = source.slice(source.indexOf('function journalPlantingRecord('), source.indexOf('function journalEntries('))
+  const old = { date: '2026-10-29', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', text: 'old' }
+  const next = { ...old, text: 'new' }
+  const context = {
+    journalLocal: { overrides: { 'base-0': { archiveCycleId: 'removed-1' } } },
+    journalBasePlotRef: record => record.plotRef, journalPlotRef: record => record.plotRef,
+    journalDayKey: date => date, journalPlotCandidates: () => [{ farm: { id: 'farm-1' }, plant: { plantedAt: '2026-10-29', method: 'seed' }, index: 0 }],
+    state: { records: [old, next] },
+  }
+  const plantingRecord = runInNewContext(`(${declaration})`, context)
+  assert.equal(plantingRecord(next, 1).event, 'planting')
+})
+
+test('removing a crop archives only its current plot records', () => {
+  const declaration = source.slice(source.indexOf('function journalArchiveRemovedCrop('), source.indexOf('function journalPlantingText('))
+  const old = { id: 'base-0', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1' }
+  const other = { id: 'base-1', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:2' }
+  const journalLocal = { entries: [], overrides: {}, taskHistory: { '2026-10-29|farm-1:1': ['water'] } }
+  const context = {
+    journalEntries: () => [old, other], journalArchived: () => false,
+    journalPlotRef: record => record.plotRef, journalTaskTitles: () => ['water'],
+    journalPersist: () => true, journalLocal, meta: () => ({ name: 'lettuce' }),
+    Date, Math, JSON,
+  }
+  const archive = runInNewContext(`(${declaration})`, context)
+  assert.equal(archive({ id: 'farm-1', name: 'farm' }, {}, 0), true)
+  assert.ok(journalLocal.overrides['base-0'].archiveCycleId)
+  assert.equal(journalLocal.overrides['base-1'], undefined)
+  assert.equal(journalLocal.taskHistory['2026-10-29|farm-1:1'], undefined)
+})
+
 test('planting record stays visible without edit or delete actions', () => {
   const editableDeclaration = source.slice(source.indexOf('function journalEditableEntries('), source.indexOf('let journalGroupEditIds='))
   const cardDeclaration = source.split('\n').find(line => line.startsWith('function journalCard('))
