@@ -114,7 +114,7 @@ const infoSection = list => list.length
   : '';
 const trashButton = '<button class="icon-btn" data-feature="delete-crop" aria-label="작물 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v7m4-7v7"/></svg></button>';
 const memoBox = p => `<div class="field"><label class="field-label" for="feature-memo">메모</label><textarea id="feature-memo" maxlength="500" placeholder="오늘 텃밭 상태를 적어보세요 (선택)">${esc(p.draftMemo || '')}</textarea></div>`;
-const journalFooter = label => footer(`<button class="secondary diagnosis-button" data-feature="diagnosis">AI진단</button><button class="primary" data-tk="post-journal" ${completing ? 'disabled' : ''}>${completing ? '올리는 중…' : label}</button>`);
+const journalFooter = label => footer(`<button class="secondary diagnosis-button" data-feature="diagnosis">AI 상세 진단</button><button class="primary" data-tk="post-journal" ${completing ? 'disabled' : ''}>${completing ? '올리는 중…' : label}</button>`);
 function harvestBanner(f, i, p) {
   const done = !!p.harvestedAt, ready = p.stage >= 5 || taskData.harvestDue.includes(`${f.id}|${i}`);
   if (!done && !ready) return '';
@@ -170,6 +170,12 @@ tasksPage = function () {
 };
 
 // ---------- 일지 올리기: 체크한 할 일(과 수확)을 완료하고 일지·포인트를 서버에서 한 번에 처리
+// 포인트·레벨업 연출은 바깥(React)이 그린다. 농장 화면(iframe)은 내용만큼 길어서 안에서 그리면 위치가 어긋난다
+function showReward(r) {
+  if (window.parent === window || !(r.earned > 0)) return;
+  window.parent.postMessage({ type: 'garden:reward', earned: r.earned, bonus: r.bonus || 0, firstHarvest: !!r.firstHarvest, level: r.level || null, motion: state.settings?.motion !== false }, window.location.origin);
+}
+
 async function postJournal() {
   if (completing) return;
   const f = current(), i = plotIndex, p = f?.plots[i];
@@ -177,24 +183,21 @@ async function postJournal() {
   if (!p.plantingId) { toast('서버와 맞추는 중이에요. 잠시 후 다시 눌러 주세요.'); return; }
   const key = `${f.id}|${i}`, mine = plotTasks(f, i).filter(t => checked.has(t.id));
   const memo = (p.draftMemo || '').trim(), photos = p.draftPhotos || [], harvest = !!harvestMark[key];
-  if (!mine.length && !harvest && !memo && !photos.length) {
-    toast('완료할 일을 체크하거나 메모·사진을 추가해 주세요.');
-    return;
-  }
-  const content = memo || (!mine.length && !harvest && photos.length ? '오늘의 작물 사진을 남겼어요.' : '');
+  if (!mine.length && !harvest && !memo && !photos.length) { toast('완료한 할 일을 체크하거나 메모·사진을 추가해 주세요.'); return; }
   const before = p.stage;
   completing = true;
   p.draftMemo = ''; p.draftPhotos = [];
   save(); render();
   try {
-    const r = await hostApi('complete', { planting_id: p.plantingId, task_log_ids: mine.map(t => t.id), content, photos, harvest });
+    const r = await hostApi('complete', { planting_id: p.plantingId, task_log_ids: mine.map(t => t.id), content: memo, photos, harvest });
     mine.forEach(t => checked.delete(t.id));
     delete harvestMark[key];
     completing = false;
     applyServerState(r.state);
     if (typeof journalCaptureTasks === 'function') journalCaptureTasks(f, p, mine.map(t => t.title));
     const after = state.farms.find(x => x.id === f.id)?.plots[i]?.stage;
-    toast(`일지를 올렸어요! +${r.earned}P${r.firstHarvest ? ' · 첫 수확 보너스 포함 🧺' : after > before ? ` · ${after}단계로 자랐어요 🌱` : ''}`);
+    toast(`일지를 올렸어요!${r.firstHarvest ? ' · 첫 수확을 축하해요 🧺' : after > before ? ` · ${after}단계로 자랐어요 🌱` : ''}`);
+    showReward(r);
     await loadTasks(true);
   } catch (e) {
     completing = false;

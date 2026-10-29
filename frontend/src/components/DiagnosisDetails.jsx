@@ -6,6 +6,7 @@ import DiagnosisFailure from './DiagnosisFailure.jsx'
 import DiagnosisLoading from './DiagnosisLoading.jsx'
 import DiagnosisResult from './DiagnosisResult.jsx'
 import useDiagnosisQuota from './useDiagnosisQuota.js'
+import { canRequestDiagnosis } from './diagnosisQuota.js'
 
 const CROP_NAMES = {
   tomato: '방울토마토',
@@ -104,7 +105,7 @@ async function fingerprintDiagnosis(input, crop, photos) {
     .join('')
 }
 
-export default function DiagnosisDetails({ onBack, onRestartObservation }) {
+export default function DiagnosisDetails({ onBack }) {
   const navigate = useNavigate()
   const [diagnosisInput, setDiagnosisInput] = useState({ cropId: '', symptoms: [], description: '' })
   const [selectedFarmId, setSelectedFarmId] = useState('')
@@ -488,7 +489,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
           })
           return
         }
-        if (currentQuota.remaining_count === 0) {
+        if (!canRequestDiagnosis(currentQuota)) {
           applyDiagnosisResponse({
             status: 'limit',
             remainingCount: 0,
@@ -697,11 +698,12 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   useEffect(() => {
     if (flow.screen !== 'result' || flow.source !== 'api' || flow.result?.status !== 'limit'
-      || quotaLoading || quotaError || !quota || quota.remaining_count <= 0) return
+      || quotaLoading || quotaError || !canRequestDiagnosis(quota)) return
     const oldResetDay = diagnosisDay(flow.result.limitResetAt)
     const newResetDay = diagnosisDay(quota.reset_at)
     const today = diagnosisDay(new Date(Date.now()).toISOString())
-    if (oldResetDay && newResetDay && newResetDay > oldResetDay && today >= oldResetDay) {
+    const currentServerAvailability = quota.can_request === true && Date.parse(quota.reset_at) > Date.now()
+    if (currentServerAvailability || (oldResetDay && newResetDay && newResetDay > oldResetDay && today >= oldResetDay)) {
       // Change only the view, preserving uploaded files, inputs and pending IDs.
       // A successful server quota refresh never starts an analysis.
       setFlow(current => current.result === flow.result ? { screen: 'form' } : current)
@@ -710,10 +712,18 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
 
   const quotaNotice = <section className="diagnosis-detail-card diagnosis-quota-card" aria-live="polite">
     <h2>오늘의 AI 상세 진단</h2>
-    <p>잎 관찰하기(YOLO)는 횟수 제한 없이 이용할 수 있으며, 외부 AI 상세 진단에만 무료 횟수가 적용돼요.</p>
+    <p>AI 상세 진단은 하루 무료 3회를 먼저 사용하고, 소진 후 구매한 횟수를 사용해요. 무료 횟수는 한국 시간 00시에 초기화돼요.</p>
     {quota && <p>
-      오늘 남은 무료 상세 진단: {quota.remaining_count}/{quota.daily_limit}회
+      오늘 무료 진단: {quota.remaining_count}/{quota.daily_limit}회
       {quota.reset_at && ` · 다음 초기화 ${new Date(quota.reset_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`}
+    </p>}
+    {quota && Number.isFinite(quota.purchased_balance) && <p>구매한 진단 잔액: {quota.purchased_balance}회</p>}
+    {quota && Number.isFinite(quota.purchased_available) && <p>구매 진단 사용 가능: {quota.purchased_available}회</p>}
+    {quota && quota.purchased_reserved > 0 && <p>
+      구매 진단 예약 중: {quota.purchased_reserved}회 · 처리 결과 확인 전까지 사용할 수 없어요.
+    </p>}
+    {quota && Number.isFinite(quota.purchased_available) && <p>
+      총 이용 가능: {quota.remaining_count + quota.purchased_available}회
     </p>}
     {quotaLoading && <p role="status">남은 횟수를 확인하는 중이에요.</p>}
     {quotaError && <div role="alert">
@@ -763,7 +773,6 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         result={result}
         cropName={selectedCrop?.cropName}
         onRetake={returnToForm}
-        onRestartObservation={onRestartObservation}
         onSaveJournal={saveCurrentDiagnosisToJournal}
         journalSaving={journalSaving}
         journalError={journalError}
@@ -960,7 +969,7 @@ export default function DiagnosisDetails({ onBack, onRestartObservation }) {
         <div className="diagnosis-detail-heading">
           <div>
             <h2>사진을 찍어주세요</h2>
-            <p>잎 가까이 사진은 필수이며, 나머지는 선택 사항이에요. PNG/JPEG/WebP, 사진 한 장당 8MB 이하</p>
+            <p>잎 가까이 사진은 필수이며, 나머지는 선택 사항이에요. 정지 PNG/JPEG/WebP, 사진 한 장당 8MB 이하, 한 변 12,000px·총 67,108,864픽셀 이하입니다. 사진은 자동 축소하지 않습니다.</p>
           </div>
         </div>
         <div className="diagnosis-detail-photo-list">

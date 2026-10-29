@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { useCloudTransition } from '../hooks/useCloudTransition.js'
 import { useGoBack } from '../hooks/useGoBack.js'
+import RewardEffect from './RewardEffect.jsx'
 import '../pages/garden-host.css'
 
 /**
@@ -54,6 +55,8 @@ export function GardenHostProvider({ children }) {
   const [sceneState, setSceneState] = useState(null)
   const [dev, setDev] = useState(null)
   const [gardenToast, setGardenToast] = useState(null) // 농장 화면이 보낸 안내 문구 { text, key }
+  const [reward, setReward] = useState(null) // 일지를 올려 받은 포인트·레벨업 연출 { key, earned, bonus, firstHarvest, level, motion }
+  const closeReward = useCallback(() => setReward(null), [])
   useEffect(() => {
     if (!gardenToast) return
     const timer = setTimeout(() => setGardenToast(null), 2700)
@@ -226,6 +229,9 @@ export function GardenHostProvider({ children }) {
       live.current.cloud.open()
     } else if (message?.type === 'garden:scroll-top') {
       if (!opts.role) window.scrollTo({top: 0, behavior: 'instant'})
+    } else if (message?.type === 'garden:navigate' && message.to === '/diagnosis?mode=detail') {
+      destination.current = '/diagnosis?mode=detail'
+      flush()
     } else if (message?.type === 'garden:navigate' && message.to === '/menu') {
       // 농장 화면의 ☰는 메뉴를 새로 연다. 일지 등 메뉴에서 열린 화면의 ‹는 이전(메뉴)으로 돌아간다
       destination.current = opts.gardenView === 'farms' ? '/menu' : 'back'
@@ -243,6 +249,17 @@ export function GardenHostProvider({ children }) {
       flush()
     } else if (message?.type === 'garden:toast' && typeof message.message === 'string') {
       setGardenToast({ text: message.message, key: Date.now() }) // 농장 화면(iframe)은 내용만큼 길어서 안의 안내 문구는 화면 밖에 가려진다. 바깥에서 대신 보여 준다
+    } else if (message?.type === 'garden:reward' && Number.isFinite(message.earned) && message.earned > 0) {
+      const level = message.level
+      const validLevel = level && [level.exp, level.before, level.after].every(Number.isFinite) && typeof level.leveledUp === 'boolean'
+      setReward({
+        key: Date.now(),
+        earned: message.earned,
+        bonus: Number.isFinite(message.bonus) ? message.bonus : 0,
+        firstHarvest: message.firstHarvest === true,
+        level: validLevel ? { exp: level.exp, before: level.before, after: level.after, leveledUp: level.leveledUp } : null,
+        motion: message.motion !== false,
+      })
     } else if (message?.type === 'garden:pc-open' && from === 'main') {
       openPanel(message) // 가운데 장면에서 누른 칸·농장 수정 같은 요청은 오른쪽 패널에 연다
     } else if (message?.type === 'garden:pc-select' && from === 'panel') {
@@ -276,6 +293,7 @@ export function GardenHostProvider({ children }) {
     {children}
     <span className="garden-save-status" role="status" aria-live="polite">{saving ? '저장 중…' : ''}</span>
     {gardenToast && <div key={gardenToast.key} className={`toast garden-toast${loaded && footerButtons.length ? ' has-footer' : ''}`} role="status">{gardenToast.text}</div>}
+    {reward && <RewardEffect key={reward.key} reward={reward} onDone={closeReward} />}
   </GardenHostContext.Provider>
 }
 

@@ -1,0 +1,149 @@
+/* 포인트 획득 연출: 화면 아래쪽(안내 문구 위)에 떴다가 사라진다. 터치는 막지 않는다 */
+.reward-effect {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--size-button) * 3 + var(--space-gap));
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  width: min(calc(100% - var(--space-screen-x) * 2), calc(var(--layout-max) - var(--space-screen-x) * 2));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-gap);
+  pointer-events: none;
+  animation: reward-fade var(--motion-base) ease-in calc(var(--reward-show) - var(--motion-base)) both;
+}
+
+.reward-points {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--space-gap) / 2);
+  font-size: calc(var(--fs-screen-title) * 1.4);
+  animation: reward-rise calc(var(--motion-slow) * 1.5) var(--ease-pop) both;
+}
+
+.reward-plus {
+  padding: 0.05em 0.6em;
+  border-radius: var(--radius-chip);
+  background: var(--color-point-chip);
+  color: var(--color-point-text);
+  font-family: var(--font-num);
+  line-height: 1.3;
+  box-shadow: var(--shadow-pop);
+}
+
+.reward-bonus {
+  padding: 0.2em 0.9em;
+  border-radius: var(--radius-chip);
+  background: var(--color-warn-bg);
+  color: var(--color-warn-text);
+  font-size: var(--fs-body);
+  box-shadow: var(--shadow-pop);
+}
+
+.reward-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: var(--fs-section-title);
+  color: var(--color-point-chip);
+  animation: reward-spark var(--motion-slow) var(--ease-out) var(--delay) both;
+}
+
+.reward-exp {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-gap) / 2);
+  padding: var(--space-card);
+  border-radius: var(--radius-card);
+  background: var(--color-card);
+  box-shadow: var(--shadow-pop);
+  animation: reward-card-in var(--motion-base) var(--ease-pop) both;
+}
+
+.reward-exp-head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-gap) / 2);
+}
+
+.reward-level {
+  font-family: var(--font-num);
+  font-size: var(--fs-section-title);
+  font-weight: normal;
+  color: var(--color-green-dark);
+}
+
+.reward-exp-gain {
+  margin-left: auto;
+  font-family: var(--font-num);
+  color: var(--color-point-text);
+}
+
+.reward-bar {
+  height: 0.7em;
+  font-size: var(--fs-body);
+  border-radius: var(--radius-chip);
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.reward-bar i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-chip);
+  background: var(--color-green-main);
+  transition: width var(--motion-slow) var(--ease-out) var(--motion-base);
+}
+
+@keyframes reward-rise {
+  0% { opacity: 0; transform: translateY(1em) scale(0.6); }
+  25% { opacity: 1; transform: translateY(0) scale(1.08); }
+  35% { transform: translateY(0) scale(1); }
+  100% { opacity: 1; transform: translateY(-0.6em) scale(1); }
+}
+
+@keyframes reward-card-in {
+  from { opacity: 0; transform: translateY(1em); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes reward-spark {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.2); }
+}
+
+@keyframes reward-fade {
+  to { opacity: 0; }
+}
+
+/* 움직임을 끈 경우(농장 설정 또는 기기의 '동작 줄이기'): 숫자 카드만 잠깐 보여 준다 */
+.reward-effect[data-motion='off'] * {
+  animation: none;
+  transition: none;
+}
+
+.reward-effect[data-motion='off'] {
+  animation: none;
+}
+
+.reward-effect[data-motion='off'] .reward-spark {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reward-effect,
+  .reward-effect * {
+    animation: none;
+    transition: none;
+  }
+
+  .reward-spark {
+    display: none;
+  }
+}

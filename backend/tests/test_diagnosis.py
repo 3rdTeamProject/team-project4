@@ -1,6 +1,7 @@
 """Diagnosis API tests use a fresh SQLite database and mocked analysis service per test."""
 import asyncio
 import json
+import io
 import os
 import tempfile
 import threading
@@ -10,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+from PIL import Image
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -27,6 +29,7 @@ from sqlalchemy import (
     event,
     insert,
     select,
+    update,
 )
 from sqlalchemy.pool import NullPool
 from sqlalchemy.exc import SQLAlchemyError
@@ -40,7 +43,9 @@ from diagnosis import (
 )
 from fastapi import FastAPI
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+_png_buffer = io.BytesIO()
+Image.new("RGB", (8, 8), "green").save(_png_buffer, format="PNG")
+PNG = _png_buffer.getvalue()
 
 
 class FakeDiagnosisService:
@@ -101,7 +106,12 @@ class DiagnosisQuotaTest(unittest.TestCase):
             poolclass=NullPool,
         )
         self.metadata = MetaData()
-        self.users = Table("users", self.metadata, Column("id", Integer, primary_key=True))
+        self.users = Table(
+            "users",
+            self.metadata,
+            Column("id", Integer, primary_key=True),
+            Column("diag_credits", Integer, nullable=False, default=0),
+        )
         self.farms = Table(
             "farms",
             self.metadata,
@@ -231,6 +241,286 @@ class DiagnosisQuotaTest(unittest.TestCase):
         response = self.client.get("/diagnoses/quota", headers=self.headers(user_id))
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
+
+    def prepare_paid_quota(self, credits=1):
+        self.add_growing_plant()
+        with self.engine.begin() as conn:
+            conn.execute(self.users.update().where(self.users.c.id == 1).values(diag_credits=credits))
+        for index in range(3):
+            response = self.post_diagnosis(f"free-before-paid-{index}")
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["metadata"]["quota_source"], "daily_free")
+            self.assertEqual(self.quota()["purchased_balance"], credits)
+
+    def test_purchased_completion_uses_free_first_and_replay_never_charges_twice(self):
+        self.prepare_paid_quota(2)
+        for index, outcome in enumerate([None, "uncertain"]):
+            self.analysis.failure = outcome
+            key = f"paid-completion-{index}"
+            response = self.post_diagnosis(key)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["metadata"]["quota_source"], "purchased")
+            self.assertEqual(response.json()["quota"]["purchased_balance"], 1 - index)
+            self.assertEqual(self.post_diagnosis(key).status_code, 200)
+            self.assertEqual(self.quota()["purchased_balance"], 1 - index)
+        self.assertEqual(self.quota()["used_count"], 3)
+        self.assertFalse(self.quota()["can_request"])
+        self.assertEqual(self.post_diagnosis("paid-no-balance").status_code, 429)
+        self.assertEqual(self.analysis.calls, 5)
+
+    def test_purchased_failures_release_only_definitive_failures(self):
+        self.prepare_paid_quota()
+        self.analysis.failure = "before"
+        before = self.post_diagnosis("paid-failed-before")
+        self.assertEqual(before.status_code, 422)
+        self.assertEqual(self.quota()["purchased_reserved"], 0)
+        self.assertEqual(self.quota()["purchased_available"], 1)
+        self.analysis.failure = "after"
+        unknown = self.post_diagnosis("paid-result-unknown")
+        self.assertEqual(unknown.status_code, 502)
+        quota = self.quota()
+        self.assertEqual(quota["purchased_balance"], 1)
+        self.assertEqual(quota["purchased_reserved"], 1)
+        self.assertEqual(quota["purchased_available"], 0)
+        self.assertFalse(quota["can_request"])
+        self.assertEqual(self.post_diagnosis("paid-result-unknown").status_code, 202)
+        self.assertEqual(self.post_diagnosis("paid-reserved-unavailable").status_code, 429)
+
+    def test_purchased_unknown_survives_midnight_and_replay_keeps_its_source(self):
+        before = datetime.fromisoformat("2026-10-26T23:59:00+09:00")
+        with patch("diagnosis.now_kst", return_value=before):
+            self.prepare_paid_quota(2)
+            self.analysis.failure = "after"
+            response = self.post_diagnosis("paid-midnight-unknown")
+        with patch("diagnosis.now_kst", return_value=before + timedelta(minutes=2)):
+            quota = self.quota()
+            self.assertEqual(quota["remaining_count"], 3)
+            self.assertEqual(quota["purchased_balance"], 2)
+            self.assertEqual(quota["purchased_reserved"], 1)
+            self.assertEqual(quota["purchased_available"], 1)
+            saved = self.client.get(f"/diagnoses/requests/{response.json()['request_id']}", headers=self.headers()).json()
+            self.assertTrue(saved["quota_reserved"])
+            self.assertEqual(saved["funding_source"], "purchased")
+            self.assertEqual(self.post_diagnosis("paid-midnight-unknown").status_code, 202)
+            free = self.post_diagnosis("new-day-free-first")
+            self.assertEqual(free.json()["metadata"]["quota_source"], "daily_free")
+            self.assertEqual(self.quota()["purchased_balance"], 2)
+
+    def test_concurrent_paid_requests_cannot_overspend_last_credit(self):
+        self.prepare_paid_quota()
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            responses = list(executor.map(lambda i: self.post_diagnosis(f"paid-parallel-{i}"), range(6)))
+        self.assertEqual(sum(r.status_code == 200 for r in responses), 1)
+        self.assertEqual(sum(r.status_code == 429 for r in responses), 5)
+        self.assertEqual(self.quota()["purchased_balance"], 0)
+        self.assertEqual(self.quota()["used_count"], 3)
+
+    def test_paid_inflight_replay_and_midnight_completion_keep_original_funding(self):
+        before = datetime.fromisoformat("2026-10-26T23:59:00+09:00")
+        with patch("diagnosis.now_kst", return_value=before):
+            self.prepare_paid_quota()
+            started, release = threading.Event(), threading.Event()
+            original = self.analysis.analyze
+
+            async def blocked(*args):
+                started.set()
+                if not await asyncio.to_thread(release.wait, timeout=10):
+                    raise TimeoutError("test analysis was not released")
+                return await original(*args)
+
+            self.analysis.analyze = blocked
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self.post_diagnosis, "paid-inflight-key")
+                try:
+                    self.assertTrue(started.wait(timeout=5))
+                    quota = self.quota()
+                    self.assertEqual(quota["purchased_balance"], 1)
+                    self.assertEqual(quota["purchased_reserved"], 1)
+                    self.assertEqual(self.post_diagnosis("paid-inflight-key").status_code, 202)
+                    with patch("diagnosis.now_kst", return_value=before + timedelta(minutes=2)):
+                        release.set()
+                        response = future.result(timeout=15)
+                finally:
+                    release.set()
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["quota"]["remaining_count"], 3)
+        self.assertEqual(response.json()["quota"]["purchased_balance"], 0)
+        self.assertEqual(response.json()["metadata"]["quota_source"], "purchased")
+        self.assertEqual(self.analysis.calls, 4)
+
+    def test_purchased_result_storage_rollback_preserves_balance_and_reservation(self):
+        self.prepare_paid_quota()
+        response, _ = self.post_storage_case("before_commit", "paid-storage-rollback")
+        self.assertEqual(response.status_code, 503, response.text)
+        self.assertEqual(self.quota()["purchased_balance"], 1)
+        self.assertEqual(self.quota()["purchased_reserved"], 1)
+        self.assertEqual(self.quota()["purchased_available"], 0)
+        self.assertEqual(self.post_diagnosis("paid-storage-rollback").status_code, 202)
+
+    def test_purchased_lost_commit_ack_confirms_charge_without_repeating_it(self):
+        self.prepare_paid_quota()
+        response, _ = self.post_storage_case("after_commit", "paid-storage-committed")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.quota()["purchased_balance"], 0)
+        self.assertEqual(self.quota()["purchased_reserved"], 0)
+        self.assertEqual(self.post_diagnosis("paid-storage-committed").status_code, 200)
+        self.assertEqual(self.quota()["purchased_balance"], 0)
+
+    def test_concurrent_free_and_purchased_requests_share_the_same_user_lock(self):
+        self.add_growing_plant()
+        with self.engine.begin() as conn:
+            conn.execute(self.users.update().values(diag_credits=2))
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            responses = list(executor.map(lambda i: self.post_diagnosis(f"mixed-parallel-{i}"), range(8)))
+        completed = [r.json() for r in responses if r.status_code == 200]
+        self.assertEqual(len(completed), 5)
+        self.assertEqual(sum(r["metadata"]["quota_source"] == "daily_free" for r in completed), 3)
+        self.assertEqual(sum(r["metadata"]["quota_source"] == "purchased" for r in completed), 2)
+        self.assertEqual(sum(r.status_code == 429 for r in responses), 3)
+        self.assertEqual(self.quota()["purchased_balance"], 0)
+        self.assertEqual(self.quota()["purchased_reserved"], 0)
+
+    def test_purchased_charge_failure_rolls_back_completed_result(self):
+        self.prepare_paid_quota()
+        original = self.analysis.analyze
+
+        async def changed_balance(*args):
+            result = await original(*args)
+            # Simulate an out-of-band balance change after reservation.
+            with self.engine.begin() as conn:
+                conn.execute(self.users.update().values(diag_credits=0))
+            return result
+
+        self.analysis.analyze = changed_balance
+        response = self.post_diagnosis("paid-charge-unavailable")
+        self.assertEqual(response.status_code, 503, response.text)
+        saved = self.client.get(f"/diagnoses/requests/{response.json()['request_id']}", headers=self.headers()).json()
+        self.assertEqual(saved["status"], "processing")
+        self.assertTrue(saved["quota_reserved"])
+        self.assertFalse(saved["quota_consumed"])
+        self.assertEqual(self.quota()["purchased_balance"], 0)
+        self.assertEqual(self.quota()["purchased_reserved"], 1)
+
+    def test_purchased_funding_is_private_and_payload_change_cannot_reallocate(self):
+        self.prepare_paid_quota(2)
+        self.add_growing_plant(user_id=2)
+        response = self.post_diagnosis("paid-owned-request")
+        self.assertEqual(response.status_code, 200, response.text)
+        changed = self.post_diagnosis("paid-owned-request", symptoms="기타")
+        self.assertEqual(changed.status_code, 409)
+        self.assertEqual(self.quota()["purchased_balance"], 1)
+        self.assertEqual(self.quota(2)["purchased_balance"], 0)
+        self.assertEqual(self.quota(2)["purchased_reserved"], 0)
+        denied = self.client.get(f"/diagnoses/requests/{response.json()['request_id']}", headers=self.headers(2))
+        self.assertEqual(denied.status_code, 404)
+
+    def test_legacy_records_without_funding_metadata_remain_free(self):
+        self.add_growing_plant()
+        response = self.post_diagnosis("legacy-free-funding").json()
+        with self.engine.begin() as conn:
+            result = dict(response)
+            result["metadata"] = {k: v for k, v in result["metadata"].items() if not k.startswith("quota_")}
+            conn.execute(self.requests.update().values(result=result))
+        self.assertEqual(self.quota()["used_count"], 1)
+        self.assertEqual(self.quota()["purchased_reserved"], 0)
+    def set_credits(self, count, user_id=1):
+        with self.engine.begin() as conn:
+            conn.execute(update(self.users).where(self.users.c.id == user_id).values(diag_credits=count))
+
+    def credits(self, user_id=1):
+        with self.engine.connect() as conn:
+            return conn.execute(select(self.users.c.diag_credits).where(self.users.c.id == user_id)).scalar_one()
+
+    def use_free_quota(self, prefix="free"):
+        for index in range(3):
+            self.assertEqual(self.post_diagnosis(f"{prefix}-{index:02d}-key").status_code, 200)
+
+    def test_free_quota_is_used_before_purchased_credits(self):
+        self.add_growing_plant()
+        self.set_credits(2)
+        self.assertEqual(self.quota()["credit_count"], 2)
+        self.assertEqual(self.post_diagnosis("free-first-0001").status_code, 200)
+        self.assertEqual(self.credits(), 2)
+        self.assertEqual(self.quota()["remaining_count"], 2)
+
+    def test_purchased_credits_allow_diagnosis_after_free_quota_and_run_out(self):
+        self.add_growing_plant()
+        self.set_credits(2)
+        self.use_free_quota()
+        self.assertEqual(self.quota()["remaining_count"], 0)
+        calls_before = self.analysis.calls
+        first = self.post_diagnosis("credit-use-0001")
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(first.json()["quota"]["credit_count"], 1)
+        self.assertEqual(self.post_diagnosis("credit-use-0002").status_code, 200)
+        self.assertEqual(self.analysis.calls, calls_before + 2)
+        self.assertEqual(self.credits(), 0)
+        # 충전한 횟수는 하루 무료 횟수 계산에 섞이지 않는다
+        self.assertEqual(self.quota()["used_count"], 3)
+        limited = self.post_diagnosis("credit-use-0003")
+        self.assertEqual(limited.status_code, 429)
+        self.assertEqual(limited.json()["credit_count"], 0)
+        self.assertEqual(self.analysis.calls, calls_before + 2)
+
+    def test_credit_is_refunded_when_analysis_never_started(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.use_free_quota()
+        self.analysis.failure = "before"
+        response = self.post_diagnosis("credit-before-0001")
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(self.credits(), 1)
+        request = self.client.get(response.json()["status_url"], headers=self.headers()).json()
+        self.assertFalse(request["quota_reserved"])
+        # 돌려받은 횟수로 다시 진단할 수 있다
+        self.assertEqual(self.post_diagnosis("credit-before-0002").status_code, 200)
+        self.assertEqual(self.credits(), 0)
+
+    def test_credit_stays_unavailable_when_analysis_started_but_result_is_unknown(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.use_free_quota()
+        self.analysis.failure = "after"
+        self.assertEqual(self.post_diagnosis("credit-after-00001").status_code, 502)
+        # The balance is reserved until a durable result, so it cannot be reused.
+        self.assertEqual(self.credits(), 1)
+        self.assertEqual(self.quota()["credit_count"], 0)
+        self.assertEqual(self.quota()["purchased_reserved"], 1)
+        self.assertEqual(self.post_diagnosis("credit-after-00002").status_code, 429)
+
+    def test_legacy_prepaid_request_does_not_consume_free_quota_or_charge_again(self):
+        self.add_growing_plant()
+        result = self.post_diagnosis("legacy-prepaid-001").json()
+        with self.engine.begin() as conn:
+            stored = conn.execute(select(self.requests.c.result)).scalar_one()
+            stored["metadata"].pop("quota_source", None)
+            stored["metadata"].pop("quota_version", None)
+            conn.execute(self.requests.update().values(result=stored, credit_used=True))
+        self.assertEqual(self.quota()["remaining_count"], 3)
+        self.assertEqual(self.quota()["purchased_reserved"], 0)
+        replay = self.post_diagnosis("legacy-prepaid-001")
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.json()["request_id"], result["request_id"])
+        self.assertEqual(self.analysis.calls, 1)
+        self.assertEqual(self.credits(), 0)
+
+    def test_credit_is_refunded_only_once_for_replayed_preanalysis_failure(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.use_free_quota()
+        self.analysis.failure = "before"
+        self.assertEqual(self.post_diagnosis("credit-replay-0001").status_code, 422)
+        self.assertEqual(self.post_diagnosis("credit-replay-0001").status_code, 422)
+        self.assertEqual(self.credits(), 1)
+
+    def test_credits_are_not_used_by_demo_requests(self):
+        self.add_growing_plant()
+        self.set_credits(1)
+        self.assertEqual(self.post_diagnosis("credit-demo-00001", path="/diagnoses/demo").status_code, 200)
+        self.assertEqual(self.credits(), 1)
 
     def test_read_only_key_lookup_recovers_saved_result_without_analysis_or_quota_change(self):
         self.add_growing_plant()
@@ -712,7 +1002,7 @@ class DiagnosisQuotaTest(unittest.TestCase):
                 execute = conn.execute
 
                 def result_execute(statement, *args, **kwargs):
-                    if getattr(statement, "is_update", False):
+                    if getattr(statement, "is_update", False) and statement.table.name == self.requests.name:
                         if mode == "update_error":
                             raise SQLAlchemyError("mock result UPDATE failure")
                         if mode == "zero_rows":
@@ -1176,6 +1466,18 @@ class DiagnosisQuotaTest(unittest.TestCase):
         self.assertNotIn("/diagnoses/demo", app.openapi()["paths"])
 
 
+    def test_corrupt_images_rejected_before_provider_and_quota_reservation(self):
+        self.add_growing_plant()
+        response = self.post_diagnosis("corrupt-image-preflight", photos={
+            "close_photo": ("broken.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png"),
+        })
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(self.analysis.calls, 0)
+        self.assertEqual(self.quota()["remaining_count"], 3)
+        with self.engine.connect() as conn:
+            self.assertEqual(list(conn.execute(select(self.requests))), [])
+
+
 class OpenAIDiagnosisServiceTest(unittest.TestCase):
     def test_sdk_sends_structured_vision_request_without_network_access(self):
         requests = []
@@ -1234,7 +1536,7 @@ class OpenAIDiagnosisServiceTest(unittest.TestCase):
         self.assertEqual(request_body["response_format"]["type"], "json_schema")
         input_content = request_body["messages"][1]["content"]
         self.assertEqual(sum(item["type"] == "image_url" for item in input_content), 2)
-        self.assertIn("data:image/png;base64,", input_content[1]["image_url"]["url"])
+        self.assertIn("data:image/png;base64,", next(item["image_url"]["url"] for item in input_content if item["type"] == "image_url"))
 
     def test_structured_vision_request_uses_model_and_passes_all_images(self):
         parsed = DiagnosisAnalysis(

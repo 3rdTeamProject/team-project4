@@ -1,12 +1,14 @@
 """Daily diagnosis quota and OpenAI-backed diagnosis endpoints."""
 import base64
 import hashlib
+import io
 import json
 import os
 import re
 import uuid
+import warnings
 from datetime import datetime, time, timedelta
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from typing import Awaitable, Callable, Literal
 from zoneinfo import ZoneInfo
 
@@ -14,7 +16,8 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from openai import APIStatusError, AsyncOpenAI, OpenAIError
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -30,7 +33,9 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    false,
     insert,
+    or_,
     select,
     update,
 )
@@ -38,6 +43,16 @@ from sqlalchemy.sql import func
 
 DAILY_LIMIT = 3
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
+MAX_PHOTO_DIMENSION = 12000
+# Per-worker decoder planning budget: one active decode, 16 bytes/pixel
+# for the pixel surface, codec scratch space and allocation headroom.
+# See reports/high-resolution-upload-2026-10-28/REPORT.md before scaling workers.
+PHOTO_DECODE_BUDGET_BYTES = 1024 * 1024 * 1024
+PHOTO_DECODE_CONCURRENCY = 1
+PHOTO_DECODE_BYTES_PER_PIXEL = 16
+PHOTO_DECODE_WAIT_SECONDS = 5
+MAX_PHOTO_PIXELS = PHOTO_DECODE_BUDGET_BYTES // PHOTO_DECODE_CONCURRENCY // PHOTO_DECODE_BYTES_PER_PIXEL
+_photo_decode_slots = BoundedSemaphore(PHOTO_DECODE_CONCURRENCY)
 KST = ZoneInfo("Asia/Seoul")
 IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 ALLOWED_SYMPTOMS = {"잎 변색", "시듦", "잎에 반점", "구멍", "벌레 보임", "곰팡이", "기타"}
@@ -53,7 +68,7 @@ class DiagnosisServiceError(Exception):
 
 
 class DiagnosisAnalysis(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     status: Literal["diagnosed", "uncertain"]
     disease_name: str | None
@@ -63,13 +78,27 @@ class DiagnosisAnalysis(BaseModel):
     reason: str | None
     retake_guidance: list[str]
 
+    @field_validator("disease_name", "reason")
+    @classmethod
+    def reject_blank_text(cls, value):
+        if value is not None and not value:
+            raise ValueError("문자열에는 공백 이외의 내용이 필요합니다.")
+        return value
+
+    @field_validator("evidence", "management", "additional_checks", "retake_guidance")
+    @classmethod
+    def reject_blank_items(cls, value):
+        if any(not item for item in value):
+            raise ValueError("안내 항목에는 공백 이외의 내용이 필요합니다.")
+        return value
+
     @model_validator(mode="after")
     def validate_outcome(self):
         if self.status == "diagnosed":
-            if not self.disease_name or not self.evidence:
-                raise ValueError("진단 결과에는 의심 병해충명과 근거가 필요합니다.")
-        elif not self.reason or not self.retake_guidance:
-            raise ValueError("판단 어려움 결과에는 사유와 추가 촬영 안내가 필요합니다.")
+            if not self.disease_name or not self.evidence or not self.management:
+                raise ValueError("진단 결과에는 의심 원인명, 판단 근거와 관리 방법이 필요합니다.")
+        elif not self.reason or not (self.retake_guidance or self.additional_checks):
+            raise ValueError("판단 어려움 결과에는 사유와 재촬영 또는 추가 확인 안내가 필요합니다.")
         return self
 
 
@@ -77,31 +106,59 @@ def now_kst() -> datetime:
     return datetime.now(KST)
 
 
-def quota_snapshot(conn, requests: Table, user_id: int, current: datetime) -> dict:
+def funding_source(row) -> str:
+    """Read metadata reservations and legacy main-branch prepaid requests."""
+    if row.get("credit_used"):
+        return "purchased"
+    result = row["result"] if isinstance(row["result"], dict) else {}
+    metadata = result.get("metadata")
+    return "purchased" if isinstance(metadata, dict) and metadata.get("quota_source") == "purchased" else "daily_free"
+
+
+def quota_snapshot(conn, requests: Table, user_id: int, current: datetime, users: Table) -> dict:
     usage_date = current.astimezone(KST).date()
+    # 충전 횟수로 처리한 요청은 하루 무료 횟수에 세지 않는다
     rows = conn.execute(
-        select(requests.c.quota_reserved, requests.c.quota_consumed).where(
+        select(requests.c.quota_reserved, requests.c.quota_consumed, requests.c.usage_date, requests.c.result).where(
             requests.c.user_id == user_id,
-            requests.c.usage_date == usage_date,
+            or_(requests.c.usage_date == usage_date, requests.c.quota_reserved.is_(True)),
             requests.c.is_demo.is_(False),
+            requests.c.credit_used.is_(False),
         )
     )
     reserved_count = 0
     consumed_count = 0
-    for reserved, consumed in rows:
+    purchased_reserved = 0
+    for row in rows.mappings():
+        reserved, consumed = row["quota_reserved"], row["quota_consumed"]
+        if funding_source(row) == "purchased":
+            purchased_reserved += int(bool(reserved))
+            continue
+        if row["usage_date"] != usage_date:
+            continue
         if reserved:
             reserved_count += 1
         elif consumed:
             consumed_count += 1
 
     used_count = reserved_count + consumed_count
+    purchased_balance = conn.execute(
+        select(users.c.diag_credits).where(users.c.id == user_id)
+    ).scalar_one()
+    purchased_available = max(0, purchased_balance - purchased_reserved)
+    remaining_count = max(0, DAILY_LIMIT - used_count)
     reset_at = datetime.combine(usage_date + timedelta(days=1), time.min, tzinfo=KST)
     return {
         "daily_limit": DAILY_LIMIT,
         "used_count": used_count,
-        "remaining_count": max(0, DAILY_LIMIT - used_count),
+        "remaining_count": remaining_count,
         "reserved_count": reserved_count,
+        "credit_count": purchased_available,  # 포인트샵에서 충전한 남은 횟수(무료 횟수를 다 쓴 뒤에 차감)
         "reset_at": reset_at.isoformat(),
+        "purchased_balance": purchased_balance,
+        "purchased_reserved": purchased_reserved,
+        "purchased_available": purchased_available,
+        "can_request": remaining_count > 0 or purchased_available > 0,
     }
 
 
@@ -113,6 +170,56 @@ def image_format(data: bytes) -> str | None:
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
     return None
+
+
+def photo_display_size(image: Image.Image) -> tuple[int, int]:
+    """Honor EXIF axis swaps without transposing/re-encoding the original."""
+    width, height = image.size
+    if image.getexif().get(274) in (5, 6, 7, 8):
+        return height, width
+    return width, height
+
+
+def _check_photo_dimensions(width: int, height: int, slot: str) -> None:
+    if width < 1 or height < 1:
+        raise HTTPException(422, f"{slot} 사진의 가로·세로 크기가 올바르지 않습니다.")
+    if max(width, height) > MAX_PHOTO_DIMENSION:
+        raise HTTPException(413, f"{slot} 사진 크기 {width}×{height}px는 한 변 {MAX_PHOTO_DIMENSION:,}px 제한을 초과합니다.")
+    if width * height > MAX_PHOTO_PIXELS:
+        raise HTTPException(413, f"{slot} 사진의 {width * height:,}픽셀은 서버 안전 상한 {MAX_PHOTO_PIXELS:,}픽셀을 초과합니다.")
+
+
+def validate_photo_content(data: bytes, actual_type: str, slot: str) -> None:
+    if not _photo_decode_slots.acquire(timeout=PHOTO_DECODE_WAIT_SECONDS):
+        raise HTTPException(503, "다른 사진을 검증 중입니다. 잠시 후 다시 시도해 주세요.", headers={"Retry-After": "2"})
+    try:
+        _decode_photo_content(data, actual_type, slot)
+    finally:
+        _photo_decode_slots.release()
+
+
+def _decode_photo_content(data: bytes, actual_type: str, slot: str) -> None:
+    """Check bounds before decoding; verify structure and fully decode pixels."""
+    formats = {"image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WEBP"}
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as image:
+                width, height = image.size
+                _check_photo_dimensions(width, height, slot)
+                if image.format != formats[actual_type] or getattr(image, "n_frames", 1) != 1:
+                    raise HTTPException(415, f"{slot} 사진은 정지 PNG, JPEG, WebP 이미지여야 합니다.")
+                image.verify()
+            # verify() checks structure; load() also catches truncated pixel data.
+            with Image.open(io.BytesIO(data)) as image:
+                image.load()
+                # Read metadata after verify/load: some formats load during
+                # getexif(). Raw dimensions were bounded before any decode.
+                _check_photo_dimensions(*photo_display_size(image), slot)
+    except (Image.DecompressionBombWarning, Image.DecompressionBombError) as error:
+        raise HTTPException(413, f"{slot} 사진의 픽셀 수가 너무 큽니다.") from error
+    except (UnidentifiedImageError, OSError, ValueError, SyntaxError, EOFError) as error:
+        raise HTTPException(422, f"{slot} 사진이 손상되었거나 디코딩할 수 없습니다.") from error
 
 
 async def read_photo(upload: UploadFile | None, slot: str, required: bool) -> bytes | None:
@@ -130,6 +237,7 @@ async def read_photo(upload: UploadFile | None, slot: str, required: bool) -> by
     actual_type = image_format(data)
     if actual_type is None or upload.content_type != actual_type:
         raise HTTPException(415, f"{slot} 사진은 PNG, JPEG, WebP 형식이어야 합니다.")
+    await run_in_threadpool(validate_photo_content, data, actual_type, slot)
     return data
 
 
@@ -194,6 +302,11 @@ class OpenAIDiagnosisService:
             "의심 병해충명으로 작성하고 evidence에는 실제 사진이나 입력에서 근거를 제시하세요. "
             "관리 방법은 일반적인 안전 안내로 한정하고 농약의 임의 사용량·희석 비율을 만들지 마세요. "
             "모든 응답은 요구된 JSON 스키마를 따르세요."
+            "병해충뿐 아니라 과습·수분 부족, 영양 부족·과다, 온도 스트레스, 햇빛 피해 및 기타 환경적 원인도 고려하세요. "
+            "disease_name에는 의심 병해충명 또는 의심되는 비병해충 원인명을 기재할 수 있습니다. "
+            "사진만으로 수분·영양·온도·광량의 원인을 확정하지 마세요. 구분할 근거가 부족하면 uncertain으로 응답하고 "
+            "additional_checks에 물주기·비료·온도·햇빛 등 확인할 재배 환경을 안내하세요. "
+            "diagnosed인 경우 evidence와 management에 각각 의미 있는 항목을 하나 이상 제공하세요."
         )
         user_text = (
             f"작물명: {crop_name}\n"
@@ -202,6 +315,7 @@ class OpenAIDiagnosisService:
             "사진별로 관찰되는 사실만 반영하고, 제공되지 않은 정보는 추정하지 마세요."
         )
         content: list[dict] = [{"type": "text", "text": user_text}]
+        roles = {"close": "필수 근접 사진: 증상 부위의 가까운 모습", "whole": "선택 전체 사진: 작물 전체와 주변 상태", "back": "선택 잎 뒷면 사진: 잎 뒷면의 상태"}
         for slot in ("close", "whole", "back"):
             data = photos[slot]
             if data is None:
@@ -210,6 +324,7 @@ class OpenAIDiagnosisService:
             if media_type is None:
                 raise DiagnosisServiceError("사진 형식을 확인할 수 없습니다.", analysis_started=False)
             encoded = base64.b64encode(data).decode("ascii")
+            content.append({"type": "text", "text": roles[slot]})
             content.append({
                 "type": "image_url",
                 "image_url": {
@@ -324,6 +439,7 @@ def register_diagnoses(
         Column("request_fingerprint", String(64), nullable=False),
         Column("quota_reserved", Boolean, nullable=False, default=True),
         Column("quota_consumed", Boolean, nullable=False, default=False),
+        Column("credit_used", Boolean, nullable=False, default=False, server_default=false()),  # 충전 횟수로 처리한 요청
         Column("is_demo", Boolean, nullable=False, default=False),
         Column("outcome", String(32), nullable=True),
         Column("result", JSON, nullable=True),
@@ -354,7 +470,7 @@ def register_diagnoses(
     @router.get("/quota")
     def read_quota(user=Depends(get_current_user)):
         with engine.connect() as conn:
-            return quota_snapshot(conn, requests, user["id"], now_kst())
+            return quota_snapshot(conn, requests, user["id"], now_kst(), users)
 
     async def process_request(
         *,
@@ -473,10 +589,16 @@ def register_diagnoses(
                     "description": description,
                 }
 
-                quota = quota_snapshot(conn, requests, user["id"], current)
-                if not service.is_demo and quota["remaining_count"] == 0:
+                quota = quota_snapshot(conn, requests, user["id"], current, users)
+                if not service.is_demo and not quota["can_request"]:
                     return None, JSONResponse(status_code=429, content={"status": "limit_exceeded", **quota})
 
+                # Persist the selected source before analysis; replay never reallocates it.
+                request_metadata["quota_version"] = 1
+                request_metadata["quota_source"] = (
+                    "demo" if service.is_demo else
+                    "daily_free" if quota["remaining_count"] > 0 else "purchased"
+                )
                 conn.execute(insert(requests).values(
                     request_id=request_id,
                     user_id=user["id"],
@@ -488,6 +610,7 @@ def register_diagnoses(
                     request_fingerprint=fingerprint,
                     quota_reserved=not service.is_demo,
                     quota_consumed=False,
+                    credit_used=False,
                     is_demo=service.is_demo,
                     result={"metadata": request_metadata},
                 ))
@@ -582,6 +705,9 @@ def register_diagnoses(
             unexpected_row_count = False
             try:
                 with engine.begin() as conn:
+                    # Same lock order as reservation and shop purchases. Never hold
+                    # this transaction open while calling the external provider.
+                    conn.execute(update(users).where(users.c.id == user["id"]).values(id=users.c.id))
                     written = conn.execute(
                         update(requests)
                         .where(
@@ -592,6 +718,7 @@ def register_diagnoses(
                         .values(
                             status="completed",
                             outcome=result["status"],
+                            credit_used=request_metadata["quota_source"] == "purchased",
                             result=result,
                             quota_reserved=False,
                             quota_consumed=not service.is_demo,
@@ -601,7 +728,15 @@ def register_diagnoses(
                     if written.rowcount != 1:
                         unexpected_row_count = True
                         raise RuntimeError("Diagnosis result UPDATE did not affect exactly one row")
-                    quota = quota_snapshot(conn, requests, user["id"], completed)
+                    if request_metadata["quota_source"] == "purchased":
+                        charged = conn.execute(
+                            update(users).where(
+                                users.c.id == user["id"], users.c.diag_credits >= 1,
+                            ).values(diag_credits=users.c.diag_credits - 1)
+                        ).rowcount
+                        if charged != 1:
+                            raise RuntimeError("Purchased diagnosis balance unavailable at completion")
+                    quota = quota_snapshot(conn, requests, user["id"], completed, users)
             except Exception:
                 # The transaction context has rolled back/closed. A lost commit
                 # acknowledgement is not proof of rollback; never reuse its failed
@@ -619,6 +754,7 @@ def register_diagnoses(
                             and not saved["quota_reserved"]
                             and saved["quota_consumed"] == (not service.is_demo)
                             and isinstance(saved["result"], dict)
+                            and (service.is_demo or funding_source(saved) == request_metadata["quota_source"])
                         ):
                             stored_result = saved["result"]
                             validated = DiagnosisAnalysis.model_validate({
@@ -626,7 +762,7 @@ def register_diagnoses(
                                 if key in stored_result
                             })
                             if saved["outcome"] == validated.status and stored_result.get("is_demo") == service.is_demo:
-                                confirmed_quota = quota_snapshot(conn, requests, user["id"], now_kst())
+                                confirmed_quota = quota_snapshot(conn, requests, user["id"], now_kst(), users)
                                 return {
                                     **stored_result,
                                     "request_id": request_id,
@@ -824,9 +960,10 @@ def register_diagnoses(
             "quota_reserved": bool(
                 row["quota_reserved"]
                 and not row["is_demo"]
-                and row["usage_date"] == now_kst().date()
+                and (funding_source(row) == "purchased" or row["usage_date"] == now_kst().date())
             ),
             "quota_consumed": row["quota_consumed"],
+            "funding_source": "demo" if row["is_demo"] else funding_source(row),
             "result": row["result"],
             "error": row["error_message"],
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,

@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { createServer } from 'vite'
 
 test('P2 limit rollover preserves inputs and pending recovery', async t => {
-  let slots, cursor, effects, calls, memory
+  let slots, cursor, effects, calls, memory, diagnosisResponse
   const originalNow = Date.now
   let time = Date.parse('2026-10-23T23:59:00+09:00')
   Date.now = () => time
@@ -19,6 +19,7 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } },
     useMemo: fn => fn(), useEffect: fn => effects.push(fn),
   }
+  globalThis.document = { addEventListener() {}, removeEventListener() {} } // 화면의 바깥 클릭·Esc 처리가 쓰는 document 대역
   globalThis.sessionStorage = {
     getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, v), removeItem: k => memory.delete(k),
   }
@@ -26,7 +27,7 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
     gardenState: async () => ({ state: { farms: [{ id: 'farm', plots: [{ kind: 'tomato' }] }] } }),
     gardenCrops: async () => ({ crops: [{ kind: 'tomato', name: 'crop' }] }),
     diagnosisHistory: async () => ({ items: [] }),
-    createDiagnosis: async () => { calls++; throw Error('mock lost response') },
+    createDiagnosis: async () => { calls++; return diagnosisResponse() },
   }
   const oldQuota = { remaining_count: 0, daily_limit: 3, reset_at: '2026-10-24T00:00:00+09:00' }
   const newQuota = { remaining_count: 3, daily_limit: 3, reset_at: '2026-10-25T00:00:00+09:00' }
@@ -49,6 +50,7 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
     const runEffects = async () => { effects.forEach(fn => fn()); await new Promise(resolve => setImmediate(resolve)); return render() }
     const setup = async () => {
       slots = []; memory = new Map(); calls = 0; time = Date.parse('2026-10-23T23:59:00+09:00')
+      diagnosisResponse = () => { throw Error('mock lost response') }
       globalThis.p2Quota = { quota: oldQuota, quotaError: '', quotaLoading: false, refreshQuota: async () => globalThis.p2Quota.quota }
       render(); await runEffects()
       globalThis.p2Screen.setDiagnosisInput({ cropId: 'farm:1', symptoms: ['잎 변색'], description: 'keep description' })
@@ -65,6 +67,82 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
         assert.equal(calls, 0)
       })
     }
+    const paidQuota = (free, balance, reserved = 0, allowed = free > 0 || balance > reserved) => ({
+      ...oldQuota, remaining_count: free, purchased_balance: balance,
+      purchased_reserved: reserved, purchased_available: Math.max(0, balance - reserved), can_request: allowed,
+    })
+    for (const [label, value, allowed] of [
+      ['free three', paidQuota(3, 0), true],
+      ['paid one with free exhausted', paidQuota(0, 1), true],
+      ['both exhausted', paidQuota(0, 0), false],
+      ['last purchased credit reserved', paidQuota(0, 1, 1), false],
+      ['one available and two reserved', paidQuota(0, 3, 2), true],
+      ['server denies despite displayed balance', paidQuota(3, 2, 0, false), false],
+    ]) {
+      await t.test(`preflight and purchased display: ${label}`, async () => {
+        await setup()
+        globalThis.p2Quota.quota = value
+        render(); const html = await runEffects()
+        assert.ok(html.includes(`구매한 진단 잔액: ${value.purchased_balance}회`))
+        assert.ok(html.includes(`구매 진단 사용 가능: ${value.purchased_available}회`))
+        assert.ok(html.includes(`총 이용 가능: ${value.remaining_count + value.purchased_available}회`))
+        if (value.purchased_reserved) assert.ok(html.includes(`구매 진단 예약 중: ${value.purchased_reserved}회`))
+        assert.equal(calls, 0, 'quota refresh alone never analyzes')
+        await globalThis.p2Screen.sendDiagnosis()
+        assert.equal(calls, allowed ? 1 : 0)
+        if (!allowed) { render(); assert.equal(globalThis.p2Screen.getFlow().result.status, 'limit') }
+      })
+    }
+    await t.test('same-day recharge unlocks limit, keeps inputs, and completion refreshes paid balance', async () => {
+      await setup()
+      const before = globalThis.p2Screen.getForm()
+      globalThis.p2Quota.quota = paidQuota(0, 1)
+      render(); await runEffects()
+      assert.equal(globalThis.p2Screen.getFlow().screen, 'form')
+      assert.deepEqual(globalThis.p2Screen.getForm(), before)
+      assert.equal(calls, 0)
+      diagnosisResponse = () => {
+        globalThis.p2Quota.quota = paidQuota(0, 0)
+        return { status: 'diagnosed', diseaseName: 'paid saved result', requestId: 'paid-completed' }
+      }
+      let refreshes = 0
+      globalThis.p2Quota.refreshQuota = async () => { refreshes++; return globalThis.p2Quota.quota }
+      render()
+      await globalThis.p2Screen.sendDiagnosis()
+      assert.equal(calls, 1)
+      assert.equal(refreshes, 2, 'fresh preflight and post-completion refresh')
+      const html = render()
+      assert.ok(html.includes('paid saved result'))
+      assert.ok(html.includes('구매한 진단 잔액: 0회'))
+      assert.ok(html.includes('총 이용 가능: 0회'))
+      assert.equal(globalThis.p2Screen.getFlow().result.status, 'diagnosed')
+    })
+    await t.test('server limit after an allowed preflight remains authoritative', async () => {
+      await setup()
+      globalThis.p2Quota.quota = paidQuota(0, 1)
+      render(); await runEffects()
+      diagnosisResponse = () => {
+        globalThis.p2Quota.quota = paidQuota(0, 1, 1)
+        return { status: 'limit', remainingCount: 0, nextAvailableAt: oldQuota.reset_at }
+      }
+      await globalThis.p2Screen.sendDiagnosis()
+      render(); await runEffects()
+      assert.equal(globalThis.p2Screen.getFlow().result.status, 'limit')
+      assert.equal(calls, 1)
+    })
+    await t.test('same-day recharge does not unlock for loading, error, expired or denied quota', async () => {
+      for (const state of ['loading', 'error', 'expired', 'denied']) {
+        await setup()
+        globalThis.p2Quota.quota = paidQuota(0, 1)
+        if (state === 'loading') globalThis.p2Quota.quotaLoading = true
+        if (state === 'error') globalThis.p2Quota.quotaError = 'mock error'
+        if (state === 'expired') globalThis.p2Quota.quota.reset_at = '2026-10-23T00:00:00+09:00'
+        if (state === 'denied') globalThis.p2Quota.quota.can_request = false
+        render(); await runEffects()
+        assert.equal(globalThis.p2Screen.getFlow().result.status, 'limit', state)
+        assert.equal(calls, 0)
+      }
+    })
     await t.test('new KST day and successful available quota release only the old limit', async () => {
       await setup()
       const before = globalThis.p2Screen.getForm()
@@ -109,6 +187,6 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
     })
   } finally {
     await server.close(); Date.now = originalNow
-    for (const name of ['p2Hooks', 'p2Api', 'p2Quota', 'p2Screen', 'sessionStorage']) delete globalThis[name]
+    for (const name of ['p2Hooks', 'p2Api', 'p2Quota', 'p2Screen', 'sessionStorage', 'document']) delete globalThis[name]
   }
 })

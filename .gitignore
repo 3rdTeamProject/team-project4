@@ -2,7 +2,12 @@
 .env.*
 !.env.example
 venv/
+.venv/
 node_modules/
 __pycache__/
 *.pyc
 dist/
+
+# Local investigation artifacts and datasets (may contain private test results).
+/reports/
+/data-work/

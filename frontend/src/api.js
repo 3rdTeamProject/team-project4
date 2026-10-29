@@ -1,3 +1,5 @@
+import { DIAGNOSIS_QUOTA_CHANGED } from './components/diagnosisQuota.js'
+
 const API_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export const storage = {
@@ -35,22 +37,6 @@ export class ApiError extends Error {
   }
 }
 
-function apiErrorMessage(detail) {
-  if (typeof detail === 'string' && detail.trim()) return detail
-  if (Array.isArray(detail)) {
-    const issue = detail.find(item => item && typeof item === 'object' && typeof item.msg === 'string')
-    if (issue) {
-      const field = Array.isArray(issue.loc) ? issue.loc.filter(part => part !== 'body').join(' · ') : ''
-      return `${field ? `${field}: ` : ''}${issue.msg}`
-    }
-  }
-  if (detail && typeof detail === 'object') {
-    if (typeof detail.message === 'string' && detail.message.trim()) return detail.message
-    if (typeof detail.msg === 'string' && detail.msg.trim()) return detail.msg
-  }
-  return '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
-}
-
 function normalizeDiagnosisResult(data = {}) {
   const quota = data.quota ?? data
   const status = data.status === 'limit_exceeded' ? 'limit' : data.status
@@ -64,6 +50,7 @@ function normalizeDiagnosisResult(data = {}) {
     remainingCount: quota.remaining_count ?? data.remainingCount,
     dailyLimit: quota.daily_limit ?? data.dailyLimit,
     usedCount: quota.used_count ?? data.usedCount,
+    creditCount: quota.credit_count ?? data.creditCount,
     nextAvailableAt: data.next_available_at ?? quota.reset_at ?? data.nextAvailableAt,
     requestId: data.request_id ?? data.requestId,
     statusUrl: data.status_url ?? data.statusUrl,
@@ -90,7 +77,7 @@ function handleUnauthorized(response, token) {
  *  - auth: false  → 토큰을 붙이지 않는다(로그인 요청용).
  *  - redirectOn401: false → 401이어도 이동하지 않고 호출한 쪽이 처리하게 한다.
  */
-export async function request(path, { method = 'GET', body, auth = true, redirectOn401 = true } = {}) {
+export async function request(path, { method = 'GET', body, auth = true, redirectOn401 = true, signal } = {}) {
   const token = auth ? storage.token : null
   const headers = {}
   if (body) headers['Content-Type'] = 'application/json'
@@ -99,13 +86,14 @@ export async function request(path, { method = 'GET', body, auth = true, redirec
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   })
   const data = await parseResponse(res)
   if (!res.ok) {
     if (redirectOn401) {
       handleUnauthorized(res, token)
     }
-    throw new ApiError(res.status, apiErrorMessage(data.detail), data)
+    throw new ApiError(res.status, data.detail || '요청에 실패했습니다.', data)
   }
   return data
 }
@@ -192,7 +180,26 @@ export const api = {
   completeGardenTasks: (body) => request('/garden/tasks/complete', { method: 'POST', body }),
   me: () => request('/me'),
   rewards: () => request('/rewards'),
-  exchange: (body) => request('/exchanges', { method: 'POST', body }),
+  exchange: async (body) => {
+    const controller = new AbortController()
+    let timer
+    let result
+    try {
+      result = await Promise.race([
+        request('/exchanges', { method: 'POST', body, signal: controller.signal }),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort()
+            reject(new Error('교환 결과를 확인하지 못했어요. 다시 구매하기 전에 주문 내역을 확인해 주세요.'))
+          }, 30_000)
+        }),
+      ])
+    } finally { clearTimeout(timer) }
+    // Both single-item and cart purchases use this path. Mounted diagnosis
+    // screens must supersede reads started before the purchase committed.
+    window.dispatchEvent(new Event(DIAGNOSIS_QUOTA_CHANGED))
+    return result
+  },
   orders: (status = 'all') => request(`/me/orders?status=${status}`),
   order: (id) => request(`/me/orders/${id}`),
   cart: () => request('/cart'),

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { CoinIcon, ReceiptIcon, SproutIcon } from '../components/Icons.jsx'
+import LevelBadge from '../components/LevelBadge.jsx'
 import NicknameSheet from '../components/NicknameSheet.jsx'
 import PointLogList from '../components/PointLogList.jsx'
 import { levelProgress } from '../constants/level.js'
@@ -39,6 +40,14 @@ export default function MyPage() {
     api.orders('ing').then((list) => setIngOrders(list.length)).catch(() => {})
   }, [isKakao])
 
+  // 경험치 막대는 0에서 현재 값까지 차오르게 한다(한 프레임 뒤에 값을 바꿔야 움직임이 보인다)
+  const ratio = me ? levelProgress(me.exp).ratio : 0
+  const [shownRatio, setShownRatio] = useState(0)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setShownRatio(ratio))
+    return () => cancelAnimationFrame(frame)
+  }, [ratio])
+
   if (!storage.token) return <Navigate to="/" replace />
 
   const progress = me ? levelProgress(me.exp) : null
@@ -69,6 +78,7 @@ export default function MyPage() {
             <div className="level-side">
               <SproutIcon size={28} />
               <span className="level-label">Lv.{progress.level}</span>
+              <LevelBadge level={progress.level} />
               <div
                 className="level-bar"
                 role="progressbar"
@@ -77,7 +87,7 @@ export default function MyPage() {
                 aria-valuenow={Math.round(progress.ratio * 100)}
                 aria-label="다음 레벨까지 진행도"
               >
-                <i style={{ width: `${Math.round(progress.ratio * 100)}%` }} />
+                <i style={{ width: `${Math.round(shownRatio * 100)}%` }} />
               </div>
               <span className="level-next">
                 {progress.next === null ? '최고 레벨이에요' : `다음 레벨까지 ${progress.remaining.toLocaleString()} EXP`}

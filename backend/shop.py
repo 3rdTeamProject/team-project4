@@ -330,6 +330,8 @@ def register_shop(app, metadata, engine, get_current_user, users):
 
         quantities: dict[int, int] = {}
         for item in body.items:
+            if item.quantity < 1 or item.quantity > CART_MAX_QUANTITY:
+                raise HTTPException(400, '수량이 올바르지 않아요.')
             quantities[item.reward_id] = quantities.get(item.reward_id, 0) + item.quantity
         if not quantities:
             raise HTTPException(400, '교환할 상품을 선택해 주세요.')
@@ -339,10 +341,13 @@ def register_shop(app, metadata, engine, get_current_user, users):
         if len(note) > 200:
             raise HTTPException(400, '배송 요청사항은 200자 이하로 입력해 주세요.')
         new_address = clean_address(body.address) if body.address is not None else None
-
         for attempt in range(3):
             try:
                 with engine.begin() as conn:
+                    # Serialize balance updates with diagnosis reservations/completion.
+                    locked = conn.execute(update(users).where(users.c.id == user['id']).values(id=users.c.id)).rowcount
+                    if not locked:
+                        raise HTTPException(401)
                     result = place_order(conn, user, body, quantities, note, new_address, attempt)
                 return result
             except IntegrityError as e:
@@ -414,7 +419,8 @@ def register_shop(app, metadata, engine, get_current_user, users):
             conn.execute(delete(cart_items).where(cart_items.c.user_id == user['id'], cart_items.c.reward_id.in_(list(quantities))))
 
         point = conn.execute(select(users.c.point).where(users.c.id == user['id'])).scalar_one()
-        return {'order_id': order_id, 'order_no': order_no, 'total': total, 'point': point}
+        response = {'order_id': order_id, 'order_no': order_no, 'total': total, 'point': point}
+        return response
 
     def order_items(conn, order_ids):
         """주문별 상품 줄 {order_id: [item, ...]} (교환 기록 순서)."""
