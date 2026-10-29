@@ -30,6 +30,22 @@ test('garden diagnosis entry opens the real form; legacy journal editing stays l
   context.journalEdit = 'existing-record'
   context.navigate('diagnosis')
   assert.deepEqual(calls, ['diagnosis'])
+  context.journalEdit = null
+  context.parent = { postMessage: (...args) => calls.push(args) }
+  context.current = () => ({ id: 'farm-2', plots: [{ kind: 'tomato' }, { kind: 'tomato' }] })
+  context.plotIndex = 1
+  calls.length = 0
+  context.navigate('diagnosis')
+  assert.equal(calls[0][0].to, '/diagnosis')
+  assert.equal(calls[0][0].farmId, 'farm-2')
+  assert.equal(calls[0][0].plotNumber, 2)
+  for (const plant of [null, { kind: 'tomato', harvestedAt: '2026-10-29' }]) {
+    context.current = () => ({ id: 'farm-2', plots: [null, plant] })
+    calls.length = 0
+    context.navigate('diagnosis')
+    assert.equal(calls[0][0].to, '/diagnosis?mode=detail')
+    assert.equal(calls[0][0].farmId, undefined)
+  }
 })
 
 test('default, old leaf and detail URLs all render the existing AI form', async () => {
