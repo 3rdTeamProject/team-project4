@@ -83,9 +83,9 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
         await setup()
         globalThis.p2Quota.quota = value
         render(); const html = await runEffects()
-        assert.ok(html.includes(`구매한 진단 잔액: ${value.purchased_balance}회`))
-        assert.ok(html.includes(`구매 진단 사용 가능: ${value.purchased_available}회`))
-        assert.ok(html.includes(`총 이용 가능: ${value.remaining_count + value.purchased_available}회`))
+        assert.ok(html.includes(`추가 진단권: ${value.purchased_available}회`))
+        assert.ok(html.includes(`무료 진단 남은 횟수: ${value.remaining_count}/${value.daily_limit}회`))
+        assert.ok(!html.includes('총 이용 가능:'))
         if (value.purchased_reserved) assert.ok(html.includes(`구매 진단 예약 중: ${value.purchased_reserved}회`))
         assert.equal(calls, 0, 'quota refresh alone never analyzes')
         await globalThis.p2Screen.sendDiagnosis()
@@ -113,8 +113,8 @@ test('P2 limit rollover preserves inputs and pending recovery', async t => {
       assert.equal(refreshes, 2, 'fresh preflight and post-completion refresh')
       const html = render()
       assert.ok(html.includes('paid saved result'))
-      assert.ok(html.includes('구매한 진단 잔액: 0회'))
-      assert.ok(html.includes('총 이용 가능: 0회'))
+      assert.ok(html.includes('추가 진단권: 0회'))
+      assert.ok(html.includes('무료 진단 남은 횟수: 0/3회'))
       assert.equal(globalThis.p2Screen.getFlow().result.status, 'diagnosed')
     })
     await t.test('server limit after an allowed preflight remains authoritative', async () => {

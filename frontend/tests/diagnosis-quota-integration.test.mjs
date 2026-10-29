@@ -57,10 +57,10 @@ test('diagnosis screen refresh wiring and quota error/retry UI', async () => {
   })
   try {
     const { default: Details } = await server.ssrLoadModule('/src/components/DiagnosisDetails.jsx')
-    const render = () => {
+    const render = (url = '/diagnosis') => {
       cursor = 0
       effects = []
-      return renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(Details)))
+      return renderToStaticMarkup(React.createElement(MemoryRouter, { initialEntries: [url] }, React.createElement(Details)))
     }
     render()
     effects.forEach(fn => fn())
@@ -68,6 +68,17 @@ test('diagnosis screen refresh wiring and quota error/retry UI', async () => {
     let html = render()
     assert.equal(historyCalls, 1)
     assert.ok(html.includes('2/3회'))
+    for (const remaining of [3, 2, 1, 0]) {
+      globalThis.quotaTestState.quota = { ...serverQuota, remaining_count: remaining, purchased_balance: 5, purchased_available: 3, purchased_reserved: 2 }
+      html = render()
+      assert.ok(html.includes(`무료 진단 남은 횟수: ${remaining}/3회`))
+      assert.ok(html.includes('추가 진단권: 3회'))
+      assert.ok(html.includes('구매 진단 예약 중: 2회'))
+      assert.ok(!html.includes('총 이용 가능:'))
+    }
+    globalThis.quotaTestState.quota = serverQuota
+    assert.ok(html.indexOf('어떤 작물인가요?') < html.indexOf('사진을 찍어주세요'))
+    assert.ok(html.indexOf('사진을 찍어주세요') < html.indexOf('어떤 증상이 있나요?'))
     for (const status of ['diagnosed', 'uncertain', 'unknown', 'failed_before_analysis']) {
       refreshes = []
       globalThis.quotaTestScreen.applyDiagnosisResponse({ status, requestId: `request-${status}` })
@@ -105,6 +116,32 @@ test('diagnosis screen refresh wiring and quota error/retry UI', async () => {
     assert.ok(html.includes('아직 완료된 AI 상세 진단이 없습니다'))
     assert.ok(html.includes('href="/diagnosis/history"'))
     assert.equal(historyCalls, 1, 'quota refreshes do not reload recent diagnosis history')
+    globalThis.quotaTestApi.gardenState = async () => ({ state: { farms: [
+      { id: 'farm-a', name: 'A', plots: [{ kind: 'tomato' }] },
+      { id: 'farm-b', name: 'B', plots: [{ kind: 'tomato' }, { kind: 'tomato' }, null, { kind: 'tomato', harvestedAt: '2026-10-29' }] },
+    ] } })
+    slots = []
+    const url = '/diagnosis?farm=farm-b&plot=2'
+    render(url)
+    effects.forEach(fn => fn())
+    await new Promise(resolve => setImmediate(resolve))
+    render(url)
+    effects.forEach(fn => fn())
+    await new Promise(resolve => setImmediate(resolve))
+    html = render(url)
+    effects.forEach(fn => fn())
+    await new Promise(resolve => setImmediate(resolve))
+    html = render(url)
+    assert.ok(html.includes('id="diagnosis-farm-selected-value">B</span>'))
+    assert.ok(html.includes('id="diagnosis-crop-selected-value">crop · 2번 칸</span>'))
+    assert.ok(!html.includes('4번 칸'))
+    globalThis.quotaTestScreen.setDiagnosisInput({ cropId: 'farm-a:1', symptoms: [], description: '' })
+    render(url)
+    effects.forEach(fn => fn())
+    await new Promise(resolve => setImmediate(resolve))
+    html = render(url)
+    assert.ok(html.includes('id="diagnosis-farm-selected-value">A</span>'))
+    assert.ok(html.includes('id="diagnosis-crop-selected-value">crop · 1번 칸</span>'))
   } finally {
     await server.close()
     delete globalThis.quotaTestHooks
