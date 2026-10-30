@@ -1,6 +1,6 @@
 'use strict';
 
-// 서버에는 작은 표시용 JPEG가 저장된다. 원본은 같은 브라우저의 IndexedDB에 보관한다.
+// 표시용 사진은 일지에, 확대·다운로드용 사진은 비율을 유지해 줄인 뒤 서버 DB에 저장한다.
 const ORIGINAL_PHOTO_DB = 'woori-garden-original-photos';
 
 function openOriginalPhotoDb() {
@@ -23,22 +23,42 @@ async function originalPhotoKey(preview) {
   return `${window.GARDEN_STORAGE_KEY}|${await originalPhotoHash(preview)}`;
 }
 
+async function resizedJournalPhoto(file) {
+  if (file.size > 10 * 1024 * 1024) throw new Error('사진은 10MB 이하로 선택해 주세요.');
+  const bitmap = await createImageBitmap(file);
+  try {
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob || blob.type !== 'image/jpeg' || blob.size > 10 * 1024 * 1024) {
+      throw new Error('사진을 저장할 수 없어요. 다른 사진을 선택해 주세요.');
+    }
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'photo'}.jpg`, { type: 'image/jpeg' });
+  } finally { bitmap.close(); }
+}
+
 async function saveOriginalPhoto(preview, file) {
-  // Storage 설정 전이나 네트워크 오류 때도 현재 브라우저에서는 원본을 볼 수 있게 둔다.
-  let uploaded = false;
-  try { await hostApi('uploadOriginal', { preview, file }); uploaded = true; } catch {}
+  const storedPhoto = await resizedJournalPhoto(file);
+  const hosted = window.parent !== window;
+  if (hosted) await hostApi('uploadOriginal', { preview, file: storedPhoto });
   let db;
-  try { db = await openOriginalPhotoDb(); } catch (error) { if (!uploaded) throw error; return; }
+  try { db = await openOriginalPhotoDb(); } catch (error) { if (!hosted) throw error; return; }
   try {
     const key = await originalPhotoKey(preview);
     await new Promise((resolve, reject) => {
       const transaction = db.transaction('photos', 'readwrite');
-      transaction.objectStore('photos').put({ blob: file, name: file.name, type: file.type }, key);
+      transaction.objectStore('photos').put({ blob: storedPhoto, name: storedPhoto.name, type: storedPhoto.type }, key);
       transaction.oncomplete = resolve;
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);
     });
-  } catch (error) { if (!uploaded) throw error; } finally { db.close(); }
+  } catch (error) { if (!hosted) throw error; } finally { db.close(); }
 }
 
 async function loadOriginalPhoto(preview) {

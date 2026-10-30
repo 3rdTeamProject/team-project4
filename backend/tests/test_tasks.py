@@ -1,4 +1,5 @@
 """작물별 할 일·성장 단계·수확 검사. 임시 SQLite DB를 쓰고 .env의 실제 DB는 건드리지 않는다."""
+import hashlib
 import os
 import sys
 import tempfile
@@ -332,10 +333,16 @@ class TaskTest(unittest.TestCase):
     def test_photos_ride_along_with_the_journal(self):
         self.plant('seedling')
         photo = 'data:image/jpeg;base64,/9j/2Q=='
+        digest = hashlib.sha256(photo.encode('utf-8')).hexdigest()
+        run('INSERT INTO garden_original_photos (user_id, preview_hash, storage_path, photo_data, filename, content_type) '
+            'VALUES (:user_id, :digest, :storage_path, :data, :filename, :content_type)',
+            user_id=self.uid, digest=digest, storage_path='', data=b'photo', filename='leaf.jpg', content_type='image/jpeg')
         res = self.client.post('/garden/tasks/complete', headers=self.h, json={
             'planting_id': self.planting_id(), 'content': '사진 일지', 'photos': [photo]})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()['state']['records'][-1]['photos'], [photo])
+        linked = rows('SELECT journal_id FROM garden_original_photos WHERE preview_hash = :digest', digest=digest)[0]
+        self.assertEqual(linked['journal_id'], res.json()['state']['records'][-1]['journalId'])
         bad = self.client.post('/garden/tasks/complete', headers=self.h, json={
             'planting_id': self.planting_id(), 'content': '사진 일지', 'photos': ['http://x/y.png']})
         self.assertEqual(bad.status_code, 422)

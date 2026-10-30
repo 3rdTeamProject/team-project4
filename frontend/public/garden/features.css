@@ -38,7 +38,8 @@
 .jr-choice:disabled{opacity:1;cursor:default}
 .jr-group-menu{width:min(270px,calc(100% - 24px));max-height:260px;overflow:auto}.jr-group-menu-row{padding:6px 8px}.jr-group-menu-row+.jr-group-menu-row{border-top:1px solid #e4eadf}.jr-group-menu-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#62745b;font-size:11px}.jr-group-menu-row>div{display:flex}.jr-group-menu-row button{flex:1;width:auto}
 .jr-page .jr-farm-label,.jr-page .jr-farm-picker summary,.jr-page .jr-farm-options button{font-size:14px}
-.jr-page .jr-farm-options{position:static;display:grid;gap:6px;margin-top:6px;box-shadow:none}
+.jr-page .jr-farm-picker[open]{z-index:6}
+.jr-page .jr-farm-options{display:grid;gap:6px}
 .jr-page .jr-farm-options button{margin:0;box-sizing:border-box}
 .jr-page .jr-card-head small{min-width:0;overflow-wrap:anywhere;text-align:right;line-height:1.35}
 .jr-archive-delete{display:grid;place-items:center;flex:none;width:38px;height:38px;margin-left:8px;padding:8px;border:1px solid #f0d4d1;border-radius:10px;background:#fff;color:#bf3b35;cursor:pointer}
@@ -83,7 +84,7 @@ html.hosted .footer:not([data-own]){display:none}
 .jr-page .jr-card .jr-images{margin-bottom:14px}
 .jr-page .jr-card .jr-images img,.jr-page .jr-card .jr-images span{flex-basis:62px;width:62px;height:62px}
 .jr-image-open{display:grid;place-items:center;flex:0 0 62px;width:62px;height:62px;padding:0;border:0;border-radius:10px;background:#eef4e8;overflow:hidden;cursor:pointer}
-.jr-page .jr-card .jr-images .jr-image-open img{display:block;width:100%;height:100%;object-fit:contain;background:transparent}
+.jr-page .jr-card .jr-images .jr-image-open img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;background:transparent}
 .jr-image-open:focus-visible{outline:2px solid #2f7d32;outline-offset:3px}
 .jr-photo-dialog{box-sizing:border-box;width:min(680px,calc(100vw - 32px));height:min(520px,calc(100dvh - 32px));padding:0;border:0;border-radius:16px;background:#ffffffd6;box-shadow:0 16px 50px #18291650;backdrop-filter:blur(8px)}
 .jr-photo-dialog::backdrop{background:#13231680}

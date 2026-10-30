@@ -8,6 +8,7 @@
   씨앗으로 심은 칸은 모종을 밭에 옮겨심기 전까지 화면에 0단계(포트)로 보이고, 옮겨심기를 마치면 3단계가 된다.
 - crop_tasks가 하나도 없는 작물은 예전 방식(화면이 정한 단계)을 그대로 쓴다.
 """
+import hashlib
 import json
 import os
 from datetime import date, datetime, timedelta, timezone
@@ -303,6 +304,12 @@ def register_tasks(app, engine, get_current_user, t, full_state):
                 planting_id=planting['id'], user_id=user['id'], content=content[:500], photo_url=photo_json,
                 farm_name=names['farm_name'], crop_name=names['crop_name'], date_label=date_label(moment),
             )).inserted_primary_key[0]
+            for preview in body.photos:
+                digest = hashlib.sha256(preview.encode('utf-8')).hexdigest()
+                conn.execute(update(t['garden_original_photos']).where(
+                    t['garden_original_photos'].c.user_id == user['id'],
+                    t['garden_original_photos'].c.preview_hash == digest,
+                ).values(journal_id=journal_id))
 
             stages = [dict(r) for r in conn.execute(
                 select(t['crop_stages']).where(t['crop_stages'].c.crop_id == planting['crop_id'])).mappings()]

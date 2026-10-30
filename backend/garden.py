@@ -12,14 +12,12 @@ import os
 import re
 from datetime import date, timedelta
 from typing import Literal
-from uuid import uuid4
 from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from PIL import Image, UnidentifiedImageError
-from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import (
@@ -32,6 +30,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     SmallInteger,
     String,
     Table,
@@ -48,7 +47,6 @@ from sqlalchemy import (
 )
 
 from tasks import TRANSPLANT_STAGE_NO, crops_with_tasks, method_of, register_tasks, start_planting, today_kst
-from journal_storage import download_original, remove_originals, upload_original
 
 # 홈 화면의 작물 종류(kind) ↔ crops 테이블의 이름. 오이는 봄/여름 두 작물로 나뉜다.
 # 작물별 단계·할 일은 crops / crop_stages / crop_tasks 행(Supabase에 SQL로 입력)이 정한다.
@@ -329,17 +327,12 @@ def register_garden(app, metadata, engine, get_current_user, users):
         Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True),
         Column('journal_id', Integer, ForeignKey('journals.id', ondelete='SET NULL'), nullable=True, index=True),
         Column('preview_hash', String(64), nullable=False),
-        Column('storage_path', Text, nullable=False),
+        Column('storage_path', Text, nullable=False),  # 기존 Storage 스키마 호환용, DB 저장 시 빈 문자열
+        Column('photo_data', LargeBinary, nullable=True),
         Column('filename', String(255), nullable=False),
         Column('content_type', String(32), nullable=False),
         UniqueConstraint('user_id', 'preview_hash', name='garden_original_photos_owner_preview_uq'),
     )
-    storage_cleanup = Table(
-        'garden_storage_cleanup', metadata,
-        Column('id', Integer, primary_key=True, autoincrement=True),
-        Column('storage_path', Text, nullable=False, unique=True),
-    )
-
     care = Table(
         'garden_plant_care', metadata,
         Column('planting_id', Integer, ForeignKey('plantings.id', ondelete='CASCADE'), primary_key=True),
@@ -843,49 +836,43 @@ def register_garden(app, metadata, engine, get_current_user, users):
             return {'previewHash': digest}
         content = await photo.read(10 * 1024 * 1024 + 1)
         if len(content) > 10 * 1024 * 1024 or not content:
-            raise HTTPException(422, '원본 사진은 10MB 이하만 올릴 수 있어요.')
-        kinds = {'JPEG': ('image/jpeg', 'jpg'), 'PNG': ('image/png', 'png'), 'WEBP': ('image/webp', 'webp')}
+            raise HTTPException(422, '사진은 10MB 이하만 올릴 수 있어요.')
         try:
             with Image.open(io.BytesIO(content)) as image:
-                kind = kinds.get(image.format)
+                valid_image = image.format == 'JPEG' and max(image.size) <= 2000
                 image.verify()
         except (UnidentifiedImageError, OSError, ValueError) as error:
             raise HTTPException(422, '사진 파일을 읽을 수 없어요.') from error
-        if not kind or photo.content_type != kind[0]:
-            raise HTTPException(422, 'JPG, PNG, WEBP 원본 사진만 올릴 수 있어요.')
-        filename = (photo.filename or f'photo.{kind[1]}').split('/')[-1].split('\\')[-1][:255]
-        path = f"journal/{user['id']}/{uuid4().hex}.{kind[1]}"
-        await run_in_threadpool(upload_original, path, content, kind[0])
-        try:
-            with engine.begin() as conn:
-                conn.execute(insert(original_photos).values(
-                    user_id=user['id'], preview_hash=digest, storage_path=path,
-                    filename=filename, content_type=kind[0]))
-        except Exception:
-            remove_originals([path])
-            raise
+        if not valid_image or photo.content_type != 'image/jpeg':
+            raise HTTPException(422, '사진을 2000px 이하 JPEG로 줄여서 올려 주세요.')
+        filename = (photo.filename or 'photo.jpg').split('/')[-1].split('\\')[-1][:255]
+        with engine.begin() as conn:
+            conn.execute(insert(original_photos).values(
+                user_id=user['id'], preview_hash=digest, storage_path='', photo_data=content,
+                filename=filename, content_type='image/jpeg'))
         return {'previewHash': digest}
 
     @router.get('/photos/original/{preview_hash}')
     def read_original_photo(preview_hash: str, download: bool = False, user=Depends(get_current_user)):
         if not re.fullmatch(r'[a-f0-9]{64}', preview_hash):
-            raise HTTPException(404, '원본 사진을 찾을 수 없어요.')
+            raise HTTPException(404, '사진을 찾을 수 없어요.')
         with engine.begin() as conn:
             photo = conn.execute(select(original_photos).where(
                 original_photos.c.user_id == user['id'], original_photos.c.preview_hash == preview_hash)).mappings().first()
         if not photo:
-            raise HTTPException(404, '원본 사진을 찾을 수 없어요.')
-        content = download_original(photo['storage_path'])
+            raise HTTPException(404, '사진을 찾을 수 없어요.')
+        content = photo['photo_data']
+        if content is None:
+            raise HTTPException(404, '저장된 사진을 찾을 수 없어요.')
         disposition = 'attachment' if download else 'inline'
         safe_name = re.sub(r'[^A-Za-z0-9._-]', '_', photo['filename']) or 'journal-photo'
-        return Response(content, media_type=photo['content_type'], headers={
+        return Response(bytes(content), media_type=photo['content_type'], headers={
             'Content-Disposition': f"{disposition}; filename=\"{safe_name}\"; filename*=UTF-8''{quote(photo['filename'])}",
             'Cache-Control': 'private, no-store',
         })
 
     @router.delete('/history/{planting_id}')
     def delete_past_cultivation(planting_id: int, user=Depends(get_current_user)):
-        photos = []
         with engine.begin() as conn:
             planting = conn.execute(select(plantings.c.id, plantings.c.status).where(
                 plantings.c.id == planting_id, plantings.c.user_id == user['id']).with_for_update()).mappings().first()
@@ -893,30 +880,30 @@ def register_garden(app, metadata, engine, get_current_user, users):
                 raise HTTPException(404, '재배 이력을 찾을 수 없어요.')
             if planting['status'] not in ('ended', 'harvested'):
                 raise HTTPException(409, '진행 중인 재배는 지난 재배에서 삭제할 수 없어요.')
-            journal_ids = list(conn.execute(select(journals.c.id).where(
-                journals.c.user_id == user['id'], journals.c.planting_id == planting_id)).scalars())
+            removed_journals = conn.execute(select(journals.c.id, journals.c.photo_url).where(
+                journals.c.user_id == user['id'], journals.c.planting_id == planting_id)).mappings().all()
+            journal_ids = [row['id'] for row in removed_journals]
             if journal_ids:
-                photos = list(conn.execute(select(original_photos.c.storage_path).where(
+                candidate_hashes = {hashlib.sha256(preview.encode('utf-8')).hexdigest()
+                    for row in removed_journals for preview in json.loads(row['photo_url'] or '[]')}
+                candidate_hashes.update(conn.execute(select(original_photos.c.preview_hash).where(
                     original_photos.c.user_id == user['id'], original_photos.c.journal_id.in_(journal_ids))).scalars())
-                for path in photos:
-                    conn.execute(insert(storage_cleanup).values(storage_path=path))
-                conn.execute(delete(original_photos).where(original_photos.c.user_id == user['id'],
-                    original_photos.c.journal_id.in_(journal_ids)))
                 conn.execute(delete(journals).where(journals.c.user_id == user['id'], journals.c.id.in_(journal_ids)))
+                remaining_refs = {}
+                for row in conn.execute(select(journals.c.id, journals.c.photo_url).where(
+                    journals.c.user_id == user['id'], journals.c.photo_url.is_not(None))).mappings():
+                    for preview in json.loads(row['photo_url']):
+                        remaining_refs[hashlib.sha256(preview.encode('utf-8')).hexdigest()] = row['id']
+                orphan_hashes = candidate_hashes - remaining_refs.keys()
+                if orphan_hashes:
+                    conn.execute(delete(original_photos).where(original_photos.c.user_id == user['id'],
+                        original_photos.c.preview_hash.in_(orphan_hashes)))
+                for digest in candidate_hashes & remaining_refs.keys():
+                    conn.execute(update(original_photos).where(original_photos.c.user_id == user['id'],
+                        original_photos.c.preview_hash == digest).values(journal_id=remaining_refs[digest]))
             conn.execute(delete(plantings).where(plantings.c.id == planting_id, plantings.c.user_id == user['id']))
             result = full_state(conn, user['id'])
-        # Storage and PostgreSQL cannot share a transaction. Keep failed removals queued for retry.
-        with engine.begin() as conn:
-            queued_paths = list(conn.execute(select(storage_cleanup.c.storage_path).limit(1000)).scalars())
-        cleanup_pending = False
-        if queued_paths:
-            try:
-                remove_originals(queued_paths)
-                with engine.begin() as conn:
-                    conn.execute(delete(storage_cleanup).where(storage_cleanup.c.storage_path.in_(queued_paths)))
-            except HTTPException:
-                cleanup_pending = True
-        return {**result, 'photoCleanupPending': cleanup_pending, 'deletedJournalCount': len(journal_ids)}
+        return {**result, 'photoCleanupPending': False, 'deletedJournalCount': len(journal_ids)}
 
     @router.put('/state')
     def save_state(body: SaveGarden, user=Depends(get_current_user)):
@@ -935,7 +922,8 @@ def register_garden(app, metadata, engine, get_current_user, users):
     app.include_router(router)
     t = {
         'farms': farms, 'plots': plots, 'crops': crops, 'crop_tasks': crop_tasks, 'crop_stages': crop_stages,
-        'plantings': plantings, 'journals': journals, 'garden_plant_care': care, 'task_logs': task_logs,
+        'plantings': plantings, 'journals': journals, 'garden_original_photos': original_photos,
+        'garden_plant_care': care, 'task_logs': task_logs,
         'harvests': harvests, 'users': users, 'metadata': metadata,
     }
     register_tasks(app, engine, get_current_user, t, full_state)

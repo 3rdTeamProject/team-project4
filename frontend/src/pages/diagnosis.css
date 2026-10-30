@@ -717,6 +717,10 @@
   position: relative;
 }
 
+.diagnosis-farm-picker[open] {
+  z-index: 10;
+}
+
 .diagnosis-farm-picker summary {
   display: flex;
   min-height: 48px;
@@ -761,11 +765,9 @@
 }
 
 .diagnosis-farm-picker-options {
-  position: static;
+  position: absolute;
   display: grid;
   gap: 6px;
-  margin-top: 6px;
-  z-index: 5;
   top: calc(100% + 4px);
   right: 0;
   left: 0;
@@ -775,7 +777,7 @@
   border: 1px solid var(--card-border);
   border-radius: 12px;
   background: #fff;
-  box-shadow: none;
+  box-shadow: 0 8px 22px #25401f24;
 }
 
 .diagnosis-farm-picker-options button {

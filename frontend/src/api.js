@@ -46,13 +46,13 @@ async function gardenPhotoRequest(path, { method = 'GET', file, preview } = {}) 
   })
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
-    throw new ApiError(response.status, data.detail || '원본 사진 요청에 실패했습니다.')
+    throw new ApiError(response.status, data.detail || '사진 요청에 실패했습니다.')
   }
   if (file) return response.json()
   const blob = await response.blob()
   const disposition = response.headers.get('Content-Disposition') || ''
   const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1]
-  const name = encodedName ? decodeURIComponent(encodedName) : /filename="([^"]+)"/.exec(disposition)?.[1] || '재배일지-원본사진'
+  const name = encodedName ? decodeURIComponent(encodedName) : /filename="([^"]+)"/.exec(disposition)?.[1] || '재배일지-사진.jpg'
   return { blob, name }
 }
 

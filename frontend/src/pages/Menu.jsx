@@ -46,12 +46,17 @@ export default function Menu() {
         <Link className="profile-card" to="/mypage">
           <div className="profile-card-top">
             <span className="profile-name">{me.nickname}님</span>
-            <span className="profile-more">내 정보<ChevronRightIcon /></span>
+            <span className="profile-more">내 정보 보기<ChevronRightIcon /></span>
           </div>
           <div className="profile-stats">
-            <span className="profile-stat profile-stat-level"><LevelIcon size={20} /> Lv.{levelFromExp(me.exp)} <LevelBadge level={levelFromExp(me.exp)} /></span>
+            <span className="profile-stat profile-stat-level">
+              <span className="profile-stat-value"><LevelIcon size={20} /> Lv.{levelFromExp(me.exp)}</span>
+              <LevelBadge level={levelFromExp(me.exp)} />
+            </span>
             <span className="profile-stats-divider" />
-            <span className="profile-stat profile-stat-point"><CoinIcon size={22} /> {me.point.toLocaleString()}P</span>
+            <span className="profile-stat profile-stat-point">
+              <span className="profile-stat-value"><CoinIcon size={22} /> {me.point.toLocaleString()}P</span>
+            </span>
           </div>
         </Link>
       )}

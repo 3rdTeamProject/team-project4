@@ -79,7 +79,7 @@
 .profile-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-gap);
+  gap: 14px;
   padding: var(--space-card);
   box-sizing: border-box;
   background: var(--card-bg);
@@ -114,30 +114,53 @@
   gap: calc(var(--space-gap) / 4);
   color: var(--muted);
   font-size: 14px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
 .profile-stats {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
   align-items: center;
+  gap: 8px;
   background: var(--profile-band);
   border-radius: var(--radius-small);
-  padding: calc(var(--space-gap) * .7) var(--space-gap);
+  padding: 11px 12px;
 }
 
 .profile-stat {
-  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--space-gap) / 2);
-  font-family: var(--font-number);
-  font-size: var(--fs-section-title);
+  gap: 3px;
+  min-width: 0;
+  font-family: var(--font-body);
 }
 
-.profile-stat-level {
-  flex-wrap: wrap;
+.profile-stat-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.profile-stat-level .profile-stat-value {
   color: var(--color-green-dark);
+}
+
+.profile-stat-level .level-badge {
+  padding: 2px 9px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.35;
 }
 
 .profile-stat-point {
@@ -146,7 +169,7 @@
 
 .profile-stats-divider {
   width: 1px;
-  height: 24px;
+  height: 40px;
   background: var(--card-border);
 }
 

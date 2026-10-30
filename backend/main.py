@@ -92,6 +92,12 @@ users = Table(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     metadata.create_all(engine)  # 테이블이 없을 때만 생성
+    if 'garden_original_photos' in inspect(engine).get_table_names():
+        columns = {column['name'] for column in inspect(engine).get_columns('garden_original_photos')}
+        if 'photo_data' not in columns:
+            column_definition = 'IF NOT EXISTS photo_data BYTEA' if engine.dialect.name == 'postgresql' else 'photo_data BLOB'
+            with engine.begin() as conn:
+                conn.exec_driver_sql(f'ALTER TABLE garden_original_photos ADD COLUMN {column_definition}')
     yield
 
 
