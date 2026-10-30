@@ -53,7 +53,13 @@
   display: inline-flex;
 }
 
-.dex-select select {
+.dex-select[open] {
+  z-index: 10;
+}
+
+.dex-select summary {
+  display: flex;
+  align-items: center;
   min-height: var(--size-touch);
   padding: 0 calc(var(--space-card) * 2) 0 var(--space-card);
   border: thin solid var(--color-border);
@@ -62,14 +68,64 @@
   color: var(--color-text);
   font-family: var(--font-body);
   font-size: var(--fs-body);
-  appearance: none;
   cursor: pointer;
+  list-style: none;
 }
 
-.dex-select[data-active='true'] select {
+.dex-select summary::-webkit-details-marker {
+  display: none;
+}
+
+.dex-select[data-active='true'] summary {
   border-color: var(--color-green-btn);
   background: var(--color-green-btn);
   color: var(--color-on-btn);
+}
+
+.dex-month-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: max(100%, 120px);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 5px;
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-card);
+  box-shadow: 0 8px 22px #25401f24;
+  scrollbar-width: none;
+}
+
+.dex-month-options::-webkit-scrollbar {
+  display: none;
+}
+
+.dex-month-options button {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dex-month-options button:hover,
+.dex-month-options button.is-selected {
+  background: var(--color-done-bg);
+  color: var(--color-green-btn);
+}
+
+.dex-select summary:focus-visible,
+.dex-month-options button:focus-visible {
+  outline: 2px solid var(--color-green-btn);
+  outline-offset: 2px;
 }
 
 /* 아래 화살표 */
@@ -89,6 +145,10 @@
 
 .dex-select[data-active='true']::after {
   color: var(--color-on-btn);
+}
+
+.dex-select[open]::after {
+  transform: translateY(-30%) rotate(225deg);
 }
 
 .visually-hidden {

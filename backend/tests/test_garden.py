@@ -263,17 +263,16 @@ class GardenIntegrationTest(unittest.TestCase):
         image = io.BytesIO()
         Image.new('RGB', (20, 20), 'green').save(image, format='JPEG')
         original = image.getvalue()
-        with patch('garden.upload_original') as upload, patch('garden.download_original', return_value=original):
-            res = self.client.post('/garden/photos/original', headers=headers,
-                data={'preview': preview}, files={'photo': ('leaf.jpg', original, 'image/jpeg')})
-            self.assertEqual(res.status_code, 200, res.text)
-            upload.assert_called_once()
-            digest = res.json()['previewHash']
-            self.assertEqual(self.client.get(f'/garden/photos/original/{digest}', headers=stranger).status_code, 404)
-            download = self.client.get(f'/garden/photos/original/{digest}?download=true', headers=headers)
-            self.assertEqual(download.status_code, 200, download.text)
-            self.assertEqual(download.content, original)
-            self.assertIn('attachment', download.headers['content-disposition'])
+        res = self.client.post('/garden/photos/original', headers=headers,
+            data={'preview': preview}, files={'photo': ('leaf.jpg', original, 'image/jpeg')})
+        self.assertEqual(res.status_code, 200, res.text)
+        digest = res.json()['previewHash']
+        self.assertEqual(rows('SELECT photo_data FROM garden_original_photos WHERE preview_hash = :hash', hash=digest)[0]['photo_data'], original)
+        self.assertEqual(self.client.get(f'/garden/photos/original/{digest}', headers=stranger).status_code, 404)
+        download = self.client.get(f'/garden/photos/original/{digest}?download=true', headers=headers)
+        self.assertEqual(download.status_code, 200, download.text)
+        self.assertEqual(download.content, original)
+        self.assertIn('attachment', download.headers['content-disposition'])
         planting = plant(method='seed')
         state = {'farms': [farm(plots=[planting] + [None] * 5)],
                  'records': [{**record('잎 사진'), 'photos': [preview], 'plotRef': 'garden-1:1'}]}
@@ -281,16 +280,63 @@ class GardenIntegrationTest(unittest.TestCase):
         linked = rows('SELECT journal_id FROM garden_original_photos WHERE preview_hash = :hash', hash=digest)[0]
         self.assertIsNotNone(linked['journal_id'])
 
-    def test_original_photo_upload_waits_for_private_bucket_configuration(self):
+    def test_history_delete_keeps_a_photo_used_by_another_journal(self):
+        _, headers = self.guest()
+        preview = 'data:image/jpeg;base64,/9j/2QAE'
+        image = io.BytesIO()
+        Image.new('RGB', (20, 20), 'green').save(image, format='JPEG')
+        original = image.getvalue()
+        uploaded = self.client.post('/garden/photos/original', headers=headers,
+            data={'preview': preview}, files={'photo': ('leaf.jpg', original, 'image/jpeg')})
+        self.assertEqual(uploaded.status_code, 200, uploaded.text)
+        digest = uploaded.json()['previewHash']
+        first = {**record('첫 일지'), 'photos': [preview], 'plotRef': 'garden-1:1'}
+        second = {**record('둘째 일지'), 'photos': [preview], 'plotRef': 'garden-1:2'}
+        self.save(headers, self.load(headers)['revision'], {
+            'farms': [farm(plots=[plant(method='seed'), plant(method='seed')] + [None] * 4)],
+            'records': [first, second]})
+        loaded = self.load(headers)
+        records = loaded['state']['records']
+        self.save(headers, loaded['revision'], {
+            'farms': [farm(plots=[None, plant(method='seed')] + [None] * 4)],
+            'records': records})
+        with engine.begin() as conn:
+            conn.execute(text('UPDATE garden_original_photos SET journal_id = :journal_id WHERE preview_hash = :hash'),
+                {'journal_id': records[0]['journalId'], 'hash': digest})
+        deleted = self.client.delete(f"/garden/history/{records[0]['plantingId']}", headers=headers)
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        photo = rows('SELECT journal_id FROM garden_original_photos WHERE preview_hash = :hash', hash=digest)[0]
+        self.assertEqual(photo['journal_id'], records[1]['journalId'])
+        fetched = self.client.get(f'/garden/photos/original/{digest}', headers=headers)
+        self.assertEqual(fetched.content, original)
+
+    def test_original_photo_upload_needs_only_database_configuration(self):
         _, headers = self.guest()
         before = rows('SELECT COUNT(*) AS n FROM garden_original_photos')[0]['n']
         image = io.BytesIO()
         Image.new('RGB', (20, 20), 'green').save(image, format='JPEG')
         with patch.dict(os.environ, {'SUPABASE_URL': '', 'SUPABASE_SERVICE_ROLE_KEY': '', 'GARDEN_PHOTO_BUCKET': ''}):
             response = self.client.post('/garden/photos/original', headers=headers,
-                data={'preview': 'data:image/jpeg;base64,/9j/2Q=='},
+                data={'preview': 'data:image/jpeg;base64,/9j/2QAB'},
                 files={'photo': ('leaf.jpg', image.getvalue(), 'image/jpeg')})
-        self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.status_code, 200, response.text)
+            fetched = self.client.get(f"/garden/photos/original/{response.json()['previewHash']}", headers=headers)
+            self.assertEqual(fetched.content, image.getvalue())
+        self.assertEqual(rows('SELECT COUNT(*) AS n FROM garden_original_photos')[0]['n'], before + 1)
+
+    def test_stored_photo_requires_a_jpeg_within_2000_pixels(self):
+        _, headers = self.guest()
+        before = rows('SELECT COUNT(*) AS n FROM garden_original_photos')[0]['n']
+        for suffix, size, image_format, mime in [
+            ('wide', (2001, 1), 'JPEG', 'image/jpeg'),
+            ('png', (10, 10), 'PNG', 'image/png'),
+        ]:
+            image = io.BytesIO()
+            Image.new('RGB', size, 'green').save(image, format=image_format)
+            response = self.client.post('/garden/photos/original', headers=headers,
+                data={'preview': f'data:image/jpeg;base64,/9j/{suffix}'},
+                files={'photo': (f'leaf.{image_format.lower()}', image.getvalue(), mime)})
+            self.assertEqual(response.status_code, 422, response.text)
         self.assertEqual(rows('SELECT COUNT(*) AS n FROM garden_original_photos')[0]['n'], before)
 
     def test_farm_delete_ends_plantings_but_keeps_journals(self):

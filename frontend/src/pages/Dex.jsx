@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { storage } from '../api.js'
 import CropImage from '../components/CropImage.jsx'
@@ -16,10 +16,34 @@ export default function Dex() {
   const { crops, error } = useDex()
   const [query, setQuery] = useState('')
   const [pickedMonth, setPickedMonth] = useState(null) // null이면 전체, 아니면 그 달에 심을 수 있는 작물만
+  const monthPickerRef = useRef(null)
   const month = thisMonth()
   const groups = useMemo(() => (crops ? groupCrops(crops) : []), [crops])
   const otherMonth = pickedMonth !== null && pickedMonth !== month // 이번 달이 아닌 다른 달을 골랐는지
   const shown = groups.filter((group) => matchesSearch(group, query) && (pickedMonth === null || sowableNow(group, pickedMonth)))
+
+  useEffect(() => {
+    const closeOnOutsideClick = event => {
+      if (monthPickerRef.current && !monthPickerRef.current.contains(event.target)) monthPickerRef.current.open = false
+    }
+    const closeOnEscape = event => {
+      if (event.key === 'Escape' && monthPickerRef.current?.open) {
+        monthPickerRef.current.open = false
+        monthPickerRef.current.querySelector('summary')?.focus()
+      }
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
+
+  const chooseMonth = value => {
+    setPickedMonth(value)
+    if (monthPickerRef.current) monthPickerRef.current.open = false
+  }
 
   if (!storage.token) return <Navigate to="/" replace />
 
@@ -43,21 +67,20 @@ export default function Dex() {
         onChange={(e) => setQuery(e.target.value)}
       />
       <div className="dex-filters" role="group" aria-label="심을 달로 찾기">
-        <button type="button" className="dex-chip" aria-pressed={pickedMonth === null} onClick={() => setPickedMonth(null)}>
+        <button type="button" className="dex-chip" aria-pressed={pickedMonth === null} onClick={() => chooseMonth(null)}>
           전체
         </button>
-        <button type="button" className="dex-chip" aria-label={`이번 달 (${month}월)`} aria-pressed={pickedMonth === month} onClick={() => setPickedMonth(pickedMonth === month ? null : month)}>
+        <button type="button" className="dex-chip" aria-label={`이번 달 (${month}월)`} aria-pressed={pickedMonth === month} onClick={() => chooseMonth(pickedMonth === month ? null : month)}>
           이번 달
         </button>
-        <label className="dex-select" data-active={otherMonth}>
-          <span className="visually-hidden">다른 달 선택</span>
-          <select value={otherMonth ? pickedMonth : ''} onChange={(e) => setPickedMonth(e.target.value ? Number(e.target.value) : null)}>
-            <option value="" disabled={!otherMonth}>{otherMonth ? '전체 달' : '다른 달'}</option>
+        <details className="dex-select" data-active={otherMonth} ref={monthPickerRef}>
+          <summary aria-label="다른 달 선택">{otherMonth ? `${pickedMonth}월` : '다른 달'}</summary>
+          <div className="dex-month-options" role="group" aria-label="심을 달 선택">
             {MONTHS.filter((m) => m !== month).map((m) => (
-              <option key={m} value={m}>{m}월</option>
+              <button key={m} type="button" className={pickedMonth === m ? 'is-selected' : ''} aria-pressed={pickedMonth === m} onClick={() => chooseMonth(m)}>{m}월</button>
             ))}
-          </select>
-        </label>
+          </div>
+        </details>
       </div>
 
       {crops && (

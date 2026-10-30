@@ -34,6 +34,17 @@ test('same crop in different plots remains in separate journal cards', () => {
   assert.doesNotMatch(cards[0].text, /2번 칸/)
 })
 
+test('journal cards use record dates, then newest entry on the same day', () => {
+  const sortDeclaration = source.split('\n').find(line => line.startsWith('function journalNewestFirst('))
+  const sortNewest = runInNewContext(`(${sortDeclaration})`, { journalDayKey: date => date })
+  const records = [
+    { id: 'newer', date: '2026-10-30' },
+    { id: 'older-added-later', date: '2026-10-28' },
+    { id: 'same-day-latest', date: '2026-10-30' },
+  ]
+  assert.deepEqual(Array.from(sortNewest(records), record => record.id), ['same-day-latest', 'newer', 'older-added-later'])
+})
+
 test('same plot and day remain separate across removed and new plantings', () => {
   const records = [
     { id: 'old', date: '2026-10-29', farm: 'farm', crop: 'lettuce', plotRef: 'farm-1:1', archiveCycleId: 'removed-1', text: 'old' },
@@ -109,7 +120,7 @@ test('removing a crop archives only its current plot records', () => {
   assert.equal(journalLocal.taskHistory['2026-10-29|farm-1:1'], undefined)
 })
 
-test('planting record stays visible without edit or delete actions', () => {
+test('planting record offers edit and delete without repeating the plot in the menu', () => {
   const editableDeclaration = source.slice(source.indexOf('function journalEditableEntries('), source.indexOf('let journalGroupEditIds='))
   const cardDeclaration = source.split('\n').find(line => line.startsWith('function journalCard('))
   const context = {
@@ -122,15 +133,23 @@ test('planting record stays visible without edit or delete actions', () => {
   const planting = { id: 'base-0', date: '2026-10-29', farm: '텃밭', crop: '상추', event: 'planting', text: '' }
   const html = card(planting)
   assert.match(html, /상추 재배 시작/)
-  assert.doesNotMatch(html, /data-jr="menu"|data-jr="edit"|data-jr="delete"/)
+  assert.match(html, /data-jr="menu"/)
+
+  const openPlanting = runInNewContext(`(${cardDeclaration})`, { ...context, journalMenu: 'base-0', journalEditableEntries: editableEntries })(planting)
+  assert.match(openPlanting, /재배 시작/)
+  assert.match(openPlanting, /data-jr="edit" data-id="base-0"/)
+  assert.match(openPlanting, /data-jr="delete" data-id="base-0"/)
+  assert.match(openPlanting, /재배 시작 · 상추<\/small>/)
+  assert.doesNotMatch(openPlanting, /재배 시작 · 상추 · 1번 칸/)
 
   const openCard = runInNewContext(`(${cardDeclaration})`, { ...context, journalMenu: 'group-1', journalEditableEntries: editableEntries })
   const mixed = openCard({ ...planting, id: 'group-1', entries: [planting, { ...planting, id: 'base-1', event: undefined, text: '물 줌' }] })
   assert.match(mixed, /data-jr="menu"/)
   assert.match(mixed, /data-id="base-1"/)
-  assert.doesNotMatch(mixed, /data-id="base-0"/)
+  assert.match(mixed, /data-jr="edit" data-id="base-0"/)
+  assert.match(mixed, /data-jr="delete" data-id="base-0"/)
   assert.match(mixed, /재배 기록/)
-  assert.doesNotMatch(mixed, /기록 1|기록 2|2개/)
+  assert.doesNotMatch(mixed, /기록 1|기록 2/)
 
   const first = { ...planting, id: 'base-1', event: undefined, text: '사진', photos: ['photo-1'] }
   const second = { ...planting, id: 'base-2', event: undefined, text: '메모' }
@@ -140,6 +159,19 @@ test('planting record stays visible without edit or delete actions', () => {
   assert.equal((combined.match(/data-jr="delete"/g) || []).length, 1)
   assert.match(combined, /data-group="group-1"/)
   assert.doesNotMatch(combined, /기록 1|기록 2|2개/)
+})
+
+test('deleting a planting journal hides that record', async () => {
+  const declaration = source.slice(source.indexOf('function journalDeleteSelected('), source.indexOf('function journalCard('))
+  const journalLocal = { overrides: {}, entries: [] }
+  const context = {
+    journalEntries: () => [{ id: 'base-0', event: 'planting' }],
+    askConfirm: () => Promise.resolve(true), journalLocal,
+    journalPersist: () => true, render: () => {}, journalMenu: 'base-0',
+  }
+  runInNewContext(`(${declaration})`, context)(['base-0'])
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(journalLocal.overrides['base-0'].hidden, true)
 })
 
 test('past-cultivation crop delete leaves other crops and plots intact', async () => {
