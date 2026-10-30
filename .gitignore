@@ -11,6 +11,3 @@ dist/
 # Local investigation artifacts and datasets (may contain private test results).
 /reports/
 /data-work/
-
-# 발표자료(로컬 전용)
-/우리텃밭 발표자료.html
