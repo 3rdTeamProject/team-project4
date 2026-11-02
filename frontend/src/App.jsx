@@ -22,8 +22,11 @@ import Dex from './pages/Dex.jsx'
 import DexDetail from './pages/DexDetail.jsx'
 import { GardenHostProvider } from './components/GardenHost.jsx'
 import PcShell from './components/PcShell.jsx'
+import { useBackGuard } from './hooks/useBackGuard.js'
 
 export default function App() {
+  useBackGuard()
+
   return (
     <div className="app">
       <Routes>

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, api, storage } from '../api.js'
+import { markKakaoInHistory } from '../hooks/useBackGuard.js'
 import { pathAfterLogin } from '../intro.js'
 import { NOTICE_KAKAO_CANCELLED, NOTICE_LOGIN_FAILED } from '../loginNotice.js'
 
@@ -48,6 +49,7 @@ export default function KakaoCallback() {
       return
     }
     handledCodes.add(code)
+    markKakaoInHistory()
 
     async function login() {
       try {

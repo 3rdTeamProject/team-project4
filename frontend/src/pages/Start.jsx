@@ -23,7 +23,7 @@ export default function Start() {
       const data = await api.guestLogin(storage.guestToken)
       storage.saveLogin(data.access_token, 'guest')
       storage.saveGuestToken(data.guest_token)
-      navigate(pathAfterLogin())
+      navigate(pathAfterLogin(), { replace: true }) // 뒤로가기로 로그인 화면에 돌아오지 않게 기록을 바꿔치기한다
     } catch {
       // 서버 꺼짐·네트워크 오류·400 모두 같은 안내. 버튼은 다시 누를 수 있게 푼다
       setError(NOTICE_LOGIN_FAILED)
@@ -76,7 +76,7 @@ export default function Start() {
       error={error}
       onKakao={startWithKakao}
       onGuest={startAsGuest}
-      onEnter={() => navigate(pathAfterLogin())}
+      onEnter={() => navigate(pathAfterLogin(), { replace: true })}
     />
   )
 }
