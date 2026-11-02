@@ -799,14 +799,14 @@ export default function DiagnosisDetails({ onBack }) {
             <div className="diagnosis-detail-photo-actions">
               <label className="diagnosis-photo-action">
                 교체
-                <input type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={event => selectPhoto(event, slot.id)} />
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectPhoto(event, slot.id)} />
               </label>
               <button type="button" className="diagnosis-photo-action is-remove" onClick={() => removePhoto(slot.id)}>삭제</button>
             </div>
           </>
         ) : (
           <label className="diagnosis-upload diagnosis-detail-upload">
-            <input type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={event => selectPhoto(event, slot.id)} />
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectPhoto(event, slot.id)} />
             <PhotoMark />
             <strong>사진 촬영·선택</strong>
             <span>눌러서 카메라를 열거나 사진을 선택해 주세요</span>
