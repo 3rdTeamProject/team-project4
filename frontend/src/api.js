@@ -252,7 +252,7 @@ export const api = {
 export function kakaoAuthorizeUrl() {
   const params = new URLSearchParams({
     client_id: import.meta.env.VITE_KAKAO_CLIENT_ID,
-    redirect_uri: 'http://localhost:5173/auth/kakao/callback',
+    redirect_uri: `${window.location.origin}/auth/kakao/callback`,
     response_type: 'code',
   })
   return `https://kauth.kakao.com/oauth/authorize?${params}`

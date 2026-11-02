@@ -1,0 +1,35 @@
+name: woori-garden
+services:
+  backend:
+    build: ./backend
+    image: ${DOCKERHUB_USER:?required}/woori-backend:${IMAGE_TAG:-latest}
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?required}
+      JWT_SECRET: ${JWT_SECRET:?required}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:?required}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:?required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?required}
+    restart: unless-stopped
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+        VITE_KAKAO_CLIENT_ID: ${VITE_KAKAO_CLIENT_ID:?required}
+    image: ${DOCKERHUB_USER:?required}/woori-web:${IMAGE_TAG:-latest}
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?required}
+    ports:
+      - "${WEB_BIND:-0.0.0.0}:${HTTP_PORT:-80}:80"
+      - "${WEB_BIND:-0.0.0.0}:${HTTPS_PORT:-443}:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:
