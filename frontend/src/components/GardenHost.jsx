@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { api, storage } from '../api.js'
+import { GARDEN_TOUCH } from '../hooks/useBackGuard.js'
 import { useCloudTransition } from '../hooks/useCloudTransition.js'
 import { useGoBack } from '../hooks/useGoBack.js'
 import RewardEffect from './RewardEffect.jsx'
@@ -34,7 +35,9 @@ export function GardenHostProvider({ children }) {
   const cloud = useCloudTransition()
   const live = useRef({})
   live.current = { navigate, goBack, cloud, pathname: location.pathname, search: location.search, state: location.state }
-  const gardenDeep = useRef(false) // 모바일 농장 화면이 ‹ 버튼으로 돌아갈 수 있는 안쪽 화면(작물 상세 등)인지
+  // 모바일 농장 화면의 현재 화면. deep: ‹ 버튼으로 돌아갈 수 있는 안쪽 화면(작물 상세 등)인지
+  const gardenScreen = useRef({ deep: false, screen: null, backing: false })
+  const gardenDepth = useRef(0)
 
   // frames: 이름('main' | 'panel') → { el, getOpts, ready, inited }
   const frames = useRef({})
@@ -79,9 +82,14 @@ export function GardenHostProvider({ children }) {
   const tell = (name, body) => frames.current[name]?.el?.contentWindow?.postMessage(body, ORIGIN)
 
   // 농장 화면 안의 이동은 브라우저 기록에 남지 않아 폰 뒤로가기를 누르면 앱이 닫힌다.
-  // 안쪽 화면에 있는 동안 기록을 한 칸 쌓아 두고, 뒤로가기가 그 칸을 지우면 농장 화면의 ‹ 버튼을 대신 누른다.
+  // 안쪽 화면으로 들어갈 때마다 기록을 한 칸 쌓고, 뒤로가기가 그 칸을 지우면 농장 화면의 ‹ 버튼을 대신 누른다.
+  // 브라우저는 터치 없이 쌓은 기록을 뒤로가기에서 건너뛰므로, 뒤로가기 처리 중에는 새로 쌓지 않는다.
   useEffect(() => {
-    if (navigationType !== 'POP' || location.state?.gardenDeep || !gardenDeep.current) return
+    const depth = location.state?.gardenDepth ?? 0
+    const popped = navigationType === 'POP' && depth < gardenDepth.current
+    gardenDepth.current = depth
+    if (!popped || !gardenScreen.current.deep) return
+    gardenScreen.current.backing = true
     tell('main', { type: 'garden:back' })
   }, [location.key, location.state, navigationType])
 
@@ -138,6 +146,7 @@ export function GardenHostProvider({ children }) {
       delete frames.current[name]
       if (footerFrame.current === name) { footerFrame.current = null; setFooterButtons([]) }
       if (name === 'panel') setPanelView(null)
+      if (name === 'main') gardenScreen.current = { deep: false, screen: null, backing: false }
       // 화면 폭 변경으로 iframe이 교체되는 동안에는 새 화면의 등록을 기다린다.
       if (!Object.keys(frames.current).length) queueMicrotask(() => {
         if (!Object.keys(frames.current).length) reset()
@@ -249,10 +258,21 @@ export function GardenHostProvider({ children }) {
       })))
     } else if (message?.type === 'garden:deep') {
       if (opts.role) return // PC는 폰 뒤로가기가 없다
-      gardenDeep.current = message.deep === true
+      const { screen: before, backing } = gardenScreen.current
+      const deep = message.deep === true
+      gardenScreen.current = { deep, screen: message.screen, backing: false }
       const { pathname, search, state } = live.current
-      if (gardenDeep.current && !state?.gardenDeep) live.current.navigate(`${pathname}${search}`, { state: { ...state, gardenDeep: true } })
-      else if (!gardenDeep.current && state?.gardenDeep) live.current.navigate(-1) // ‹ 버튼으로 나왔으면 쌓아 둔 칸을 치운다
+      const depth = state?.gardenDepth ?? 0
+      const push = () => live.current.navigate(`${pathname}${search}`, { state: { ...state, gardenDepth: depth + 1 } })
+      if (!deep) {
+        if (depth) live.current.navigate(-depth) // 맨 위 화면까지 나왔으면 쌓아 둔 칸을 모두 치운다
+      } else if (backing) {
+        if (!depth) push() // 칸이 모자라면 앱이 닫히지 않게 한 칸 채운다
+      } else if (before === null ? !depth : message.screen !== before) {
+        push()
+      }
+    } else if (message?.type === 'garden:touch') {
+      window.dispatchEvent(new Event(GARDEN_TOUCH))
     } else if (message?.type === 'garden:cloud-close') {
       live.current.cloud.close().then(() => reply({ type: 'garden:cloud-closed' }))
     } else if (message?.type === 'garden:cloud-open') {

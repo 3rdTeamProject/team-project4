@@ -89,17 +89,18 @@ function hostFooter() {
   const app = document.querySelector('#app');
   document.documentElement.classList.add('hosted');
   let last = '';
-  let lastDeep = null;
+  let lastScreen = null;
   let queued = false;
   // 화면 왼쪽 위 ‹ 버튼. 메뉴로 나가는 버튼은 바깥 화면 기록으로 돌아가므로 빼고, 농장 화면 안에서 돌아가는 버튼만 찾는다.
   // 농장 6칸 화면에는 ‹ 버튼이 없으니 전체 농장으로 가는 버튼을 쓴다
   const backButton = () => app.querySelector('.page-head .icon-btn[data-action="nav"]:not([data-to="menu"])') || app.querySelector('[data-action="nav"][data-to="farms"]');
   function sync() {
     queued = false;
-    const deep = !!backButton();
-    if (deep !== lastDeep) {
-      lastDeep = deep;
-      parent.postMessage({ type: 'garden:deep', deep }, location.origin);
+    const back = backButton();
+    const screen = `${app.querySelector('.page-head h1')?.textContent ?? ''}|${back?.dataset.to ?? ''}`;
+    if (screen !== lastScreen) {
+      lastScreen = screen;
+      parent.postMessage({ type: 'garden:deep', deep: !!back, screen }, location.origin);
     }
     const footer = app.querySelector('footer.footer');
     const hostable = !!footer && footer.children.length > 0 && [...footer.children].every(el => el.tagName === 'BUTTON');
@@ -119,11 +120,12 @@ function hostFooter() {
     if (event.origin !== location.origin || event.source !== parent) return;
     if (event.data?.type === 'garden:footer-click') app.querySelector('footer.footer')?.children[event.data.index]?.click();
     if (event.data?.type === 'garden:back') {
-      lastDeep = null; // 돌아간 뒤에도 안쪽 화면이면 바깥이 기록을 다시 쌓도록 다시 알린다
+      lastScreen = null; // 화면이 그대로여도 바깥이 뒤로가기 처리를 끝내도록 다시 알린다
       backButton()?.click();
       queue();
     }
   });
+  document.addEventListener('click', () => parent.postMessage({ type: 'garden:touch' }, location.origin), { capture: true });
 }
 
 // 바깥 페이지가 아직 듣고 있지 않을 때를 대비해, 초기 데이터를 받을 때까지 준비 신호를 다시 보낸다
