@@ -64,6 +64,8 @@
 
 /* 바깥 페이지가 하단 고정 막대로 보여 주는 푸터는 이 안에서 숨긴다(글자·입력이 섞인 푸터는 data-own으로 남긴다) */
 html.hosted .footer:not([data-own]){display:none}
+/* 모바일 iframe의 dvh는 iframe 자기 높이라서, 긴 화면을 본 뒤 짧은 화면으로 가도 높이가 줄지 않아 아래가 빈다. 높이는 내용만큼만 쓴다 */
+html.hosted:not(.pc-panel):not(.pc-scene) :is(.phone-shell,#app,.jr-page,.jr-write-page){min-height:0}
 .jr-write-page #jr-memo{height:160px;min-height:160px;field-sizing:fixed;resize:none;overflow-y:auto}
 #feature-memo,#jr-demo-detail,#jr-demo-result{resize:none;overflow-y:auto}
 

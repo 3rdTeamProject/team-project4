@@ -1,5 +1,5 @@
 .app:has(.garden-host){max-width:var(--app-max-width);padding:0;justify-content:flex-start}
-.garden-host{width:100%;position:relative;background:var(--color-bg)}
+.garden-host{width:100%;min-height:100dvh;display:flex;flex-direction:column;position:relative;background:var(--color-bg)}
 .garden-host iframe{display:block;width:100%;border:0}
 /* 불러오는 중 글자는 0.4초 안에 끝나는 짧은 로딩에서는 보이지 않게 늦게 나타낸다(번쩍 보였다 사라지는 깜빡임 방지) */
 .garden-loading{opacity:0;animation:garden-loading-in 0s .4s forwards}
@@ -19,6 +19,7 @@
   z-index: 5;
   display: flex;
   gap: var(--space-gap);
+  margin-top: auto; /* 내용이 짧아도 화면 맨 아래에 붙인다 */
   padding: var(--space-card) var(--space-screen-x);
   padding-bottom: max(var(--space-card), env(safe-area-inset-bottom));
   background: var(--color-bg);
