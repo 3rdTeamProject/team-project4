@@ -3,6 +3,7 @@ import Start from './pages/Start.jsx'
 import KakaoCallback from './pages/KakaoCallback.jsx'
 import Home from './pages/Home.jsx'
 import Menu from './pages/Menu.jsx'
+import LevelPreview from './pages/LevelPreview.jsx'
 import MyPage from './pages/MyPage.jsx'
 import PointHistory from './pages/PointHistory.jsx'
 import LinkChoice from './pages/LinkChoice.jsx'
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/cart/exchange" element={<CartExchange />} />
           <Route path="/menu" element={<Menu />} />
+          <Route path="/menu/levels" element={<LevelPreview />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/mypage/points" element={<PointHistory />} />
           <Route path="/settings" element={<Settings />} />

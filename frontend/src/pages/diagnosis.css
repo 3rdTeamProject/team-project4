@@ -1053,6 +1053,14 @@
 
 .diagnosis-detail-upload {
   min-height: 120px;
+  cursor: default;
+}
+
+.diagnosis-detail-photo-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 .diagnosis-detail-photo-preview {
@@ -1083,6 +1091,7 @@
 .diagnosis-detail-photo-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
