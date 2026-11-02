@@ -1,0 +1,16 @@
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# 백엔드 주소에는 /api가 없으므로 떼고 넘긴다
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		root * /srv
+		# 서비스 워커가 옛 버전으로 남지 않게 한다
+		header /sw.js Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
