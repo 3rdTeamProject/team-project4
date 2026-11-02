@@ -59,7 +59,7 @@
 .planting-prep-page .field>.field-label{font-size:15px;margin-bottom:10px}
 .planting-prep-page .field-label .count{font-size:12px}
 .planting-prep-page .photo-add,.planting-prep-page .photo-thumb,.planting-prep-page .photo-thumb img{width:96px;height:96px}
-.photo-add:has(#feature-photo){align-content:center;justify-items:center;gap:4px}
+.photo-add[data-photo-picker-open]{align-content:center;justify-items:center;gap:4px}
 .photo-add-icon{font-size:25px;line-height:1}
 .photo-add-label{font-size:14px;line-height:1.3}
 .planting-prep-page textarea{min-height:118px;padding:14px;font-size:14px;line-height:1.5}

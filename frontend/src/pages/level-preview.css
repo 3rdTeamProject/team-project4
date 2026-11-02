@@ -1,0 +1,84 @@
+.level-preview-page {
+  gap: 18px;
+}
+
+.level-preview-card {
+  gap: 8px;
+}
+
+.level-preview-card .profile-name {
+  font-size: 18px;
+}
+
+.level-preview-card .profile-stat-point {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.level-preview-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.level-preview-list {
+  display: grid;
+  gap: 10px;
+}
+
+.level-preview-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+}
+
+.level-preview-tier-info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.level-preview-tier-info strong {
+  font-size: 15px;
+}
+
+.level-preview-tier-info span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.level-preview-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.level-preview-buttons button {
+  min-width: 44px;
+  min-height: 36px;
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--color-green-dark);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.level-preview-buttons button.is-selected {
+  border-color: var(--color-green-dark);
+  background: var(--color-green-leaf);
+}
+
+@media (max-width: 380px) {
+  .level-preview-tier { gap: 7px; padding: 9px; }
+  .level-preview-tier > .level-emblem { transform: scale(.82); margin: 0 -4px; }
+  .level-preview-buttons button { min-width: 38px; }
+}

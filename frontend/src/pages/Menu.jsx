@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { storage } from '../api.js'
-import { ChevronRightIcon, CloseIcon, CoinIcon, DexIcon, DiagnosisIcon, JournalIcon, LevelIcon, SettingsIcon, ShopIcon } from '../components/Icons.jsx'
+import { ChevronRightIcon, CloseIcon, CoinIcon, DexIcon, DiagnosisIcon, JournalIcon, SettingsIcon, ShopIcon } from '../components/Icons.jsx'
 import LevelBadge from '../components/LevelBadge.jsx'
+import LevelEmblem from '../components/LevelEmblem.jsx'
 import { levelFromExp } from '../constants/level.js'
 import { useGoBack } from '../hooks/useGoBack.js'
 import { useMediaQuery } from '../hooks/useMediaQuery.js'
@@ -50,7 +51,7 @@ export default function Menu() {
           </div>
           <div className="profile-stats">
             <span className="profile-stat profile-stat-level">
-              <span className="profile-stat-value"><LevelIcon size={20} /> Lv.{levelFromExp(me.exp)}</span>
+              <span className="profile-stat-value"><LevelEmblem level={levelFromExp(me.exp)} size={36} /> Lv.{levelFromExp(me.exp)}</span>
               <LevelBadge level={levelFromExp(me.exp)} />
             </span>
             <span className="profile-stats-divider" />
@@ -60,6 +61,7 @@ export default function Menu() {
           </div>
         </Link>
       )}
+      <Link className="level-preview-link" to="/menu/levels">등급 이미지 예시 보기<ChevronRightIcon size={16} /></Link>
 
       <nav className="menu-list">
         {MENU_ITEMS.map(({ label, to, Icon, children }) => {

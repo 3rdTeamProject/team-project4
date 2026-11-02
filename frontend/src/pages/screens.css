@@ -90,6 +90,18 @@
   text-decoration: none;
 }
 
+.level-preview-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 2px;
+  margin-top: -9px;
+  color: var(--color-green-dark);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .profile-card-top {
   display: flex;
   align-items: baseline;
@@ -101,7 +113,7 @@
 .profile-name {
   min-width: 0;
   font-family: var(--font-title);
-  font-size: 26px;
+  font-size: 22px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -143,7 +155,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
@@ -155,9 +167,9 @@
 }
 
 .profile-stat-level .level-badge {
-  padding: 2px 9px;
+  padding: 3px 10px;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
@@ -274,7 +286,7 @@ button.menu-item {
 .mypage-name {
   min-width: 0;
   font-family: var(--font-title);
-  font-size: 30px;
+  font-size: 25px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -326,8 +338,26 @@ button.menu-item {
 }
 
 .level-label {
-  font-family: var(--font-number);
-  font-size: 20px;
+  color: var(--color-green-dark);
+  font-family: var(--font-body);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.level-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.level-side .level-badge {
+  padding: 3px 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .level-bar {
@@ -370,8 +400,10 @@ button.menu-item {
 }
 
 .point-value {
-  font-family: var(--font-number);
-  font-size: 22px;
+  font-family: var(--font-body);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .stat-row,

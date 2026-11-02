@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { api, storage } from '../api.js'
-import { CoinIcon, ReceiptIcon, SproutIcon } from '../components/Icons.jsx'
+import { CoinIcon, ReceiptIcon } from '../components/Icons.jsx'
 import LevelBadge from '../components/LevelBadge.jsx'
+import LevelEmblem from '../components/LevelEmblem.jsx'
 import NicknameSheet from '../components/NicknameSheet.jsx'
 import PointLogList from '../components/PointLogList.jsx'
 import { levelProgress } from '../constants/level.js'
@@ -76,8 +77,7 @@ export default function MyPage() {
 
           <div className="level-box">
             <div className="level-side">
-              <SproutIcon size={28} />
-              <span className="level-label">Lv.{progress.level}</span>
+              <span className="level-heading"><LevelEmblem level={progress.level} size={36} /><span className="level-label">Lv.{progress.level}</span></span>
               <LevelBadge level={progress.level} />
               <div
                 className="level-bar"
