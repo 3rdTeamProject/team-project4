@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { api, storage } from '../api.js'
 import { useCloudTransition } from '../hooks/useCloudTransition.js'
 import { useGoBack } from '../hooks/useGoBack.js'
@@ -28,11 +28,13 @@ const ORIGIN = window.location.origin
 export function GardenHostProvider({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const navigationType = useNavigationType()
   // 재배일지처럼 메뉴에서 열린 화면의 뒤로가기는 메뉴로 새로 이동하지 않고 한 단계 뒤로 간다(기록이 쌓여 갇히는 것을 막음)
   const goBack = useGoBack('/menu')
   const cloud = useCloudTransition()
   const live = useRef({})
-  live.current = { navigate, goBack, cloud, pathname: location.pathname }
+  live.current = { navigate, goBack, cloud, pathname: location.pathname, search: location.search, state: location.state }
+  const gardenDeep = useRef(false) // 모바일 농장 화면이 ‹ 버튼으로 돌아갈 수 있는 안쪽 화면(작물 상세 등)인지
 
   // frames: 이름('main' | 'panel') → { el, getOpts, ready, inited }
   const frames = useRef({})
@@ -75,6 +77,14 @@ export function GardenHostProvider({ children }) {
   }, [gardenToast])
 
   const tell = (name, body) => frames.current[name]?.el?.contentWindow?.postMessage(body, ORIGIN)
+
+  // 농장 화면 안의 이동은 브라우저 기록에 남지 않아 폰 뒤로가기를 누르면 앱이 닫힌다.
+  // 안쪽 화면에 있는 동안 기록을 한 칸 쌓아 두고, 뒤로가기가 그 칸을 지우면 농장 화면의 ‹ 버튼을 대신 누른다.
+  useEffect(() => {
+    if (navigationType !== 'POP' || location.state?.gardenDeep || !gardenDeep.current) return
+    tell('main', { type: 'garden:back' })
+  }, [location.key, location.state, navigationType])
+
   const tellOthers = (from, body) => Object.keys(frames.current).forEach(name => { if (name !== from) tell(name, body) })
 
   // 화면이 준비됐다는 신호(garden:ready)와 데이터 도착 중 늦은 쪽이 올 때 처음 한 번만 데이터를 보낸다
@@ -237,6 +247,12 @@ export function GardenHostProvider({ children }) {
       setFooterButtons(message.buttons.slice(0, 3).map(b => ({
         index: Number(b.index), label: String(b.label), kind: b.kind === 'primary' ? 'primary' : 'secondary', disabled: Boolean(b.disabled),
       })))
+    } else if (message?.type === 'garden:deep') {
+      if (opts.role) return // PC는 폰 뒤로가기가 없다
+      gardenDeep.current = message.deep === true
+      const { pathname, search, state } = live.current
+      if (gardenDeep.current && !state?.gardenDeep) live.current.navigate(`${pathname}${search}`, { state: { ...state, gardenDeep: true } })
+      else if (!gardenDeep.current && state?.gardenDeep) live.current.navigate(-1) // ‹ 버튼으로 나왔으면 쌓아 둔 칸을 치운다
     } else if (message?.type === 'garden:cloud-close') {
       live.current.cloud.close().then(() => reply({ type: 'garden:cloud-closed' }))
     } else if (message?.type === 'garden:cloud-open') {
